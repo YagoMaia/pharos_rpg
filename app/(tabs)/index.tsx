@@ -76,10 +76,6 @@ export default function HomeScreen() {
     );
   };
 
-  const availableOrigins = CULTURAL_ORIGINS.filter(
-    (o) => o.ancestryId === character.ancestry.id
-  );
-
   const handleReset = () => {
     Alert.alert(
       "Resetar Ficha",
@@ -167,7 +163,7 @@ export default function HomeScreen() {
           <View style={styles.headerText}>
             <Text style={styles.charName}>{character.name}</Text>
             <Text style={styles.subtext}>
-              {character.class} • {character.ancestry.name}
+              {character.class} • {character.ancestry?.name}
             </Text>
             <View style={styles.levelBadge}>
               <Text style={styles.levelText}>Nível 1</Text>
@@ -193,75 +189,104 @@ export default function HomeScreen() {
         <View style={styles.divider} />
 
         {/* --- CARD DE ANCESTRALIDADE E ORIGEM (NOVO) --- */}
+        {/* --- CARD DE ANCESTRALIDADE E ORIGEM (CORRIGIDO) --- */}
         <TouchableOpacity
           style={styles.originCard}
           activeOpacity={0.9}
-          onPress={() => setShowOriginDetails(!showOriginDetails)}
+          onPress={() => {
+            // LÓGICA CORRIGIDA:
+            // Se não tiver dados, abre o modal para criar.
+            // Se tiver dados, expande para ver os detalhes.
+            if (!character.ancestry || !character.culturalOrigin) {
+              setEditModalVisible(true);
+            } else {
+              setShowOriginDetails(!showOriginDetails);
+            }
+          }}
+          // Atalho: Segurar o dedo sempre abre a edição, mesmo se já tiver dados
+          onLongPress={() => setEditModalVisible(true)}
         >
           <View style={styles.originHeader}>
             <View>
               <Text style={styles.originLabel}>Ancestralidade & Origem</Text>
-              <Text style={styles.originValue}>
-                {character.ancestry.name}{" "}
-                <Text style={{ fontWeight: "normal" }}>•</Text>{" "}
-                {character.culturalOrigin.name}
-              </Text>
+
+              {character.ancestry && character.culturalOrigin ? (
+                <Text style={styles.originValue}>
+                  {character.ancestry.name} • {character.culturalOrigin.name}
+                </Text>
+              ) : (
+                <Text
+                  style={[
+                    styles.originValue,
+                    { color: "#999", fontStyle: "italic" },
+                  ]}
+                >
+                  Toque para definir sua origem
+                </Text>
+              )}
             </View>
+
+            {/* Muda o ícone: Se não tiver nada, mostra um lápis ou seta indicando ação */}
             <Ionicons
-              name={showOriginDetails ? "chevron-up" : "chevron-down"}
+              name={
+                !character.ancestry
+                  ? "create-outline" // Ícone de editar se estiver vazio
+                  : showOriginDetails
+                  ? "chevron-up"
+                  : "chevron-down" // Setas se tiver dados
+              }
               size={20}
-              color="#666"
+              color={!character.ancestry ? "#6200ea" : "#666"}
             />
           </View>
 
-          {showOriginDetails && (
-            <View style={styles.originBody}>
-              {/* Traço Racial */}
-              <View style={styles.traitRow}>
-                <Text style={styles.traitName}>
-                  Trait: {character.ancestry.traitName}
-                </Text>
-                <Text style={styles.traitDesc}>
-                  {character.ancestry.traitDescription}
-                </Text>
-              </View>
+          {/* Corpo do card (só aparece se tiver dados) */}
+          {showOriginDetails &&
+            character.ancestry &&
+            character.culturalOrigin && (
+              <View style={styles.originBody}>
+                <View style={styles.traitRow}>
+                  <Text style={styles.traitName}>
+                    Trait: {character.ancestry.traitName}
+                  </Text>
+                  <Text style={styles.traitDesc}>
+                    {character.ancestry.traitDescription}
+                  </Text>
+                </View>
 
-              {/* Traço Cultural */}
-              <View style={styles.traitRow}>
-                <Text style={styles.traitName}>
-                  Cultura: {character.culturalOrigin.culturalTrait}
-                </Text>
-              </View>
+                <View style={styles.traitRow}>
+                  <Text style={styles.traitName}>
+                    Cultura: {character.culturalOrigin.culturalTrait}
+                  </Text>
+                </View>
 
-              {/* Herança */}
-              <View style={styles.infoBlock}>
-                <Ionicons
-                  name="gift-outline"
-                  size={14}
-                  color="#555"
-                  style={{ marginTop: 2 }}
-                />
-                <Text style={styles.infoText}>
-                  <Text style={{ fontWeight: "bold" }}>Herança: </Text>
-                  {character.culturalOrigin.heritage}
-                </Text>
-              </View>
+                <View style={styles.infoBlock}>
+                  <Ionicons
+                    name="gift-outline"
+                    size={14}
+                    color="#555"
+                    style={{ marginTop: 2 }}
+                  />
+                  <Text style={styles.infoText}>
+                    <Text style={{ fontWeight: "bold" }}>Herança: </Text>
+                    {character.culturalOrigin.heritage}
+                  </Text>
+                </View>
 
-              {/* Línguas */}
-              <View style={styles.infoBlock}>
-                <Ionicons
-                  name="chatbubble-ellipses-outline"
-                  size={14}
-                  color="#555"
-                  style={{ marginTop: 2 }}
-                />
-                <Text style={styles.infoText}>
-                  <Text style={{ fontWeight: "bold" }}>Línguas: </Text>
-                  {character.culturalOrigin.languages.join(", ")}
-                </Text>
+                <View style={styles.infoBlock}>
+                  <Ionicons
+                    name="chatbubble-ellipses-outline"
+                    size={14}
+                    color="#555"
+                    style={{ marginTop: 2 }}
+                  />
+                  <Text style={styles.infoText}>
+                    <Text style={{ fontWeight: "bold" }}>Línguas: </Text>
+                    {character.culturalOrigin.languages.join(", ")}
+                  </Text>
+                </View>
               </View>
-            </View>
-          )}
+            )}
         </TouchableOpacity>
 
         {/* Barras de Recursos (Código existente) */}
@@ -302,11 +327,11 @@ export default function HomeScreen() {
             </View>
           ))}
         </View>
-        <View style={styles.debugSection}>
+        {/* <View style={styles.debugSection}>
           <TouchableOpacity style={styles.resetButton} onPress={handleReset}>
             <Text style={styles.resetText}>⚠ Resetar Ficha (Debug)</Text>
           </TouchableOpacity>
-        </View>
+        </View> */}
 
         <View style={styles.divider} />
 
@@ -451,14 +476,15 @@ export default function HomeScreen() {
                   key={anc.id}
                   style={[
                     styles.chip,
-                    character.ancestry.id === anc.id && styles.chipActive,
+                    character.ancestry?.id === anc.id && styles.chipActive,
                   ]}
                   onPress={() => updateAncestry(anc.id)}
                 >
                   <Text
                     style={[
                       styles.chipText,
-                      character.ancestry.id === anc.id && styles.chipTextActive,
+                      character.ancestry?.id === anc.id &&
+                        styles.chipTextActive,
                     ]}
                   >
                     {anc.name}
@@ -469,7 +495,7 @@ export default function HomeScreen() {
             <Text style={styles.helperText}>
               Bônus:{" "}
               {
-                ANCESTRIES.find((a) => a.id === character.ancestry.id)
+                ANCESTRIES.find((a) => a.id === character.ancestry?.id)
                   ?.attributeBonus
               }
             </Text>
@@ -479,13 +505,13 @@ export default function HomeScreen() {
             <View style={styles.listSelector}>
               {/* Mostra apenas as origens compatíveis com a ancestralidade escolhida */}
               {CULTURAL_ORIGINS.filter(
-                (o) => o.ancestryId === character.ancestry.id
+                (o) => o.ancestryId === character.ancestry?.id
               ).map((orig) => (
                 <TouchableOpacity
                   key={orig.id}
                   style={[
                     styles.listItem,
-                    character.culturalOrigin.id === orig.id &&
+                    character.culturalOrigin?.id === orig.id &&
                       styles.listItemActive,
                   ]}
                   onPress={() => updateOrigin(orig.id)}
@@ -494,7 +520,7 @@ export default function HomeScreen() {
                     <Text
                       style={[
                         styles.listItemTitle,
-                        character.culturalOrigin.id === orig.id &&
+                        character.culturalOrigin?.id === orig.id &&
                           styles.listItemTitleActive,
                       ]}
                     >
@@ -502,7 +528,7 @@ export default function HomeScreen() {
                     </Text>
                     <Text style={styles.listItemDesc}>{orig.description}</Text>
                   </View>
-                  {character.culturalOrigin.id === orig.id && (
+                  {character.culturalOrigin?.id === orig.id && (
                     <Ionicons name="checkmark" size={20} color="#6200ea" />
                   )}
                 </TouchableOpacity>

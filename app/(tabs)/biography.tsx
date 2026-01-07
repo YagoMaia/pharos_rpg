@@ -163,7 +163,7 @@ const styles = StyleSheet.create({
     padding: 12,
     minHeight: 300, // Altura mínima grande para escrever bastante
     elevation: 2,
-    marginBottom: 50,
+    marginBottom: 100,
   },
   textArea: {
     fontSize: 16,

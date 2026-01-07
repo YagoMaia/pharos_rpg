@@ -35,11 +35,19 @@ export interface Attribute {
   modifier: number; // Ex: (Valor - 10) / 2
 }
 
+export type ActionType =
+  | "Padrão"
+  | "Movimento"
+  | "Reação"
+  | "Completa"
+  | "Livre"
+  | "Ação Bônus";
+
 export interface Skill {
   id: string;
   name: string;
   cost: number;
-  actionType: "Padrão" | "Movimento" | "Reação" | "Completa" | "Livre";
+  actionType: ActionType;
   description: string;
 }
 
@@ -76,50 +84,88 @@ export interface Spell {
 
 export interface EquipmentItem {
   name: string;
-  stats: string; // Ex: "1d6 + 2" ou "+4 CA"
+  stats: string; // Usado para Armas (ex: "1d6")
+  defense?: number; // Usado para Armadura/Escudo (ex: 2)
+  description?: string; // Descrição opcional
 }
-
 export const ALL_SKILLS = [
-  "Acrobacia", "Adestrar Animais", "Atletismo", "Atuação", 
-  "Enganação", "Furtividade", "História", "Intimidação", 
-  "Intuição", "Investigação", "Medicina", "Natureza", 
-  "Ofício", "Percepção", "Persuasão", "Prestidigitação", 
-  "Religião", "Sobrevivência"
+  "Atletismo",
+  "Acrobacia",
+  "Furtividade",
+  "Ladinagem",
+  "Pilotagem",
+  "Arcanismo",
+  "Engenharia",
+  "História",
+  "Investigação",
+  "Natureza",
+  "Navegação",
+  "Ocultismo",
+  "Religião",
+  "Adestrar Animais",
+  "Intuição",
+  "Medicina",
+  "Percepção",
+  "Sobrevivência",
+  "Atuação",
+  "Enganação",
+  "Etiqueta",
+  "Intimidação",
+  "Manha",
+  "Persuasão",
+  "Concentração",
+  "Ofício",
 ];
 
 export interface Character {
   name: string;
-  image?: string; // <--- Novo campo para guardar a imagem (Base64)
-  class: CharacterClass;
-  stats: {
-    hp: { current: number; max: number };
-    focus: { current: number; max: number };
-  };
-  attributes: Record<AttributeName, Attribute>;
-  stances: [Stance, Stance]; // Exatamente 2 posturas
-  currentStanceIndex: 0 | 1;
-  skills: Skill[]; // Exatamente 4 habilidades
-  equipment: {
-    meleeWeapon: EquipmentItem;
-    rangedWeapon: EquipmentItem;
-    armor: EquipmentItem;
-  };
-  backpack: Item[];
-  grimoire?: Spell[]; // Opcional, apenas para classes mágicas
-  silver: number;
-  ancestry: {
+  image?: string;
+
+  // ADICIONE '?' PARA TORNAR OPCIONAL
+  class?: CharacterClass;
+
+  // AGORA PODE SER UNDEFINED
+  ancestry?: {
     id: string;
     name: string;
     traitName: string;
     traitDescription: string;
   };
-  culturalOrigin: {
+
+  culturalOrigin?: {
     id: string;
     name: string;
     culturalTrait: string;
     heritage: string;
     languages: string[];
   };
-  backstory: string;       // Texto da história
-  trainedSkills: string[]; // Lista de nomes das perícias treinadas
+
+  stats: {
+    hp: { current: number; max: number };
+    focus: { current: number; max: number };
+  };
+
+  attributes: Record<AttributeName, Attribute>;
+
+  // MUDE DE [Stance, Stance] PARA Stance[] (Array flexível)
+  stances: Stance[];
+
+  // PERMITE -1 PARA POSTURA NEUTRA
+  currentStanceIndex: number;
+
+  skills: Skill[];
+
+  // EQUIPAMENTO PRECISA EXISTIR, MAS PODE ESTAR "VAZIO"
+  equipment: {
+    meleeWeapon: EquipmentItem;
+    rangedWeapon: EquipmentItem;
+    armor: EquipmentItem;
+    shield: EquipmentItem;
+  };
+
+  backpack: Item[];
+  grimoire?: Spell[];
+  silver: number;
+  backstory: string;
+  trainedSkills: string[];
 }

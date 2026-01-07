@@ -13,7 +13,11 @@ import {
   AttributeName,
   Character,
   CharacterClass,
+  EquipmentItem,
+  Item,
+  ItemType,
   MAGIC_CLASSES,
+  Spell,
 } from "../types/rpg";
 
 // Chave para salvar no armazenamento do celular
@@ -21,136 +25,70 @@ const STORAGE_KEY = "@rpg_sheet_data_v2";
 
 // Dados iniciais (Padrão caso não haja nada salvo)
 const INITIAL_CHARACTER: Character = {
-  name: "Arindal",
-  image: undefined, // <--- Inicializa como indefinido
-  class: "Mago",
-  ancestry: {
-    id: "namig",
-    name: "Namig",
-    traitName: "Descendente do Gelo",
-    traitDescription: "Resistência a frio...",
+  name: "Novo Personagem",
+  image: undefined,
+  class: undefined, // O usuário vai escolher no Modal
+  ancestry: undefined, // O usuário vai escolher no Modal
+  culturalOrigin: undefined, // O usuário vai escolher no Modal
+
+  // Valores padrão (Médios)
+  stats: {
+    hp: { current: 20, max: 20 },
+    focus: { current: 10, max: 10 },
   },
-  culturalOrigin: {
-    id: "namig_assimilado",
-    name: "Assimilado",
-    culturalTrait: "Proficiência em qualquer perícia",
-    heritage: "200 pratas...",
-    languages: ["Namig", "Vulgata"],
-  },
-  stats: { hp: { current: 20, max: 25 }, focus: { current: 10, max: 15 } },
+
   attributes: {
     Força: { name: "Força", value: 10, modifier: 0 },
-    Destreza: { name: "Destreza", value: 14, modifier: 2 },
-    Constituição: { name: "Constituição", value: 12, modifier: 1 },
-    Inteligência: { name: "Inteligência", value: 18, modifier: 4 },
-    Sabedoria: { name: "Sabedoria", value: 14, modifier: 2 },
-    Carisma: { name: "Carisma", value: 8, modifier: -1 },
+    Destreza: { name: "Destreza", value: 10, modifier: 0 },
+    Constituição: { name: "Constituição", value: 10, modifier: 0 },
+    Inteligência: { name: "Inteligência", value: 10, modifier: 0 },
+    Sabedoria: { name: "Sabedoria", value: 10, modifier: 0 },
+    Carisma: { name: "Carisma", value: 10, modifier: 0 },
   },
-  stances: [
-    {
-      id: "1",
-      name: "Postura do Falcão",
-      benefit: "+2 nas jogadas de ataque com armas à distância.",
-      restriction: "Não pode realizar ataques corpo a corpo.",
-      maneuver:
-        "Gaste 1 Foco para aumentar o alcance da arma em 9m até o fim do turno.",
-      recovery: undefined,
-    },
-    {
-      id: "2",
-      name: "Postura da Montanha",
-      benefit: "Recebe Resistência a dano físico igual ao modificador de CON.",
-      restriction: "Seu deslocamento é reduzido à metade.",
-      maneuver: "Gaste 2 Foco para forçar um inimigo a atacar você.",
-      recovery: "Recupera 1 de Foco se terminar o turno sem se mover.",
-    },
-  ],
-  currentStanceIndex: 0,
-  skills: [
-    {
-      id: "1",
-      name: "Bola de Fogo",
-      cost: 3,
-      actionType: "Padrão",
-      description: "Dano em área",
-    },
-    {
-      id: "2",
-      name: "Escudo Arcano",
-      cost: 1,
-      actionType: "Reação",
-      description: "+5 CA",
-    },
-    {
-      id: "3",
-      name: "Teleporte",
-      cost: 2,
-      actionType: "Movimento",
-      description: "Move 9m",
-    },
-    {
-      id: "4",
-      name: "Analisar",
-      cost: 0,
-      actionType: "Livre",
-      description: "Identifica item",
-    },
-  ],
+
+  stances: [], // Começa sem posturas de classe
+  currentStanceIndex: -1, // Começa em Postura Neutra
+
+  skills: [], // Começa sem habilidades
+
+  // PREENCHIMENTO SEGURO (Evita crash no Inventário)
   equipment: {
-    meleeWeapon: { name: "Adaga", stats: "1d4 + DES" },
-    rangedWeapon: { name: "Arco Curto", stats: "1d6" },
-    armor: { name: "Túnica", stats: "+1 CA" },
+    meleeWeapon: {
+      name: "Desarmado",
+      stats: "1 + FOR",
+      defense: 0,
+      description: "Punhos.",
+    },
+    rangedWeapon: { name: "Nenhuma", stats: "-", defense: 0, description: "" },
+    armor: {
+      name: "Roupas Comuns",
+      stats: "",
+      defense: 0,
+      description: "Sem proteção.",
+    },
+    shield: { name: "Nenhum", stats: "", defense: 0, description: "" },
   },
-  backpack: [
-    { id: "1", name: "Poção de Cura 1", quantity: 10, type: "consumable" },
-    { id: "2", name: "Chave da Cripta", quantity: 1, type: "key" },
-    { id: "3", name: "Adaga Extra", quantity: 1, type: "equipment" },
-  ],
-  grimoire: [
-    {
-      id: "1",
-      name: "Mísseis Mágicos",
-      school: "Evocação",
-      circle: 1,
-      description: "Dano infalível",
-      effect: "1d4+1",
-    },
-    {
-      id: "2",
-      name: "Raio Ardente",
-      school: "Evocação",
-      circle: 2,
-      description: "Três raios de fogo",
-      effect: "2d6 por raio",
-    },
-    {
-      id: "3",
-      name: "Armadura Arcana",
-      school: "Abjuração",
-      circle: 1,
-      description: "Aumenta defesa",
-      effect: "CA 13+Dex",
-    },
-  ],
-  silver: 500,
+
+  backpack: [],
+  grimoire: [],
+  silver: 0, // Geralmente começa com 0 e ganha pela Herança (Origem)
   backstory: "",
-  trainedSkills: [], // Começa sem nenhuma treinada
+  trainedSkills: [],
 };
 
 interface CharacterContextType {
   character: Character;
   isLoading: boolean; // Novo estado para controlar o carregamento
   updateStat: (stat: "hp" | "focus", value: number) => void;
-  toggleStance: () => void;
+  setStanceIndex: (index: number) => void; // <--- ADICIONE ISSO
   updateImage: (base64Image: string) => void; // <--- Nova função
   resetCharacter: () => void; // Função para resetar os dados
   updateMaxStat: (stat: "hp" | "focus", newMax: number) => void;
   updateAttribute: (attr: AttributeName, newValue: number) => void;
-  updateNameAndClass: (name: string, className: CharacterClass) => void;
+  updateNameAndClass: (name: string, className?: CharacterClass) => void;
   updateEquipment: (
     slot: "meleeWeapon" | "rangedWeapon" | "armor",
-    name: string,
-    stats: string
+    item: EquipmentItem
   ) => void;
   updateAncestry: (ancestryId: string) => void;
   updateOrigin: (originId: string) => void;
@@ -159,6 +97,11 @@ interface CharacterContextType {
   performLongRest: () => void; // <--- Novo
   updateBackstory: (text: string) => void;
   toggleTrainedSkill: (skillName: string) => void;
+  addItem: (name: string, type: ItemType, quantity: number) => void;
+  removeItem: (itemId: string) => void;
+  updateItemQuantity: (itemId: string, change: number) => void;
+  addSpell: (spell: Spell) => void;
+  removeSpell: (spellId: string) => void;
 }
 
 const CharacterContext = createContext<CharacterContextType | undefined>(
@@ -218,10 +161,10 @@ export const CharacterProvider = ({ children }: { children: ReactNode }) => {
     });
   };
 
-  const toggleStance = () => {
+  const setStanceIndex = (index: number) => {
     setCharacter((prev) => ({
       ...prev,
-      currentStanceIndex: prev.currentStanceIndex === 0 ? 1 : 0,
+      currentStanceIndex: index as any, // Cast para any ou atualize a tipagem de Character para aceitar -1
     }));
   };
 
@@ -306,15 +249,14 @@ export const CharacterProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const updateEquipment = (
-    slot: "meleeWeapon" | "rangedWeapon" | "armor",
-    name: string,
-    stats: string
+    slot: "meleeWeapon" | "rangedWeapon" | "armor" | "shield",
+    item: EquipmentItem
   ) => {
     setCharacter((prev) => ({
       ...prev,
       equipment: {
         ...prev.equipment,
-        [slot]: { name, stats },
+        [slot]: item,
       },
     }));
   };
@@ -426,6 +368,64 @@ export const CharacterProvider = ({ children }: { children: ReactNode }) => {
     });
   };
 
+  // 1. Adicionar novo item
+  const addItem = (name: string, type: ItemType, quantity: number) => {
+    const newItem: Item = {
+      id: Date.now().toString(), // Gera um ID único simples
+      name,
+      type,
+      quantity,
+      // isKeyItem: type === "key", // Mantendo compatibilidade legado se necessário
+    };
+
+    setCharacter((prev) => ({
+      ...prev,
+      backpack: [...prev.backpack, newItem],
+    }));
+  };
+
+  // 2. Remover item completamente
+  const removeItem = (itemId: string) => {
+    setCharacter((prev) => ({
+      ...prev,
+      backpack: prev.backpack.filter((item) => item.id !== itemId),
+    }));
+  };
+
+  // 3. Alterar quantidade (Usar item ou achar mais)
+  const updateItemQuantity = (itemId: string, change: number) => {
+    setCharacter((prev) => ({
+      ...prev,
+      backpack: prev.backpack
+        .map((item) => {
+          if (item.id === itemId) {
+            const newQty = item.quantity + change;
+            return { ...item, quantity: Math.max(0, newQty) };
+          }
+          return item;
+        })
+        .filter((item) => item.quantity > 0), // Remove automaticamente se chegar a 0
+    }));
+  };
+
+  const addSpell = (spell: Spell) => {
+    // Evita duplicatas
+    const exists = character.grimoire?.some((s) => s.id === spell.id);
+    if (exists) return;
+
+    setCharacter((prev) => ({
+      ...prev,
+      grimoire: [...(prev.grimoire || []), spell],
+    }));
+  };
+
+  const removeSpell = (spellId: string) => {
+    setCharacter((prev) => ({
+      ...prev,
+      grimoire: (prev.grimoire || []).filter((s) => s.id !== spellId),
+    }));
+  };
+
   return (
     <CharacterContext.Provider
       value={{
@@ -433,7 +433,7 @@ export const CharacterProvider = ({ children }: { children: ReactNode }) => {
         isLoading,
         updateStat,
         updateImage,
-        toggleStance,
+        setStanceIndex,
         resetCharacter,
         updateMaxStat, // <--- Expondo
         updateAttribute, // <--- Expondo
@@ -446,6 +446,11 @@ export const CharacterProvider = ({ children }: { children: ReactNode }) => {
         performLongRest, // <--- Expondo
         updateBackstory,
         toggleTrainedSkill,
+        addItem,
+        removeItem,
+        updateItemQuantity,
+        addSpell,
+        removeSpell,
       }}
     >
       {children}
