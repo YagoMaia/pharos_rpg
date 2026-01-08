@@ -1,4 +1,3 @@
-// app/(tabs)/grimoire.tsx
 import { Ionicons } from "@expo/vector-icons";
 import React, { useMemo, useState } from "react";
 import {
@@ -11,10 +10,15 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { useCharacter } from "../../context/CharacterContext";
-import { MAGIC_SCHOOLS } from "../../data/spellData"; // Importe os dados criados anteriormente
-import { Spell } from "../../types/rpg";
 
+// Imports de Contexto e Dados
+import { useCharacter } from "../../context/CharacterContext";
+import { useTheme } from "../../context/ThemeContext";
+import { MAGIC_SCHOOLS } from "../../data/spellData";
+import { Spell } from "../../types/rpg";
+import { ThemeColors } from "@/constants/theme";
+
+// Helper de Cores dos Círculos
 const getCircleTheme = (circle: number) => {
   switch (circle) {
     case 1:
@@ -34,9 +38,11 @@ const getCircleTheme = (circle: number) => {
 
 export default function GrimoireScreen() {
   const { character, addSpell } = useCharacter();
+  const { colors } = useTheme();
+  const styles = useMemo(() => getStyles(colors), [colors]);
   const [learnModalVisible, setLearnModalVisible] = useState(false);
 
-  // Agrupamento de magias (Código existente mantido)
+  // Agrupamento de magias
   const sections = useMemo(() => {
     if (!character.grimoire || character.grimoire.length === 0) return [];
 
@@ -61,29 +67,11 @@ export default function GrimoireScreen() {
 
   return (
     <View style={styles.container}>
-      {/* HUD DE FOCO (Para visualizar o gasto) */}
-      {/* <View style={styles.focusHud}>
-        <View style={styles.focusHeader}>
-          <Text style={styles.focusTitle}>PONTOS DE FOCO</Text>
-          <Text style={styles.focusValue}>
-            {focus.current} / {focus.max}
-          </Text>
-        </View>
-        <View style={styles.focusBarBg}>
-          <View
-            style={[
-              styles.focusBarFill,
-              { width: `${(focus.current / focus.max) * 100}%` },
-            ]}
-          />
-        </View>
-      </View> */}
-
-      {/* --- HUD DE FOCO (NOVO) --- */}
+      {/* --- HUD DE FOCO --- */}
       <View style={styles.focusHud}>
         <View style={styles.focusHeader}>
           <View style={styles.focusLabelContainer}>
-            <Ionicons name="flash" size={16} color="#1e88e5" />
+            <Ionicons name="flash" size={16} color={colors.focus} />
             <Text style={styles.focusTitle}>PONTOS DE FOCO</Text>
           </View>
           <Text style={styles.focusValue}>
@@ -91,19 +79,17 @@ export default function GrimoireScreen() {
             <Text style={styles.focusMax}> / {focus.max}</Text>
           </Text>
         </View>
-
-        {/* Barra de Progresso Visual */}
         <View style={styles.focusBarBg}>
           <View
             style={[
               styles.focusBarFill,
-              { width: `${(focus.current / focus.max) * 100}%` },
+              { width: `${Math.min(100, (focus.current / focus.max) * 100)}%` },
             ]}
           />
         </View>
       </View>
 
-      {/* Botão de Adicionar Magia no Topo */}
+      {/* Botão de Adicionar Magia */}
       <View style={styles.actionBar}>
         <Text style={styles.screenTitle}>Grimório</Text>
         <TouchableOpacity
@@ -118,7 +104,9 @@ export default function GrimoireScreen() {
       <SectionList
         sections={sections}
         keyExtractor={(item) => item.id}
-        renderItem={({ item }) => <SpellCard spell={item} />}
+        renderItem={({ item }) => (
+          <SpellCard spell={item} styles={styles} colors={colors} />
+        )}
         renderSectionHeader={({ section: { title, circleLevel } }) => {
           const theme = getCircleTheme(circleLevel);
           return (
@@ -136,8 +124,7 @@ export default function GrimoireScreen() {
         stickySectionHeadersEnabled={true}
         ListEmptyComponent={
           <Text style={styles.emptyList}>
-            Nenhuma magia aprendida. Clique em &quotAprender&quot para
-            adicionar.
+            Nenhuma magia aprendida. Clique em Aprender para adicionar.
           </Text>
         }
       />
@@ -163,55 +150,26 @@ export default function GrimoireScreen() {
                 <Text style={styles.schoolQuote}>{school.quote}</Text>
 
                 {school.spells.map((spell) => {
-                  // Verifica se já tem a magia
                   const isLearned = character.grimoire?.some(
                     (s) => s.id === spell.id
                   );
-                  const theme = getCircleTheme(spell.circle);
 
+                  // Renderiza o novo componente Item de Aprendizado
                   return (
-                    <TouchableOpacity
+                    <LearnSpellItem
                       key={spell.id}
-                      style={[
-                        styles.learnCard,
-                        isLearned && styles.learnCardDisabled,
-                      ]}
-                      disabled={isLearned}
-                      onPress={() => {
+                      spell={spell}
+                      isLearned={!!isLearned}
+                      onLearn={() => {
                         addSpell(spell);
                         Alert.alert(
-                          "Magia Aprendida",
-                          `${spell.name} foi adicionada ao grimório.`
+                          "Sucesso",
+                          `${spell.name} adicionada ao grimório.`
                         );
                       }}
-                    >
-                      <View style={{ flex: 1 }}>
-                        <Text
-                          style={[
-                            styles.learnName,
-                            isLearned && { color: "#999" },
-                          ]}
-                        >
-                          {spell.name}
-                        </Text>
-                        <Text style={styles.learnInfo}>
-                          Círculo {spell.circle} • {spell.school}
-                        </Text>
-                      </View>
-                      {isLearned ? (
-                        <Ionicons
-                          name="checkmark-circle"
-                          size={24}
-                          color="#aaa"
-                        />
-                      ) : (
-                        <Ionicons
-                          name="add-circle"
-                          size={24}
-                          color={theme.primary}
-                        />
-                      )}
-                    </TouchableOpacity>
+                      styles={styles}
+                      colors={colors}
+                    />
                   );
                 })}
               </View>
@@ -223,13 +181,91 @@ export default function GrimoireScreen() {
   );
 }
 
-// --- CARD DA MAGIA COM BOTÃO DE CONJURAR ---
-const SpellCard = ({ spell }: { spell: Spell }) => {
+// --- NOVO COMPONENTE: ITEM DE APRENDIZADO (EXPANSÍVEL) ---
+const LearnSpellItem = ({ spell, isLearned, onLearn, styles, colors }: any) => {
+  const [expanded, setExpanded] = useState(false);
+  const theme = getCircleTheme(spell.circle);
+
+  return (
+    <View
+      style={[styles.learnCardContainer, isLearned && styles.learnCardDisabled]}
+    >
+      {/* Cabeçalho Clicável */}
+      <TouchableOpacity
+        style={styles.learnCardHeader}
+        onPress={() => setExpanded(!expanded)}
+        activeOpacity={0.7}
+      >
+        <View style={{ flex: 1 }}>
+          <Text
+            style={[
+              styles.learnName,
+              isLearned && { color: colors.textSecondary },
+            ]}
+          >
+            {spell.name}
+          </Text>
+          <Text style={styles.learnInfo}>
+            Círculo {spell.circle} • {spell.school}
+          </Text>
+        </View>
+
+        {/* Ícone: Check se aprendeu, ou Seta se pode aprender */}
+        {isLearned ? (
+          <Ionicons
+            name="checkmark-circle"
+            size={24}
+            color={colors.textSecondary}
+          />
+        ) : (
+          <Ionicons
+            name={expanded ? "chevron-up" : "chevron-down"}
+            size={24}
+            color={theme.primary}
+          />
+        )}
+      </TouchableOpacity>
+
+      {/* Corpo Expansível */}
+      {expanded && (
+        <View style={styles.learnCardBody}>
+          <Text style={styles.learnDescription}>{spell.description}</Text>
+          <Text style={styles.learnEffect}>Efeito: {spell.effect}</Text>
+
+          {!isLearned && (
+            <TouchableOpacity
+              style={[styles.learnBtn, { backgroundColor: theme.primary }]}
+              onPress={onLearn}
+            >
+              <Ionicons
+                name="add-circle-outline"
+                size={20}
+                color="#fff"
+                style={{ marginRight: 8 }}
+              />
+              <Text style={styles.learnBtnText}>Adicionar ao Grimório</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+      )}
+    </View>
+  );
+};
+
+// --- COMPONENTE: CARD DO GRIMÓRIO (JÁ APRENDIDO) ---
+const SpellCard = ({
+  spell,
+  styles,
+  colors,
+}: {
+  spell: Spell;
+  styles: any;
+  colors: ThemeColors;
+}) => {
   const [expanded, setExpanded] = useState(false);
   const { character, updateStat, removeSpell } = useCharacter();
   const theme = getCircleTheme(spell.circle);
 
-  // LÓGICA DE CUSTO: 2 * Círculo
   const castCost = spell.circle * 2;
   const currentFocus = character.stats.focus.current;
   const canCast = currentFocus >= castCost;
@@ -239,19 +275,12 @@ const SpellCard = ({ spell }: { spell: Spell }) => {
       Alert.alert("Foco Insuficiente", `Você precisa de ${castCost} de foco.`);
       return;
     }
-
     Alert.alert(
       "Conjurar Magia",
       `Gastar ${castCost} de Foco para lançar ${spell.name}?`,
       [
         { text: "Cancelar", style: "cancel" },
-        {
-          text: "Conjurar",
-          onPress: () => {
-            updateStat("focus", -castCost);
-            // Opcional: Feedback visual ou som
-          },
-        },
+        { text: "Conjurar", onPress: () => updateStat("focus", -castCost) },
       ]
     );
   };
@@ -299,19 +328,16 @@ const SpellCard = ({ spell }: { spell: Spell }) => {
           </View>
           <Text style={styles.description}>{spell.description}</Text>
 
-          {/* RODAPÉ DE AÇÕES */}
           <View style={styles.actionsFooter}>
-            {/* Botão Esquecer (Lixeira) */}
             <TouchableOpacity style={styles.forgetBtn} onPress={handleForget}>
-              <Ionicons name="trash-outline" size={20} color="#e53935" />
+              <Ionicons name="trash-outline" size={20} color={colors.error} />
             </TouchableOpacity>
 
-            {/* Botão Conjurar */}
             <TouchableOpacity
               style={[
                 styles.castBtn,
                 !canCast && styles.castBtnDisabled,
-                { backgroundColor: canCast ? theme.primary : "#ccc" },
+                { backgroundColor: canCast ? theme.primary : colors.border },
               ]}
               onPress={handleCast}
               disabled={!canCast}
@@ -329,205 +355,252 @@ const SpellCard = ({ spell }: { spell: Spell }) => {
   );
 };
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#f0f2f5" },
+// --- ESTILOS DINÂMICOS ---
+const getStyles = (colors: ThemeColors) =>
+  StyleSheet.create({
+    container: { flex: 1, backgroundColor: colors.background },
 
-  // HUD Foco
-  focusHud: {
-    backgroundColor: "#fff",
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    elevation: 2, // Sombra suave
-    borderBottomWidth: 1,
-    borderBottomColor: "#eee",
-    marginBottom: 4, // Espaço pequeno antes da postura
-  },
-  focusHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 8,
-  },
-  focusLabelContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-  },
-  focusTitle: {
-    fontSize: 12,
-    fontWeight: "bold",
-    color: "#1e88e5",
-    letterSpacing: 1,
-  },
-  focusValue: {
-    fontSize: 14,
-    color: "#555",
-  },
-  focusCurrent: {
-    fontSize: 20,
-    fontWeight: "bold",
-    color: "#333",
-  },
-  focusMax: {
-    fontSize: 14,
-    color: "#999",
-  },
-  focusBarBg: {
-    height: 8,
-    backgroundColor: "#e3f2fd", // Azul bem claro
-    borderRadius: 4,
-    overflow: "hidden",
-  },
-  focusBarFill: {
-    height: "100%",
-    backgroundColor: "#1e88e5", // Azul principal
-    borderRadius: 4,
-  },
+    // HUD Foco
+    focusHud: {
+      backgroundColor: colors.surface,
+      paddingVertical: 12,
+      paddingHorizontal: 16,
+      elevation: 2,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border,
+      marginBottom: 4,
+    },
+    focusHeader: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "center",
+      marginBottom: 8,
+    },
+    focusLabelContainer: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 6,
+    },
+    focusTitle: {
+      fontSize: 12,
+      fontWeight: "bold",
+      color: colors.focus,
+      letterSpacing: 1,
+    },
+    focusValue: { fontSize: 14, color: colors.textSecondary },
+    focusCurrent: { fontSize: 20, fontWeight: "bold", color: colors.text },
+    focusMax: { fontSize: 14, color: colors.textSecondary },
+    focusBarBg: {
+      height: 8,
+      backgroundColor: colors.border,
+      borderRadius: 4,
+      overflow: "hidden",
+    },
+    focusBarFill: {
+      height: "100%",
+      backgroundColor: colors.focus,
+      borderRadius: 4,
+    },
 
-  // Barra de Ação (Título + Botão Aprender)
-  actionBar: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    padding: 16,
-    backgroundColor: "#f0f2f5",
-  },
-  screenTitle: { fontSize: 24, fontWeight: "bold", color: "#333" },
-  addBtn: {
-    flexDirection: "row",
-    backgroundColor: "#6200ea",
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 20,
-    alignItems: "center",
-    gap: 4,
-  },
-  addBtnText: { color: "#fff", fontWeight: "bold", fontSize: 14 },
+    // Action Bar
+    actionBar: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "center",
+      padding: 16,
+      backgroundColor: colors.background,
+    },
+    screenTitle: { fontSize: 24, fontWeight: "bold", color: colors.text },
+    addBtn: {
+      flexDirection: "row",
+      backgroundColor: colors.primary,
+      paddingVertical: 8,
+      paddingHorizontal: 12,
+      borderRadius: 20,
+      alignItems: "center",
+      gap: 4,
+    },
+    addBtnText: { color: "#fff", fontWeight: "bold", fontSize: 14 },
 
-  // Listagem
-  listContent: { paddingBottom: 20 },
-  sectionHeader: {
-    backgroundColor: "#f0f2f5",
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-  },
-  circleDot: { width: 8, height: 8, borderRadius: 4 },
-  sectionTitle: { fontSize: 18, fontWeight: "bold" },
-  emptyList: {
-    textAlign: "center",
-    marginTop: 40,
-    color: "#888",
-    fontStyle: "italic",
-    paddingHorizontal: 40,
-  },
+    // List
+    listContent: { paddingBottom: 20 },
+    sectionHeader: {
+      backgroundColor: colors.background,
+      paddingVertical: 8,
+      paddingHorizontal: 16,
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 8,
+    },
+    circleDot: { width: 8, height: 8, borderRadius: 4 },
+    sectionTitle: { fontSize: 18, fontWeight: "bold" },
+    emptyList: {
+      textAlign: "center",
+      marginTop: 40,
+      color: colors.textSecondary,
+      fontStyle: "italic",
+      paddingHorizontal: 40,
+    },
 
-  // Card
-  card: {
-    backgroundColor: "#fff",
-    marginHorizontal: 16,
-    marginVertical: 6,
-    borderRadius: 8,
-    padding: 16,
-    elevation: 2,
-    borderLeftWidth: 4,
-  },
-  cardHeader: { marginBottom: 4 },
-  headerTop: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 4,
-  },
-  spellName: { fontSize: 16, fontWeight: "bold", color: "#333" },
-  schoolBadge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6 },
-  schoolText: { fontSize: 10, textTransform: "uppercase", fontWeight: "700" },
-  summaryEffect: { fontSize: 12, color: "#666", fontStyle: "italic" },
-  cardBody: {
-    marginTop: 12,
-    paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: "#f0f0f0",
-  },
-  infoRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 8,
-    gap: 6,
-  },
-  effectLabel: { fontSize: 14, fontWeight: "bold", color: "#444" },
-  effectValue: { fontWeight: "normal", color: "#333" },
-  description: {
-    fontSize: 14,
-    color: "#555",
-    lineHeight: 20,
-    textAlign: "justify",
-    marginBottom: 16,
-  },
+    // Spell Card (Grimório)
+    card: {
+      backgroundColor: colors.surface,
+      marginHorizontal: 16,
+      marginVertical: 6,
+      borderRadius: 8,
+      padding: 16,
+      elevation: 2,
+      borderLeftWidth: 4,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    cardHeader: { marginBottom: 4 },
+    headerTop: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "center",
+      marginBottom: 4,
+    },
+    spellName: { fontSize: 16, fontWeight: "bold", color: colors.text },
+    schoolBadge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6 },
+    schoolText: { fontSize: 10, textTransform: "uppercase", fontWeight: "700" },
+    summaryEffect: {
+      fontSize: 12,
+      color: colors.textSecondary,
+      fontStyle: "italic",
+    },
+    cardBody: {
+      marginTop: 12,
+      paddingTop: 12,
+      borderTopWidth: 1,
+      borderTopColor: colors.border,
+    },
+    infoRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      marginBottom: 8,
+      gap: 6,
+    },
+    effectLabel: {
+      fontSize: 14,
+      fontWeight: "bold",
+      color: colors.textSecondary,
+    },
+    effectValue: { fontWeight: "normal", color: colors.text },
+    description: {
+      fontSize: 14,
+      color: colors.textSecondary,
+      lineHeight: 20,
+      textAlign: "justify",
+      marginBottom: 16,
+    },
 
-  // Botões do Card
-  actionsFooter: { flexDirection: "row", alignItems: "center", gap: 10 },
-  forgetBtn: {
-    padding: 10,
-    backgroundColor: "#ffebee",
-    borderRadius: 8,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  castBtn: {
-    flex: 1,
-    paddingVertical: 12,
-    borderRadius: 8,
-    alignItems: "center",
-  },
-  castBtnDisabled: { backgroundColor: "#e0e0e0" },
-  castBtnText: {
-    color: "#fff",
-    fontWeight: "bold",
-    textTransform: "uppercase",
-    fontSize: 14,
-  },
+    // Footer Buttons
+    actionsFooter: { flexDirection: "row", alignItems: "center", gap: 10 },
+    forgetBtn: {
+      padding: 10,
+      backgroundColor: colors.error + "15",
+      borderRadius: 8,
+      alignItems: "center",
+      justifyContent: "center",
+      borderWidth: 1,
+      borderColor: colors.error + "50",
+    },
+    castBtn: {
+      flex: 1,
+      paddingVertical: 12,
+      borderRadius: 8,
+      alignItems: "center",
+    },
+    castBtnDisabled: { opacity: 0.7 },
+    castBtnText: {
+      color: "#fff",
+      fontWeight: "bold",
+      textTransform: "uppercase",
+      fontSize: 14,
+    },
 
-  // Modal Aprender
-  modalContainer: { flex: 1, backgroundColor: "#f5f5f5" },
-  modalHeader: {
-    padding: 16,
-    backgroundColor: "#fff",
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    borderBottomWidth: 1,
-    borderColor: "#eee",
-  },
-  modalTitle: { fontSize: 18, fontWeight: "bold" },
-  closeText: { color: "#6200ea", fontWeight: "600" },
-  modalContent: { padding: 16 },
-  schoolGroup: { marginBottom: 24 },
-  schoolTitle: {
-    fontSize: 20,
-    fontWeight: "bold",
-    color: "#333",
-    marginBottom: 4,
-  },
-  schoolQuote: {
-    fontSize: 12,
-    fontStyle: "italic",
-    color: "#666",
-    marginBottom: 12,
-  },
-  learnCard: {
-    backgroundColor: "#fff",
-    padding: 12,
-    borderRadius: 8,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginBottom: 8,
-    elevation: 1,
-  },
-  learnCardDisabled: { backgroundColor: "#f9f9f9", elevation: 0 },
-  learnName: { fontSize: 16, fontWeight: "bold", color: "#333" },
-  learnInfo: { fontSize: 12, color: "#666" },
-});
+    // Modal Learning
+    modalContainer: { flex: 1, backgroundColor: colors.background },
+    modalHeader: {
+      padding: 16,
+      backgroundColor: colors.surface,
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "center",
+      borderBottomWidth: 1,
+      borderColor: colors.border,
+    },
+    modalTitle: { fontSize: 18, fontWeight: "bold", color: colors.text },
+    closeText: { color: colors.primary, fontWeight: "600" },
+    modalContent: { padding: 16 },
+    schoolGroup: { marginBottom: 24 },
+    schoolTitle: {
+      fontSize: 20,
+      fontWeight: "bold",
+      color: colors.text,
+      marginBottom: 4,
+    },
+    schoolQuote: {
+      fontSize: 12,
+      fontStyle: "italic",
+      color: colors.textSecondary,
+      marginBottom: 12,
+    },
+
+    // --- ESTILOS DO CARD DE APRENDER (LearnSpellItem) ---
+    learnCardContainer: {
+      backgroundColor: colors.surface,
+      borderRadius: 8,
+      marginBottom: 8,
+      elevation: 1,
+      borderWidth: 1,
+      borderColor: colors.border,
+      overflow: "hidden",
+    },
+    learnCardDisabled: {
+      backgroundColor: colors.inputBg,
+      elevation: 0,
+      opacity: 0.8,
+    },
+    learnCardHeader: {
+      padding: 12,
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+    },
+    learnName: { fontSize: 16, fontWeight: "bold", color: colors.text },
+    learnInfo: { fontSize: 12, color: colors.textSecondary },
+
+    learnCardBody: {
+      padding: 12,
+      paddingTop: 0,
+      borderTopWidth: 1,
+      borderTopColor: colors.border + "50", // Mais sutil
+    },
+    learnDescription: {
+      fontSize: 14,
+      color: colors.textSecondary,
+      marginTop: 8,
+      lineHeight: 20,
+      marginBottom: 8,
+    },
+    learnEffect: {
+      fontSize: 12,
+      fontStyle: "italic",
+      color: colors.text,
+      marginBottom: 12,
+    },
+    learnBtn: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+      paddingVertical: 10,
+      borderRadius: 6,
+    },
+    learnBtnText: {
+      color: "#fff",
+      fontWeight: "bold",
+      fontSize: 14,
+    },
+  });

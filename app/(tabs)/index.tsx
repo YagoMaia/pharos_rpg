@@ -1,10 +1,11 @@
 // app/(tabs)/index.tsx
 import { Ionicons } from "@expo/vector-icons";
 
+import { ThemeColors } from "@/constants/theme";
 import { ANCESTRIES, CULTURAL_ORIGINS } from "@/data/origins";
-import { ALL_CLASSES, AttributeName } from "@/types/rpg";
+import { ALL_CLASSES, AttributeName, CharacterClass } from "@/types/rpg";
 import * as ImagePicker from "expo-image-picker"; // Importação da biblioteca
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import {
   Alert,
   Image,
@@ -17,6 +18,7 @@ import {
   View,
 } from "react-native";
 import { useCharacter } from "../../context/CharacterContext";
+import { useTheme } from "../../context/ThemeContext"; // <--- Importe o hook
 
 export default function HomeScreen() {
   const {
@@ -33,6 +35,11 @@ export default function HomeScreen() {
     updateOrigin,
     updateAncestry,
   } = useCharacter();
+
+  const { colors } = useTheme(); // <--- Pegue as cores
+
+  // 3. Gerar Estilos baseados nas cores atuais
+  const styles = useMemo(() => getStyles(colors), [colors]);
 
   // Estado para controlar a visibilidade do Modal de Edição
   const [isEditModalVisible, setEditModalVisible] = useState(false);
@@ -120,23 +127,42 @@ export default function HomeScreen() {
     }
   };
 
+  const adjustMoney = (amount: number) => {
+    // 1. Converte o texto atual para número (ou 0 se estiver vazio)
+    const currentVal = parseInt(tempSilver) || 0;
+
+    // 2. Calcula o novo valor, garantindo que não seja menor que 0
+    const newVal = Math.max(0, currentVal + amount);
+
+    // 3. Atualiza o estado do input (convertendo de volta para string)
+    setTempSilver(String(newVal));
+  };
+
   return (
     <View style={styles.mainContainer}>
       <ScrollView
         style={styles.container}
         contentContainerStyle={styles.content}
       >
-        {/* Header com Botão de Editar */}
+        {/* --- HEADER --- */}
         <View style={styles.topBar}>
           <Text style={styles.screenTitle}>Ficha</Text>
-          <TouchableOpacity
-            onPress={() => setEditModalVisible(true)}
-            style={styles.editIconBtn}
-          >
-            <Ionicons name="settings-sharp" size={24} color="#6200ea" />
-          </TouchableOpacity>
+          <View style={{ flexDirection: "row", gap: 10 }}>
+            {/* Botão de Editar */}
+            <TouchableOpacity
+              onPress={() => setEditModalVisible(true)}
+              style={styles.iconBtn}
+            >
+              <Ionicons
+                name="settings-sharp"
+                size={24}
+                color={colors.primary}
+              />
+            </TouchableOpacity>
+          </View>
         </View>
-        {/* --- Seção do Avatar e Header --- */}
+
+        {/* --- AVATAR E INFO --- */}
         <View style={styles.headerContainer}>
           <TouchableOpacity
             onPress={pickImage}
@@ -150,11 +176,10 @@ export default function HomeScreen() {
               />
             ) : (
               <View style={styles.avatarPlaceholder}>
-                <Ionicons name="camera" size={32} color="#999" />
+                <Ionicons name="camera" size={32} color={colors.iconDefault} />
                 <Text style={styles.avatarText}>Foto</Text>
               </View>
             )}
-            {/* Ícone de edição flutuante */}
             <View style={styles.editBadge}>
               <Ionicons name="pencil" size={12} color="#fff" />
             </View>
@@ -163,7 +188,8 @@ export default function HomeScreen() {
           <View style={styles.headerText}>
             <Text style={styles.charName}>{character.name}</Text>
             <Text style={styles.subtext}>
-              {character.class} • {character.ancestry?.name}
+              {character.class || "Sem Classe"} •{" "}
+              {character.ancestry?.name || "Sem Origem"}
             </Text>
             <View style={styles.levelBadge}>
               <Text style={styles.levelText}>Nível 1</Text>
@@ -173,13 +199,13 @@ export default function HomeScreen() {
 
         <View style={styles.divider} />
 
+        {/* --- CARTEIRA --- */}
         <View style={styles.walletContainer}>
           <View style={styles.walletHeader}>
             <View style={styles.walletLabelBox}>
-              <Ionicons name="cash-outline" size={20} color="#f9a825" />
+              <Ionicons name="cash-outline" size={20} color={colors.gold} />
               <Text style={styles.walletLabel}>Pratas</Text>
             </View>
-
             <TouchableOpacity onPress={openMoneyModal}>
               <Text style={styles.walletValue}>{character.silver || 0}</Text>
             </TouchableOpacity>
@@ -188,28 +214,22 @@ export default function HomeScreen() {
 
         <View style={styles.divider} />
 
-        {/* --- CARD DE ANCESTRALIDADE E ORIGEM (NOVO) --- */}
-        {/* --- CARD DE ANCESTRALIDADE E ORIGEM (CORRIGIDO) --- */}
+        {/* --- ANCESTRALIDADE & ORIGEM --- */}
         <TouchableOpacity
           style={styles.originCard}
           activeOpacity={0.9}
           onPress={() => {
-            // LÓGICA CORRIGIDA:
-            // Se não tiver dados, abre o modal para criar.
-            // Se tiver dados, expande para ver os detalhes.
             if (!character.ancestry || !character.culturalOrigin) {
               setEditModalVisible(true);
             } else {
               setShowOriginDetails(!showOriginDetails);
             }
           }}
-          // Atalho: Segurar o dedo sempre abre a edição, mesmo se já tiver dados
           onLongPress={() => setEditModalVisible(true)}
         >
           <View style={styles.originHeader}>
             <View>
               <Text style={styles.originLabel}>Ancestralidade & Origem</Text>
-
               {character.ancestry && character.culturalOrigin ? (
                 <Text style={styles.originValue}>
                   {character.ancestry.name} • {character.culturalOrigin.name}
@@ -218,29 +238,28 @@ export default function HomeScreen() {
                 <Text
                   style={[
                     styles.originValue,
-                    { color: "#999", fontStyle: "italic" },
+                    { color: colors.textSecondary, fontStyle: "italic" },
                   ]}
                 >
                   Toque para definir sua origem
                 </Text>
               )}
             </View>
-
-            {/* Muda o ícone: Se não tiver nada, mostra um lápis ou seta indicando ação */}
             <Ionicons
               name={
                 !character.ancestry
-                  ? "create-outline" // Ícone de editar se estiver vazio
+                  ? "create-outline"
                   : showOriginDetails
                   ? "chevron-up"
-                  : "chevron-down" // Setas se tiver dados
+                  : "chevron-down"
               }
               size={20}
-              color={!character.ancestry ? "#6200ea" : "#666"}
+              color={
+                !character.ancestry ? colors.primary : colors.textSecondary
+              }
             />
           </View>
 
-          {/* Corpo do card (só aparece se tiver dados) */}
           {showOriginDetails &&
             character.ancestry &&
             character.culturalOrigin && (
@@ -253,18 +272,16 @@ export default function HomeScreen() {
                     {character.ancestry.traitDescription}
                   </Text>
                 </View>
-
                 <View style={styles.traitRow}>
                   <Text style={styles.traitName}>
                     Cultura: {character.culturalOrigin.culturalTrait}
                   </Text>
                 </View>
-
                 <View style={styles.infoBlock}>
                   <Ionicons
                     name="gift-outline"
                     size={14}
-                    color="#555"
+                    color={colors.textSecondary}
                     style={{ marginTop: 2 }}
                   />
                   <Text style={styles.infoText}>
@@ -272,12 +289,11 @@ export default function HomeScreen() {
                     {character.culturalOrigin.heritage}
                   </Text>
                 </View>
-
                 <View style={styles.infoBlock}>
                   <Ionicons
                     name="chatbubble-ellipses-outline"
                     size={14}
-                    color="#555"
+                    color={colors.textSecondary}
                     style={{ marginTop: 2 }}
                   />
                   <Text style={styles.infoText}>
@@ -289,28 +305,32 @@ export default function HomeScreen() {
             )}
         </TouchableOpacity>
 
-        {/* Barras de Recursos (Código existente) */}
+        {/* --- RECURSOS (HP/FOCO) --- */}
         <ResourceControl
           label="Vida"
           current={character.stats.hp.current}
           max={character.stats.hp.max}
-          color="#e53935"
+          color={colors.hp} // Usando cor do tema
           onIncrement={() => updateStat("hp", 1)}
           onDecrement={() => updateStat("hp", -1)}
+          styles={styles} // Passando estilos
+          colors={colors} // Passando cores
         />
 
         <ResourceControl
           label="Foco"
           current={character.stats.focus.current}
           max={character.stats.focus.max}
-          color="#1e88e5"
+          color={colors.focus} // Usando cor do tema
           onIncrement={() => updateStat("focus", 1)}
           onDecrement={() => updateStat("focus", -1)}
+          styles={styles}
+          colors={colors}
         />
 
         <View style={styles.divider} />
 
-        {/* Atributos (Código existente) */}
+        {/* --- ATRIBUTOS --- */}
         <View style={styles.attributesGrid}>
           {Object.values(character.attributes).map((attr) => (
             <View key={attr.name} style={styles.attrCard}>
@@ -327,6 +347,8 @@ export default function HomeScreen() {
             </View>
           ))}
         </View>
+
+        {/* --- BOTÃO RESET --- */}
         {/* <View style={styles.debugSection}>
           <TouchableOpacity style={styles.resetButton} onPress={handleReset}>
             <Text style={styles.resetText}>⚠ Resetar Ficha (Debug)</Text>
@@ -335,10 +357,9 @@ export default function HomeScreen() {
 
         <View style={styles.divider} />
 
-        {/* --- SEÇÃO DE DESCANSO (NOVO) --- */}
+        {/* --- DESCANSO --- */}
         <Text style={styles.sectionLabel}>Recuperação</Text>
         <View style={styles.restContainer}>
-          {/* Botão Descanso Curto */}
           <TouchableOpacity
             style={styles.restButtonShort}
             onPress={handleShortRest}
@@ -352,7 +373,6 @@ export default function HomeScreen() {
             </View>
           </TouchableOpacity>
 
-          {/* Botão Descanso Longo */}
           <TouchableOpacity
             style={styles.restButtonLong}
             onPress={handleLongRest}
@@ -367,20 +387,21 @@ export default function HomeScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* Espaço extra para não colar no final */}
         <View style={{ height: 40 }} />
       </ScrollView>
 
-      {/* --- MODAL ESPECÍFICO PARA DINHEIRO --- */}
+      {/* --- MODAL DINHEIRO --- */}
       <Modal visible={isMoneyModalVisible} transparent animationType="fade">
         <View style={styles.modalOverlay}>
           <View style={styles.smallModal}>
             <Text style={styles.smallModalTitle}>Gerenciar Pratas</Text>
+
+            {/* Input Principal */}
             <View style={styles.inputWrapper}>
               <Ionicons
                 name="cash"
                 size={20}
-                color="#888"
+                color={colors.textSecondary}
                 style={{ marginRight: 10 }}
               />
               <TextInput
@@ -389,8 +410,41 @@ export default function HomeScreen() {
                 value={tempSilver}
                 onChangeText={setTempSilver}
                 autoFocus
+                placeholderTextColor={colors.textSecondary}
               />
             </View>
+
+            {/* Botões de Ajuste Rápido */}
+            <View style={styles.quickAdjustContainer}>
+              <View style={styles.quickAdjustRow}>
+                <TouchableOpacity
+                  onPress={() => adjustMoney(-10)}
+                  style={styles.adjustBtn}
+                >
+                  <Text style={styles.adjustBtnText}>-10</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={() => adjustMoney(-1)}
+                  style={styles.adjustBtn}
+                >
+                  <Text style={styles.adjustBtnText}>-1</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={() => adjustMoney(1)}
+                  style={styles.adjustBtn}
+                >
+                  <Text style={styles.adjustBtnText}>+1</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={() => adjustMoney(10)}
+                  style={styles.adjustBtn}
+                >
+                  <Text style={styles.adjustBtnText}>+10</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            {/* Botões de Ação */}
             <View style={styles.modalButtons}>
               <TouchableOpacity
                 onPress={() => setMoneyModalVisible(false)}
@@ -406,11 +460,11 @@ export default function HomeScreen() {
         </View>
       </Modal>
 
-      {/* --- MODAL DE EDIÇÃO DE PERSONAGEM --- */}
+      {/* --- MODAL EDIÇÃO --- */}
       <Modal
         visible={isEditModalVisible}
         animationType="slide"
-        presentationStyle="pageSheet" // Estilo iOS moderno (funciona em Android como full)
+        presentationStyle="pageSheet"
       >
         <View style={styles.modalContainer}>
           <View style={styles.modalHeader}>
@@ -421,28 +475,39 @@ export default function HomeScreen() {
           </View>
 
           <ScrollView contentContainerStyle={styles.modalContent}>
-            {/* 1. Dados Básicos */}
-            <Text style={styles.sectionTitle}>Dados Básicos</Text>
+            {/* 1. Identidade */}
+            <Text style={styles.sectionTitle}>Identidade</Text>
             <View style={styles.inputGroup}>
               <Text style={styles.label}>Nome</Text>
               <TextInput
                 style={styles.input}
                 value={character.name}
-                onChangeText={(txt) => updateNameAndClass(txt, character.class)}
+                onChangeText={(txt) =>
+                  updateNameAndClass(txt, character.class as CharacterClass)
+                }
+                placeholderTextColor={colors.textSecondary}
               />
             </View>
-            {/* SELETOR DE CLASSE (SUBSTITUI O TEXTINPUT) */}
+
             <View style={styles.inputGroup}>
               <Text style={styles.label}>Classe</Text>
               <View style={styles.classSelector}>
                 {ALL_CLASSES.map((cls) => {
                   const isSelected = character.class === cls;
+                  const currentAncestry = ANCESTRIES.find(
+                    (a) => a.id === character.ancestry?.id
+                  );
+                  const isRestricted =
+                    currentAncestry?.restrictedClasses?.includes(cls);
+
                   return (
                     <TouchableOpacity
                       key={cls}
+                      disabled={isRestricted}
                       style={[
                         styles.classChip,
                         isSelected && styles.classChipActive,
+                        isRestricted && styles.classChipDisabled,
                       ]}
                       onPress={() => updateNameAndClass(character.name, cls)}
                     >
@@ -450,6 +515,7 @@ export default function HomeScreen() {
                         style={[
                           styles.classChipText,
                           isSelected && styles.classChipTextActive,
+                          isRestricted && styles.classChipTextDisabled,
                         ]}
                       >
                         {cls}
@@ -468,7 +534,7 @@ export default function HomeScreen() {
               </View>
             </View>
 
-            {/* 2. ANCESTRALIDADE (Novo Seletor) */}
+            {/* 2. Ancestralidade */}
             <Text style={styles.sectionTitle}>Ancestralidade</Text>
             <View style={styles.chipContainer}>
               {ANCESTRIES.map((anc) => (
@@ -494,18 +560,17 @@ export default function HomeScreen() {
             </View>
             <Text style={styles.helperText}>
               Bônus:{" "}
-              {
-                ANCESTRIES.find((a) => a.id === character.ancestry?.id)
-                  ?.attributeBonus
-              }
+              {ANCESTRIES.find((a) => a.id === character.ancestry?.id)
+                ?.attributeBonus || "-"}
             </Text>
 
-            {/* 3. ORIGEM CULTURAL (Novo Seletor - Filtrado) */}
+            {/* 3. Origem */}
             <Text style={styles.sectionTitle}>Origem Cultural</Text>
             <View style={styles.listSelector}>
-              {/* Mostra apenas as origens compatíveis com a ancestralidade escolhida */}
               {CULTURAL_ORIGINS.filter(
-                (o) => o.ancestryId === character.ancestry?.id
+                (o) =>
+                  o.ancestryId === character.ancestry?.id ||
+                  o.ancestryId === "mista"
               ).map((orig) => (
                 <TouchableOpacity
                   key={orig.id}
@@ -529,44 +594,44 @@ export default function HomeScreen() {
                     <Text style={styles.listItemDesc}>{orig.description}</Text>
                   </View>
                   {character.culturalOrigin?.id === orig.id && (
-                    <Ionicons name="checkmark" size={20} color="#6200ea" />
+                    <Ionicons
+                      name="checkmark"
+                      size={20}
+                      color={colors.primary}
+                    />
                   )}
                 </TouchableOpacity>
               ))}
             </View>
 
-            {/* 2. Stats Máximos */}
+            {/* 4. Stats & Atributos (Simplificado para brevidade, use a mesma lógica de cores do input acima) */}
             <Text style={styles.sectionTitle}>Status Máximos</Text>
             <View style={styles.row}>
               <View style={[styles.inputGroup, { flex: 1, marginRight: 8 }]}>
-                <Text style={styles.label}>Vida Máxima</Text>
+                <Text style={styles.label}>Vida Máx</Text>
                 <TextInput
                   style={styles.input}
                   keyboardType="numeric"
                   value={String(character.stats.hp.max)}
-                  onChangeText={(txt) => updateMaxStat("hp", Number(txt) || 0)}
+                  onChangeText={(t) => updateMaxStat("hp", Number(t))}
                 />
               </View>
               <View style={[styles.inputGroup, { flex: 1, marginLeft: 8 }]}>
-                <Text style={styles.label}>Foco Máximo</Text>
+                <Text style={styles.label}>Foco Máx</Text>
                 <TextInput
                   style={styles.input}
                   keyboardType="numeric"
                   value={String(character.stats.focus.max)}
-                  onChangeText={(txt) =>
-                    updateMaxStat("focus", Number(txt) || 0)
-                  }
+                  onChangeText={(t) => updateMaxStat("focus", Number(t))}
                 />
               </View>
             </View>
 
-            {/* 3. Atributos */}
             <Text style={styles.sectionTitle}>Atributos</Text>
             <View style={styles.attributesEditor}>
               {Object.values(character.attributes).map((attr) => (
                 <View key={attr.name} style={styles.attrEditRow}>
                   <Text style={styles.attrEditLabel}>{attr.name}</Text>
-
                   <View style={styles.stepper}>
                     <TouchableOpacity
                       style={styles.stepBtn}
@@ -577,11 +642,9 @@ export default function HomeScreen() {
                         )
                       }
                     >
-                      <Ionicons name="remove" size={20} color="#555" />
+                      <Ionicons name="remove" size={20} color={colors.text} />
                     </TouchableOpacity>
-
                     <Text style={styles.attrEditValue}>{attr.value}</Text>
-
                     <TouchableOpacity
                       style={styles.stepBtn}
                       onPress={() =>
@@ -591,10 +654,9 @@ export default function HomeScreen() {
                         )
                       }
                     >
-                      <Ionicons name="add" size={20} color="#555" />
+                      <Ionicons name="add" size={20} color={colors.text} />
                     </TouchableOpacity>
                   </View>
-
                   <Text style={styles.modPreview}>
                     Mod: {attr.modifier >= 0 ? "+" : ""}
                     {attr.modifier}
@@ -609,7 +671,7 @@ export default function HomeScreen() {
   );
 }
 
-// Componente ResourceControl mantido igual...
+// --- COMPONENTE DE RECURSO (MODIFICADO PARA RECEBER ESTILOS/CORES) ---
 const ResourceControl = ({
   label,
   current,
@@ -617,6 +679,8 @@ const ResourceControl = ({
   color,
   onIncrement,
   onDecrement,
+  styles,
+  colors,
 }: any) => (
   <View style={styles.resourceContainer}>
     <View style={styles.resourceHeader}>
@@ -629,523 +693,497 @@ const ResourceControl = ({
       <View
         style={[
           styles.barFill,
-          { width: `${(current / max) * 100}%`, backgroundColor: color },
+          {
+            width: `${Math.min(100, (current / max) * 100)}%`,
+            backgroundColor: color,
+          },
         ]}
       />
     </View>
     <View style={styles.buttonsRow}>
       <TouchableOpacity onPress={onDecrement} style={styles.btn}>
-        <Text>-</Text>
+        <Text style={{ color: colors.text }}>-</Text>
       </TouchableOpacity>
       <TouchableOpacity onPress={onIncrement} style={styles.btn}>
-        <Text>+</Text>
+        <Text style={{ color: colors.text }}>+</Text>
       </TouchableOpacity>
     </View>
   </View>
 );
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#fff" },
-  content: { padding: 16 },
-  mainContainer: { flex: 1, backgroundColor: "#fff" },
+// --- GERADOR DE ESTILOS DINÂMICO ---
+const getStyles = (colors: ThemeColors) =>
+  StyleSheet.create({
+    mainContainer: { flex: 1, backgroundColor: colors.background },
+    container: { flex: 1 },
+    content: { padding: 16 },
 
-  // Estilos do Header com Avatar
-  headerContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 20,
-    gap: 16,
-  },
-  avatarContainer: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: "#f0f0f0",
-    justifyContent: "center",
-    alignItems: "center",
-    borderWidth: 2,
-    borderColor: "#e0e0e0",
-    position: "relative",
-  },
-  avatarImage: {
-    width: "100%",
-    height: "100%",
-    borderRadius: 40,
-  },
-  avatarPlaceholder: {
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  avatarText: {
-    fontSize: 10,
-    color: "#999",
-    marginTop: 2,
-  },
-  editBadge: {
-    position: "absolute",
-    bottom: 0,
-    right: 0,
-    backgroundColor: "#6200ea",
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    justifyContent: "center",
-    alignItems: "center",
-    borderWidth: 2,
-    borderColor: "#fff",
-  },
-  headerText: {
-    flex: 1,
-    justifyContent: "center",
-  },
-  charName: { fontSize: 24, fontWeight: "bold", color: "#333" },
-  subtext: { fontSize: 14, color: "#666", marginTop: 2 },
-  levelBadge: {
-    marginTop: 6,
-    backgroundColor: "#333",
-    alignSelf: "flex-start",
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 4,
-  },
-  levelText: {
-    color: "#fff",
-    fontSize: 10,
-    fontWeight: "bold",
-    textTransform: "uppercase",
-  },
+    // Top Bar
+    topBar: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "center",
+      marginBottom: 16,
+    },
+    screenTitle: { fontSize: 28, fontWeight: "bold", color: colors.text },
+    iconBtn: { padding: 8 },
 
-  divider: { height: 1, backgroundColor: "#f0f0f0", marginVertical: 16 },
+    // Header
+    headerContainer: {
+      flexDirection: "row",
+      alignItems: "center",
+      marginBottom: 20,
+      gap: 16,
+    },
+    avatarContainer: {
+      width: 80,
+      height: 80,
+      borderRadius: 40,
+      backgroundColor: colors.surface,
+      justifyContent: "center",
+      alignItems: "center",
+      borderWidth: 2,
+      borderColor: colors.border,
+    },
+    avatarImage: { width: "100%", height: "100%", borderRadius: 40 },
+    avatarPlaceholder: { alignItems: "center", justifyContent: "center" },
+    avatarText: { fontSize: 10, color: colors.textSecondary, marginTop: 2 },
+    editBadge: {
+      position: "absolute",
+      bottom: 0,
+      right: 0,
+      backgroundColor: colors.primary,
+      width: 24,
+      height: 24,
+      borderRadius: 12,
+      justifyContent: "center",
+      alignItems: "center",
+      borderWidth: 2,
+      borderColor: colors.surface,
+    },
 
-  // Estilos de Atributos (Mantidos)
-  attributesGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    justifyContent: "space-between",
-  },
-  attrCard: {
-    width: "30%",
-    backgroundColor: "#f9f9f9",
-    padding: 10,
-    alignItems: "center",
-    marginBottom: 12,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: "#eee",
-  },
-  attrLabel: { fontSize: 12, fontWeight: "bold", color: "#555" },
-  attrValue: { fontSize: 22, fontWeight: "bold" },
-  modBadge: {
-    backgroundColor: "#333",
-    borderRadius: 4,
-    paddingHorizontal: 6,
-    marginTop: 4,
-  },
-  modText: { color: "#fff", fontSize: 12, fontWeight: "bold" },
-  resourceContainer: { marginBottom: 16 },
-  resourceHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    marginBottom: 4,
-  },
-  resourceLabel: { fontWeight: "600" },
-  resourceValues: { color: "#555" },
-  barBackground: {
-    height: 12,
-    backgroundColor: "#eee",
-    borderRadius: 6,
-    overflow: "hidden",
-    marginBottom: 8,
-  },
-  barFill: { height: "100%" },
-  buttonsRow: { flexDirection: "row", justifyContent: "flex-end", gap: 10 },
-  btn: {
-    width: 40,
-    height: 30,
-    backgroundColor: "#f0f0f0",
-    alignItems: "center",
-    justifyContent: "center",
-    borderRadius: 4,
-  },
-  debugSection: {
-    marginTop: 20,
-    alignItems: "center",
-    marginBottom: 20,
-  },
-  resetButton: {
-    backgroundColor: "#ffcdd2", // Vermelho claro
-    paddingVertical: 10,
-    paddingHorizontal: 20,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: "#e53935",
-  },
-  resetText: {
-    color: "#c62828",
-    fontWeight: "bold",
-  },
-  // --- ESTILOS DO MODAL ---
-  modalContainer: { flex: 1, backgroundColor: "#fff" },
-  modalHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    padding: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: "#eee",
-  },
-  modalTitle: { fontSize: 18, fontWeight: "bold" },
-  closeText: { color: "#6200ea", fontSize: 16, fontWeight: "600" },
-  modalContent: { padding: 20, paddingBottom: 50 },
+    headerText: { flex: 1 },
+    charName: { fontSize: 24, fontWeight: "bold", color: colors.text },
+    subtext: { fontSize: 14, color: colors.textSecondary, marginTop: 2 },
+    levelBadge: {
+      marginTop: 6,
+      backgroundColor: colors.text,
+      alignSelf: "flex-start",
+      paddingHorizontal: 8,
+      paddingVertical: 2,
+      borderRadius: 4,
+    },
+    levelText: {
+      color: colors.background,
+      fontSize: 10,
+      fontWeight: "bold",
+      textTransform: "uppercase",
+    },
 
-  sectionTitle: {
-    fontSize: 16,
-    fontWeight: "bold",
-    marginTop: 20,
-    marginBottom: 12,
-    color: "#444",
-    textTransform: "uppercase",
-  },
+    divider: { height: 1, backgroundColor: colors.border, marginVertical: 16 },
 
-  inputGroup: { marginBottom: 16 },
-  label: { fontSize: 14, color: "#666", marginBottom: 6 },
-  input: {
-    borderWidth: 1,
-    borderColor: "#ddd",
-    borderRadius: 8,
-    padding: 12,
-    fontSize: 16,
-    backgroundColor: "#f9f9f9",
-  },
-  row: { flexDirection: "row" },
+    // Carteira (Mantive as cores originais mas adaptei o texto e fundo)
+    walletContainer: {
+      backgroundColor: colors.surface,
+      borderRadius: 12,
+      padding: 16,
+      borderWidth: 1,
+      borderColor: colors.gold,
+    },
+    walletHeader: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "center",
+    },
+    walletLabelBox: { flexDirection: "row", alignItems: "center", gap: 8 },
+    walletLabel: {
+      fontSize: 16,
+      fontWeight: "bold",
+      color: colors.gold,
+      textTransform: "uppercase",
+    },
+    walletValue: { fontSize: 28, fontWeight: "bold", color: colors.text },
 
-  // Editor de Atributos
-  attributesEditor: {
-    backgroundColor: "#f9f9f9",
-    borderRadius: 12,
-    padding: 10,
-  },
-  attrEditRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingVertical: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: "#eee",
-  },
-  attrEditLabel: { fontSize: 16, fontWeight: "500", width: 100 },
-  stepper: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#fff",
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: "#e0e0e0",
-  },
-  stepBtn: { padding: 10 },
-  attrEditValue: {
-    fontSize: 18,
-    fontWeight: "bold",
-    width: 40,
-    textAlign: "center",
-  },
-  modPreview: { width: 60, textAlign: "right", color: "#666", fontSize: 14 },
-  topBar: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 16,
-  },
-  screenTitle: { fontSize: 28, fontWeight: "bold", color: "#222" },
-  editIconBtn: { padding: 8 },
-  // ESTILOS NOVOS DO SELECTOR DE CLASSE
-  classSelector: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 8,
-  },
-  classChip: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderRadius: 20,
-    backgroundColor: "#f0f0f0",
-    borderWidth: 1,
-    borderColor: "#e0e0e0",
-  },
-  classChipActive: {
-    backgroundColor: "#6200ea", // Roxo principal
-    borderColor: "#6200ea",
-  },
-  classChipText: {
-    fontSize: 14,
-    color: "#444",
-    fontWeight: "500",
-  },
-  classChipTextActive: {
-    color: "#fff",
-    fontWeight: "bold",
-  },
-  // Estilos do Card de Origem
-  originCard: {
-    backgroundColor: "#f8f9fa",
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: "#e0e0e0",
-    padding: 12,
-    marginBottom: 16,
-  },
-  originHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-  originLabel: {
-    fontSize: 10,
-    textTransform: "uppercase",
-    color: "#888",
-    fontWeight: "bold",
-  },
-  originValue: { fontSize: 16, fontWeight: "bold", color: "#333" },
-  originBody: {
-    marginTop: 12,
-    paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: "#eee",
-  },
-  traitRow: { marginBottom: 8 },
-  traitName: { fontSize: 14, fontWeight: "bold", color: "#444" },
-  traitDesc: { fontSize: 13, color: "#666", lineHeight: 18 },
-  infoBlock: { flexDirection: "row", gap: 6, marginBottom: 4 },
-  infoText: { fontSize: 13, color: "#555", flex: 1 },
+    // Origin Card
+    originCard: {
+      backgroundColor: colors.surface,
+      borderRadius: 8,
+      borderWidth: 1,
+      borderColor: colors.border,
+      padding: 12,
+      marginBottom: 16,
+    },
+    originHeader: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "center",
+    },
+    originLabel: {
+      fontSize: 10,
+      textTransform: "uppercase",
+      color: colors.textSecondary,
+      fontWeight: "bold",
+    },
+    originValue: { fontSize: 16, fontWeight: "bold", color: colors.text },
+    originBody: {
+      marginTop: 12,
+      paddingTop: 12,
+      borderTopWidth: 1,
+      borderTopColor: colors.border,
+    },
+    traitRow: { marginBottom: 8 },
+    traitName: { fontSize: 14, fontWeight: "bold", color: colors.text },
+    traitDesc: { fontSize: 13, color: colors.textSecondary },
+    infoBlock: { flexDirection: "row", gap: 6, marginBottom: 4 },
+    infoText: { fontSize: 13, color: colors.textSecondary, flex: 1 },
 
-  // Chips (Ancestralidade)
-  chipContainer: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 8,
-    marginBottom: 4,
-  },
-  chip: {
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderRadius: 20,
-    backgroundColor: "#f0f0f0",
-  },
-  chipActive: { backgroundColor: "#6200ea" },
-  chipText: { color: "#444", fontWeight: "500" },
-  chipTextActive: { color: "#fff" },
-  helperText: {
-    fontSize: 12,
-    color: "#888",
-    marginBottom: 16,
-    fontStyle: "italic",
-  },
+    // Resources
+    resourceContainer: { marginBottom: 16 },
+    resourceHeader: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      marginBottom: 4,
+    },
+    resourceLabel: { fontWeight: "600", color: colors.text },
+    resourceValues: { color: colors.textSecondary },
+    barBackground: {
+      height: 12,
+      backgroundColor: colors.border,
+      borderRadius: 6,
+      overflow: "hidden",
+      marginBottom: 8,
+    },
+    barFill: { height: "100%" },
+    buttonsRow: { flexDirection: "row", justifyContent: "flex-end", gap: 10 },
+    btn: {
+      width: 40,
+      height: 30,
+      backgroundColor: colors.surface,
+      alignItems: "center",
+      justifyContent: "center",
+      borderRadius: 4,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
 
-  // Lista (Origem)
-  listSelector: { gap: 8 },
-  listItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    padding: 12,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: "#eee",
-    backgroundColor: "#fff",
-  },
-  listItemActive: { borderColor: "#6200ea", backgroundColor: "#f3e5f5" },
-  listItemTitle: { fontWeight: "bold", fontSize: 14, color: "#333" },
-  listItemTitleActive: { color: "#6200ea" },
-  listItemDesc: { fontSize: 12, color: "#666", marginTop: 2 },
-  // --- ESTILOS DA CARTEIRA ---
-  walletContainer: {
-    backgroundColor: "#fff8e1", // Fundo amarelo bem claro (cor de moeda)
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 0,
-    borderWidth: 1,
-    borderColor: "#ffecb3",
-    elevation: 1,
-  },
-  walletHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 0,
-  },
-  walletLabelBox: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-  },
-  walletLabel: {
-    fontSize: 16,
-    fontWeight: "bold",
-    color: "#f57f17", // Laranja escuro
-    textTransform: "uppercase",
-  },
-  walletValue: {
-    fontSize: 28,
-    fontWeight: "bold",
-    color: "#333",
-  },
-  walletActions: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-  },
-  walletSpacer: {
-    flex: 1, // Empurra os botões para as pontas
-    height: 1,
-    backgroundColor: "#ffecb3",
-  },
-  walletBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: "#fff",
-    borderWidth: 1,
-    borderColor: "#f9a825",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  walletBtnSmall: {
-    paddingHorizontal: 10,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: "#fff",
-    borderWidth: 1,
-    borderColor: "#f9a825",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  walletBtnText: {
-    fontSize: 12,
-    fontWeight: "bold",
-    color: "#f57f17",
-  },
+    // Atributos
+    attributesGrid: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      justifyContent: "space-between",
+    },
+    attrCard: {
+      width: "30%",
+      backgroundColor: colors.surface,
+      padding: 10,
+      alignItems: "center",
+      marginBottom: 12,
+      borderRadius: 8,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    attrLabel: {
+      fontSize: 12,
+      fontWeight: "bold",
+      color: colors.textSecondary,
+    },
+    attrValue: { fontSize: 22, fontWeight: "bold", color: colors.text },
+    modBadge: {
+      backgroundColor: colors.text,
+      borderRadius: 4,
+      paddingHorizontal: 6,
+      marginTop: 4,
+    },
+    modText: { color: colors.background, fontSize: 12, fontWeight: "bold" },
 
-  // --- ESTILOS DO MODAL PEQUENO (Dinheiro) ---
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: "rgba(0,0,0,0.5)",
-    justifyContent: "center",
-    alignItems: "center",
-    padding: 20,
-  },
-  smallModal: {
-    backgroundColor: "#fff",
-    width: "80%",
-    borderRadius: 12,
-    padding: 20,
-    elevation: 5,
-  },
-  smallModalTitle: {
-    fontSize: 18,
-    fontWeight: "bold",
-    marginBottom: 16,
-    textAlign: "center",
-  },
-  inputWrapper: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#f5f5f5",
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    marginBottom: 20,
-  },
-  moneyInput: {
-    flex: 1,
-    paddingVertical: 12,
-    fontSize: 24,
-    fontWeight: "bold",
-    color: "#333",
-  },
-  modalButtons: { flexDirection: "row", gap: 10 },
-  cancelBtn: {
-    flex: 1,
-    padding: 12,
-    alignItems: "center",
-    borderRadius: 8,
-    backgroundColor: "#f5f5f5",
-  },
-  saveBtn: {
-    flex: 1,
-    padding: 12,
-    alignItems: "center",
-    borderRadius: 8,
-    backgroundColor: "#fbc02d",
-  }, // Amarelo Ouro
-  cancelText: { color: "#666", fontWeight: "bold" },
-  saveText: { color: "#fff", fontWeight: "bold" },
-  sectionLabel: {
-    fontSize: 14,
-    fontWeight: "bold",
-    color: "#888",
-    marginBottom: 10,
-    textTransform: "uppercase",
-    letterSpacing: 1,
-  },
+    // Debug
+    debugSection: { marginTop: 20, alignItems: "center", marginBottom: 20 },
+    resetButton: {
+      backgroundColor: colors.error + "20",
+      paddingVertical: 10,
+      paddingHorizontal: 20,
+      borderRadius: 8,
+      borderWidth: 1,
+      borderColor: colors.error,
+    },
+    resetText: { color: colors.error, fontWeight: "bold" },
 
-  restContainer: {
-    flexDirection: "row",
-    gap: 12,
-  },
+    // Rest
+    sectionLabel: {
+      fontSize: 14,
+      fontWeight: "bold",
+      color: colors.textSecondary,
+      marginBottom: 10,
+      textTransform: "uppercase",
+      letterSpacing: 1,
+    },
+    restContainer: { flexDirection: "row", gap: 12 },
+    // Cards de descanso mantidos com cor fixa para identidade visual, mas texto adaptado
+    restButtonShort: {
+      flex: 1,
+      flexDirection: "row",
+      alignItems: "center",
+      backgroundColor: "#fff3e0",
+      padding: 12,
+      borderRadius: 12,
+      borderWidth: 1,
+      borderColor: "#ffe0b2",
+    },
+    restButtonLong: {
+      flex: 1,
+      flexDirection: "row",
+      alignItems: "center",
+      backgroundColor: "#ede7f6",
+      padding: 12,
+      borderRadius: 12,
+      borderWidth: 1,
+      borderColor: "#d1c4e9",
+    },
+    iconCircleShort: {
+      width: 36,
+      height: 36,
+      borderRadius: 18,
+      backgroundColor: "#fff",
+      justifyContent: "center",
+      alignItems: "center",
+      marginRight: 10,
+    },
+    iconCircleLong: {
+      width: 36,
+      height: 36,
+      borderRadius: 18,
+      backgroundColor: "#fff",
+      justifyContent: "center",
+      alignItems: "center",
+      marginRight: 10,
+    },
+    restTitle: { fontSize: 14, fontWeight: "bold", color: "#333" }, // Fixo para contraste com o fundo claro
+    restDesc: { fontSize: 10, color: "#666", marginTop: 2 }, // Fixo
 
-  // Estilo Base do Botão
-  restButtonShort: {
-    flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#fff3e0", // Laranja bem claro
-    padding: 12,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: "#ffe0b2",
-    elevation: 1,
-  },
-  restButtonLong: {
-    flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#ede7f6", // Roxo bem claro
-    padding: 12,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: "#d1c4e9",
-    elevation: 1,
-  },
+    // Modais
+    modalOverlay: {
+      flex: 1,
+      backgroundColor: "rgba(0,0,0,0.6)",
+      justifyContent: "center",
+      alignItems: "center",
+      padding: 20,
+    },
+    smallModal: {
+      backgroundColor: colors.surface,
+      width: "80%",
+      borderRadius: 12,
+      padding: 20,
+      elevation: 5,
+    },
+    smallModalTitle: {
+      fontSize: 18,
+      fontWeight: "bold",
+      marginBottom: 16,
+      textAlign: "center",
+      color: colors.text,
+    },
+    inputWrapper: {
+      flexDirection: "row",
+      alignItems: "center",
+      backgroundColor: colors.inputBg,
+      borderRadius: 8,
+      paddingHorizontal: 12,
+      marginBottom: 20,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    moneyInput: {
+      flex: 1,
+      paddingVertical: 12,
+      fontSize: 24,
+      fontWeight: "bold",
+      color: colors.text,
+    },
+    modalButtons: { flexDirection: "row", gap: 10 },
+    cancelBtn: {
+      flex: 1,
+      padding: 12,
+      alignItems: "center",
+      borderRadius: 8,
+      backgroundColor: colors.inputBg,
+    },
+    saveBtn: {
+      flex: 1,
+      padding: 12,
+      alignItems: "center",
+      borderRadius: 8,
+      backgroundColor: colors.gold,
+    },
+    cancelText: { color: colors.textSecondary, fontWeight: "bold" },
+    saveText: { color: "#fff", fontWeight: "bold" },
 
-  // Ícones Circulares
-  iconCircleShort: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: "#fff",
-    justifyContent: "center",
-    alignItems: "center",
-    marginRight: 10,
-  },
-  iconCircleLong: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: "#fff",
-    justifyContent: "center",
-    alignItems: "center",
-    marginRight: 10,
-  },
+    // Edit Modal Full
+    modalContainer: { flex: 1, backgroundColor: colors.background },
+    modalHeader: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "center",
+      padding: 20,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border,
+    },
+    modalTitle: { fontSize: 18, fontWeight: "bold", color: colors.text },
+    closeText: { color: colors.primary, fontSize: 16, fontWeight: "600" },
+    modalContent: { padding: 20, paddingBottom: 50 },
+    sectionTitle: {
+      fontSize: 16,
+      fontWeight: "bold",
+      marginTop: 20,
+      marginBottom: 12,
+      color: colors.textSecondary,
+      textTransform: "uppercase",
+    },
 
-  // Textos
-  restTitle: {
-    fontSize: 14,
-    fontWeight: "bold",
-    color: "#333",
-  },
-  restDesc: {
-    fontSize: 10,
-    color: "#666",
-    marginTop: 2,
-  },
-});
+    inputGroup: { marginBottom: 16 },
+    label: { fontSize: 14, color: colors.textSecondary, marginBottom: 6 },
+    input: {
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderRadius: 8,
+      padding: 12,
+      fontSize: 16,
+      backgroundColor: colors.inputBg,
+      color: colors.text,
+    },
+
+    // Chips
+    classSelector: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
+    classChip: {
+      flexDirection: "row",
+      alignItems: "center",
+      paddingVertical: 8,
+      paddingHorizontal: 16,
+      borderRadius: 20,
+      backgroundColor: colors.inputBg,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    classChipActive: {
+      backgroundColor: colors.primary,
+      borderColor: colors.primary,
+    },
+    classChipDisabled: { backgroundColor: colors.inputBg, opacity: 0.5 },
+    classChipText: {
+      fontSize: 14,
+      color: colors.textSecondary,
+      fontWeight: "500",
+    },
+    classChipTextActive: { color: "#fff", fontWeight: "bold" },
+    classChipTextDisabled: {
+      textDecorationLine: "line-through",
+      color: colors.error,
+    },
+
+    chipContainer: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      gap: 8,
+      marginBottom: 4,
+    },
+    chip: {
+      paddingVertical: 8,
+      paddingHorizontal: 16,
+      borderRadius: 20,
+      backgroundColor: colors.inputBg,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    chipActive: { backgroundColor: colors.primary },
+    chipText: { color: colors.textSecondary, fontWeight: "500" },
+    chipTextActive: { color: "#fff" },
+    helperText: {
+      fontSize: 12,
+      color: colors.textSecondary,
+      marginBottom: 16,
+      fontStyle: "italic",
+    },
+
+    listSelector: { gap: 8 },
+    listItem: {
+      flexDirection: "row",
+      alignItems: "center",
+      padding: 12,
+      borderRadius: 8,
+      borderWidth: 1,
+      borderColor: colors.border,
+      backgroundColor: colors.surface,
+    },
+    listItemActive: {
+      borderColor: colors.primary,
+      backgroundColor: colors.primary + "10",
+    }, // Tint leve
+    listItemTitle: { fontWeight: "bold", fontSize: 14, color: colors.text },
+    listItemTitleActive: { color: colors.primary },
+    listItemDesc: { fontSize: 12, color: colors.textSecondary, marginTop: 2 },
+
+    // Attr Editor
+    attributesEditor: {
+      backgroundColor: colors.inputBg,
+      borderRadius: 12,
+      padding: 10,
+    },
+    attrEditRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      paddingVertical: 10,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border,
+    },
+    attrEditLabel: {
+      fontSize: 16,
+      fontWeight: "500",
+      width: 100,
+      color: colors.text,
+    },
+    stepper: {
+      flexDirection: "row",
+      alignItems: "center",
+      backgroundColor: colors.surface,
+      borderRadius: 8,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    stepBtn: { padding: 10 },
+    attrEditValue: {
+      fontSize: 18,
+      fontWeight: "bold",
+      width: 40,
+      textAlign: "center",
+      color: colors.text,
+    },
+    modPreview: {
+      width: 60,
+      textAlign: "right",
+      color: colors.textSecondary,
+      fontSize: 14,
+    },
+    row: { flexDirection: "row" },
+    // Quick Adjust (Novos Estilos)
+    quickAdjustContainer: {
+      marginBottom: 20,
+    },
+    quickAdjustRow: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      gap: 8,
+    },
+    adjustBtn: {
+      flex: 1,
+      backgroundColor: colors.inputBg,
+      paddingVertical: 10,
+      borderRadius: 8,
+      borderWidth: 1,
+      borderColor: colors.border,
+      alignItems: "center",
+    },
+    adjustBtnText: {
+      fontWeight: "bold",
+      color: colors.text,
+    },
+  });

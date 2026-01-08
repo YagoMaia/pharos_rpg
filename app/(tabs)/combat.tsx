@@ -1,4 +1,3 @@
-// app/(tabs)/combat.tsx
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import React, { useMemo, useState } from "react";
 import {
@@ -9,23 +8,21 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+
+// Imports de Contexto e Tipos
 import { useCharacter } from "../../context/CharacterContext";
+import { useTheme } from "../../context/ThemeContext"; // <--- Hook do Tema
 import { Skill } from "../../types/rpg";
+import { ThemeColors } from "@/constants/theme";
 
 export default function CombatScreen() {
-  // Precisamos acessar o setCharacter diretamente para mudar o index para -1 (se o toggleStance original só alternar 0/1)
-  // Se o seu contexto não exporta setCharacter, vamos criar uma função auxiliar aqui ou assumir que você alterou o Contexto.
-  // Vou assumir que você vai adicionar a função `setStanceIndex` no Contexto ou usar a lógica abaixo.
+  const { character, setStanceIndex, updateStat } = useCharacter();
 
-  // SOLUÇÃO SIMPLES: Vamos modificar como usamos o toggleStance.
-  // Se o seu contexto tiver apenas toggleStance (0 <-> 1), precisamos adicionar uma função `setStance` no Contexto.
-  // Mas para não quebrar tudo agora, vou simular visualmente aqui e assumir que você adicionou `setStanceIndex` no Contexto.
+  // Hook do Tema
+  const { colors } = useTheme();
+  // Gerar estilos dinâmicos
+  const styles = useMemo(() => getStyles(colors), [colors]);
 
-  const { character, updateStat, toggleStance, setStanceIndex } =
-    useCharacter();
-  // ^^^ ADICIONE setStanceIndex NO SEU CONTEXTO (veja abaixo como)
-
-  // -1 = Neutra, 0 = Postura 1, 1 = Postura 2
   const currentStanceIdx = character.currentStanceIndex ?? -1;
   const isNeutral = currentStanceIdx === -1;
 
@@ -37,13 +34,11 @@ export default function CombatScreen() {
     const armorDef = character.equipment.armor.defense || 0;
     const shieldDef = character.equipment.shield.defense || 0;
 
-    // Busca Destreza
     const dexMod =
       Object.values(character.attributes).find(
         (attr) => attr.name === "Destreza"
       )?.modifier || 0;
 
-    // 1. Cálculo Base
     let baseAC = 0;
     if (armorDef === 0) {
       baseAC = 10 + dexMod;
@@ -54,10 +49,7 @@ export default function CombatScreen() {
     }
     baseAC += shieldDef;
 
-    // 2. Modificadores de Postura
     let stanceMod = 0;
-
-    // SÓ APLICA SE NÃO FOR NEUTRA
     if (!isNeutral && activeStance) {
       const sId = activeStance.id;
       if (sId === "gue_defensor") stanceMod = 1;
@@ -67,9 +59,17 @@ export default function CombatScreen() {
     }
 
     return { total: baseAC + stanceMod, stanceMod, base: baseAC };
-  }, [character.equipment, character.attributes, currentStanceIdx]);
+  }, [character.equipment, character.attributes, activeStance, isNeutral]);
 
-  const renderSkill = ({ item }: { item: Skill }) => <SkillCard skill={item} />;
+  const renderSkill = ({ item }: { item: Skill }) => (
+    <SkillCard
+      skill={item}
+      styles={styles}
+      colors={colors}
+      updateStat={updateStat}
+      character={character}
+    />
+  );
 
   return (
     <View style={styles.container}>
@@ -78,18 +78,22 @@ export default function CombatScreen() {
         <View style={styles.focusContainer}>
           <View style={styles.focusHeader}>
             <View style={styles.labelGroup}>
-              <Ionicons name="flash" size={14} color="#1e88e5" />
+              <Ionicons name="flash" size={14} color={colors.focus} />
               <Text style={styles.hudLabel}>FOCO</Text>
             </View>
             <Text style={styles.focusValue}>
-              {focus.current}/{focus.max}
+              <Text style={styles.focusCurrent}>{focus.current}</Text>
+              <Text style={styles.focusMax}>/{focus.max}</Text>
             </Text>
           </View>
           <View style={styles.focusBarBg}>
             <View
               style={[
                 styles.focusBarFill,
-                { width: `${(focus.current / focus.max) * 100}%` },
+                {
+                  width: `${(focus.current / focus.max) * 100}%`,
+                  backgroundColor: colors.focus,
+                },
               ]}
             />
           </View>
@@ -99,7 +103,11 @@ export default function CombatScreen() {
 
         <View style={styles.acContainer}>
           <View style={styles.labelGroup}>
-            <MaterialCommunityIcons name="shield" size={14} color="#555" />
+            <MaterialCommunityIcons
+              name="shield"
+              size={14}
+              color={colors.textSecondary}
+            />
             <Text style={styles.hudLabel}>DEFESA</Text>
           </View>
           <View style={styles.acValueContainer}>
@@ -110,7 +118,13 @@ export default function CombatScreen() {
                   styles.modBadge,
                   {
                     backgroundColor:
-                      armorClassInfo.stanceMod > 0 ? "#e8f5e9" : "#ffebee",
+                      armorClassInfo.stanceMod > 0
+                        ? colors.success + "20"
+                        : colors.error + "20",
+                    borderColor:
+                      armorClassInfo.stanceMod > 0
+                        ? colors.success
+                        : colors.error,
                   },
                 ]}
               >
@@ -119,7 +133,9 @@ export default function CombatScreen() {
                     armorClassInfo.stanceMod > 0 ? "arrow-up" : "arrow-down"
                   }
                   size={10}
-                  color={armorClassInfo.stanceMod > 0 ? "green" : "red"}
+                  color={
+                    armorClassInfo.stanceMod > 0 ? colors.success : colors.error
+                  }
                 />
               </View>
             )}
@@ -127,9 +143,10 @@ export default function CombatScreen() {
         </View>
       </View>
 
-      {/* --- SELETOR DE POSTURA (3 BOTÕES) --- */}
+      {/* --- SELETOR DE POSTURA --- */}
       <View style={styles.stanceSelectorContainer}>
         <Text style={styles.sectionLabel}>Postura Atual</Text>
+
         <View style={styles.stanceToggleGroup}>
           {/* Botão Neutra */}
           <TouchableOpacity
@@ -160,7 +177,7 @@ export default function CombatScreen() {
             <Text
               style={[
                 styles.stanceBtnText,
-                currentStanceIdx === 0 && styles.stanceBtnTextActive,
+                currentStanceIdx === 0 && { color: "#fff" },
               ]}
             >
               I
@@ -178,7 +195,7 @@ export default function CombatScreen() {
             <Text
               style={[
                 styles.stanceBtnText,
-                currentStanceIdx === 1 && styles.stanceBtnTextActive,
+                currentStanceIdx === 1 && { color: "#fff" },
               ]}
             >
               II
@@ -205,31 +222,34 @@ export default function CombatScreen() {
 
           {isNeutral ? (
             <Text style={styles.neutralText}>
-              Você não está focado em nenhuma técnica de combate específica. Sem
-              benefícios ou penalidades.
+              Você não está focado em nenhuma técnica específica.
             </Text>
           ) : (
             <View style={styles.stanceDetails}>
               <InfoRow
                 label="Benefício"
                 text={activeStance?.benefit || ""}
-                color="#2e7d32"
+                color={colors.success}
+                styles={styles}
               />
               <InfoRow
                 label="Restrição"
                 text={activeStance?.restriction || ""}
-                color="#c62828"
+                color={colors.error}
+                styles={styles}
               />
               <InfoRow
                 label="Manobra"
                 text={activeStance?.maneuver || ""}
-                color="#1565c0"
+                color={colors.focus}
+                styles={styles}
               />
               {activeStance?.recovery && (
                 <InfoRow
                   label="Recuperação"
                   text={activeStance?.recovery}
-                  color="#6a1b9a"
+                  color={colors.primary}
+                  styles={styles}
                 />
               )}
             </View>
@@ -249,25 +269,17 @@ export default function CombatScreen() {
   );
 }
 
-// ... InfoRow e SkillCard (Mantidos iguais) ...
-const InfoRow = ({
-  label,
-  text,
-  color,
-}: {
-  label: string;
-  text: string;
-  color: string;
-}) => (
+// Componente InfoRow (Recebe styles/colors agora)
+const InfoRow = ({ label, text, color, styles }: any) => (
   <View style={styles.infoRow}>
     <Text style={[styles.infoLabel, { color }]}>{label}:</Text>
     <Text style={styles.infoText}>{text}</Text>
   </View>
 );
 
-const SkillCard = ({ skill }: { skill: Skill }) => {
+// Componente SkillCard (Recebe styles/colors agora)
+const SkillCard = ({ skill, styles, colors, updateStat, character }: any) => {
   const [expanded, setExpanded] = useState(false);
-  const { character, updateStat } = useCharacter();
   const hasEnoughFocus = character.stats.focus.current >= skill.cost;
 
   const handleUseSkill = () => {
@@ -326,177 +338,195 @@ const SkillCard = ({ skill }: { skill: Skill }) => {
   );
 };
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#f5f5f5" },
+// --- GERADOR DE ESTILOS DINÂMICO ---
+const getStyles = (colors: ThemeColors) =>
+  StyleSheet.create({
+    container: { flex: 1, backgroundColor: colors.background },
 
-  // HUD
-  combatHud: {
-    backgroundColor: "#fff",
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    elevation: 3,
-    marginBottom: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: "#eee",
-  },
-  focusContainer: { flex: 2, marginRight: 16 },
-  focusHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 6,
-  },
-  labelGroup: { flexDirection: "row", alignItems: "center", gap: 6 },
-  hudLabel: { fontSize: 10, fontWeight: "bold", color: "#666" },
-  focusValue: { fontSize: 12, color: "#555" },
-  focusBarBg: {
-    height: 8,
-    backgroundColor: "#e3f2fd",
-    borderRadius: 4,
-    overflow: "hidden",
-  },
-  focusBarFill: { height: "100%", backgroundColor: "#1e88e5" },
-  verticalDivider: {
-    width: 1,
-    height: "80%",
-    backgroundColor: "#eee",
-    marginHorizontal: 8,
-  },
-  acContainer: { flex: 1, alignItems: "center" },
-  acValueContainer: { flexDirection: "row", alignItems: "center", gap: 6 },
-  acTotal: { fontSize: 32, fontWeight: "bold", color: "#333" },
-  modBadge: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    justifyContent: "center",
-    alignItems: "center",
-  },
+    // HUD
+    combatHud: {
+      backgroundColor: colors.surface,
+      flexDirection: "row",
+      alignItems: "center",
+      paddingVertical: 12,
+      paddingHorizontal: 16,
+      elevation: 3,
+      marginBottom: 16,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border,
+    },
+    focusContainer: { flex: 2, marginRight: 16 },
+    focusHeader: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "center",
+      marginBottom: 6,
+    },
+    labelGroup: { flexDirection: "row", alignItems: "center", gap: 6 },
+    hudLabel: { fontSize: 10, fontWeight: "bold", color: colors.textSecondary },
+    focusValue: { fontSize: 12, color: colors.textSecondary },
+    focusCurrent: { fontSize: 18, fontWeight: "bold", color: colors.text },
+    focusMax: { fontSize: 14, color: colors.textSecondary },
+    focusBarBg: {
+      height: 8,
+      backgroundColor: colors.border,
+      borderRadius: 4,
+      overflow: "hidden",
+    },
+    focusBarFill: { height: "100%", borderRadius: 4 }, // Cor vem inline
+    verticalDivider: {
+      width: 1,
+      height: "80%",
+      backgroundColor: colors.border,
+      marginHorizontal: 8,
+    },
+    acContainer: { flex: 1, alignItems: "center" },
+    acValueContainer: { flexDirection: "row", alignItems: "center", gap: 6 },
+    acTotal: { fontSize: 32, fontWeight: "bold", color: colors.text },
+    modBadge: {
+      width: 20,
+      height: 20,
+      borderRadius: 10,
+      justifyContent: "center",
+      alignItems: "center",
+      borderWidth: 1,
+    },
 
-  // SELETOR DE POSTURA
-  stanceSelectorContainer: { marginHorizontal: 16, marginBottom: 16 },
-  sectionLabel: {
-    fontSize: 12,
-    color: "#888",
-    fontWeight: "bold",
-    textTransform: "uppercase",
-    marginBottom: 8,
-  },
+    // SELETOR DE POSTURA
+    stanceSelectorContainer: { marginHorizontal: 16, marginBottom: 16 },
+    sectionLabel: {
+      fontSize: 12,
+      color: colors.textSecondary,
+      fontWeight: "bold",
+      textTransform: "uppercase",
+      marginBottom: 8,
+    },
 
-  stanceToggleGroup: {
-    flexDirection: "row",
-    backgroundColor: "#e0e0e0",
-    borderRadius: 8,
-    padding: 2,
-    marginBottom: 8,
-  },
-  stanceBtn: {
-    flex: 1,
-    paddingVertical: 8,
-    alignItems: "center",
-    borderRadius: 6,
-  },
-  stanceBtnText: { fontWeight: "600", color: "#666" },
+    stanceToggleGroup: {
+      flexDirection: "row",
+      backgroundColor: colors.inputBg, // Fundo do switch
+      borderRadius: 8,
+      padding: 2,
+      marginBottom: 8,
+    },
+    stanceBtn: {
+      flex: 1,
+      paddingVertical: 8,
+      alignItems: "center",
+      borderRadius: 6,
+    },
+    stanceBtnText: { fontWeight: "600", color: colors.textSecondary },
 
-  // Cores dos Botões Ativos
-  stanceBtnNeutralActive: { backgroundColor: "#fff", elevation: 2 },
-  stanceBtnP1Active: { backgroundColor: "#1976d2", elevation: 2 }, // Azul
-  stanceBtnP2Active: { backgroundColor: "#f57c00", elevation: 2 }, // Laranja
+    // Botões Ativos
+    stanceBtnNeutralActive: { backgroundColor: colors.surface, elevation: 2 },
+    stanceBtnP1Active: { backgroundColor: "#1976d2", elevation: 2 }, // Azul Fixo
+    stanceBtnP2Active: { backgroundColor: "#f57c00", elevation: 2 }, // Laranja Fixo
+    stanceBtnTextActive: { color: colors.text }, // Texto do neutro ativo
 
-  stanceBtnTextActive: { color: "#333" }, // Para Neutra
-  // Caso P1 e P2 precisem de texto branco, ajuste condicionalmente no JSX ou crie estilos separados,
-  // mas aqui simplifiquei. Se quiser texto branco nos coloridos:
-  // style={[styles.stanceBtnText, isActive && { color: isNeutral ? '#333' : '#fff' }]}
+    // CARD DE POSTURA
+    stanceCard: {
+      borderRadius: 12,
+      padding: 16,
+      elevation: 2,
+      minHeight: 120,
+      backgroundColor: colors.surface, // Fundo padrão para Dark Mode
+      borderWidth: 1,
+      borderColor: colors.border, // Borda sutil
+    },
+    // Bordas Laterais Coloridas
+    stanceNeutralBg: {
+      borderLeftWidth: 5,
+      borderLeftColor: colors.textSecondary,
+    },
+    stanceOneBg: { borderLeftWidth: 5, borderLeftColor: "#1976d2" },
+    stanceTwoBg: { borderLeftWidth: 5, borderLeftColor: "#f57c00" },
 
-  // CARD DE POSTURA
-  stanceCard: { borderRadius: 12, padding: 16, elevation: 2, minHeight: 120 },
-  stanceNeutralBg: {
-    backgroundColor: "#fff",
-    borderLeftWidth: 5,
-    borderLeftColor: "#999",
-  },
-  stanceOneBg: {
-    backgroundColor: "#e3f2fd",
-    borderLeftWidth: 5,
-    borderLeftColor: "#1976d2",
-  },
-  stanceTwoBg: {
-    backgroundColor: "#fff3e0",
-    borderLeftWidth: 5,
-    borderLeftColor: "#f57c00",
-  },
+    activeStanceName: {
+      fontSize: 20,
+      fontWeight: "bold",
+      textAlign: "center",
+      color: colors.text,
+      marginBottom: 8,
+    },
+    divider: { height: 1, backgroundColor: colors.border, marginBottom: 12 },
+    neutralText: {
+      textAlign: "center",
+      color: colors.textSecondary,
+      fontStyle: "italic",
+      marginTop: 10,
+    },
+    stanceDetails: { gap: 8 },
 
-  activeStanceName: {
-    fontSize: 20,
-    fontWeight: "bold",
-    textAlign: "center",
-    color: "#222",
-    marginBottom: 8,
-  },
-  divider: { height: 1, backgroundColor: "rgba(0,0,0,0.1)", marginBottom: 12 },
-  neutralText: {
-    textAlign: "center",
-    color: "#666",
-    fontStyle: "italic",
-    marginTop: 10,
-  },
-  stanceDetails: { gap: 8 },
+    // Info Row
+    infoRow: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      alignItems: "flex-start",
+    },
+    infoLabel: { fontWeight: "bold", marginRight: 6, fontSize: 14 },
+    infoText: {
+      fontSize: 14,
+      color: colors.textSecondary,
+      flex: 1,
+      lineHeight: 20,
+    },
 
-  // Info Row e Skills
-  infoRow: { flexDirection: "row", flexWrap: "wrap", alignItems: "flex-start" },
-  infoLabel: { fontWeight: "bold", marginRight: 6, fontSize: 14 },
-  infoText: { fontSize: 14, color: "#444", flex: 1, lineHeight: 20 },
-  sectionHeader: {
-    fontSize: 18,
-    fontWeight: "bold",
-    marginLeft: 16,
-    marginBottom: 8,
-    color: "#333",
-  },
-  listContent: { paddingHorizontal: 16, paddingBottom: 20 },
-  skillCard: {
-    backgroundColor: "#fff",
-    marginBottom: 10,
-    borderRadius: 8,
-    padding: 16,
-    elevation: 1,
-  },
-  skillHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-  skillName: { fontSize: 16, fontWeight: "bold" },
-  skillType: { fontSize: 12, color: "#666", marginTop: 2 },
-  costBadge: {
-    backgroundColor: "#e0e0e0",
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 4,
-  },
-  costBadgeDisabled: {
-    backgroundColor: "#ffebee",
-    borderWidth: 1,
-    borderColor: "#ef5350",
-  },
-  costText: { fontSize: 12, fontWeight: "bold" },
-  costTextDisabled: { color: "#c62828" },
-  skillBody: {
-    marginTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: "#eee",
-    paddingTop: 8,
-  },
-  description: { fontSize: 14, lineHeight: 20, color: "#444" },
-  useButton: {
-    marginTop: 12,
-    backgroundColor: "#6200ea",
-    paddingVertical: 10,
-    borderRadius: 6,
-    alignItems: "center",
-  },
-  useButtonDisabled: { backgroundColor: "#bdbdbd" },
-  useButtonText: { color: "#fff", fontWeight: "bold", fontSize: 14 },
-});
+    // Lista
+    sectionHeader: {
+      fontSize: 18,
+      fontWeight: "bold",
+      marginLeft: 16,
+      marginBottom: 8,
+      color: colors.text,
+    },
+    listContent: { paddingHorizontal: 16, paddingBottom: 20 },
+
+    // Skill Card
+    skillCard: {
+      backgroundColor: colors.surface,
+      marginBottom: 10,
+      borderRadius: 8,
+      padding: 16,
+      elevation: 1,
+      borderWidth: 1,
+      borderColor: colors.border, // Ajuda a separar no fundo escuro
+    },
+    skillHeader: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "center",
+    },
+    skillName: { fontSize: 16, fontWeight: "bold", color: colors.text },
+    skillType: { fontSize: 12, color: colors.textSecondary, marginTop: 2 },
+
+    costBadge: {
+      backgroundColor: colors.inputBg,
+      paddingHorizontal: 8,
+      paddingVertical: 4,
+      borderRadius: 4,
+    },
+    costBadgeDisabled: {
+      backgroundColor: colors.error + "15", // Transparente
+      borderWidth: 1,
+      borderColor: colors.error,
+    },
+    costText: { fontSize: 12, fontWeight: "bold", color: colors.text },
+    costTextDisabled: { color: colors.error },
+
+    skillBody: {
+      marginTop: 12,
+      borderTopWidth: 1,
+      borderTopColor: colors.border,
+      paddingTop: 8,
+    },
+    description: { fontSize: 14, lineHeight: 20, color: colors.textSecondary },
+    useButton: {
+      marginTop: 12,
+      backgroundColor: colors.primary,
+      paddingVertical: 10,
+      borderRadius: 6,
+      alignItems: "center",
+    },
+    useButtonDisabled: { backgroundColor: colors.border },
+    useButtonText: { color: "#fff", fontWeight: "bold", fontSize: 14 },
+  });

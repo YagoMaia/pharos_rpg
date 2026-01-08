@@ -1,6 +1,5 @@
-// app/(tabs)/inventory.tsx
 import { Ionicons } from "@expo/vector-icons";
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import {
   Alert,
   FlatList,
@@ -11,8 +10,12 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+
+// Imports de Contexto e Tipos
 import { useCharacter } from "../../context/CharacterContext";
+import { useTheme } from "../../context/ThemeContext"; // <--- Hook do Tema
 import { EquipmentItem, Item, ItemType } from "../../types/rpg";
+import { ThemeColors } from "@/constants/theme";
 
 // Adicionado 'shield' ao tipo
 type EquipSlotType = "meleeWeapon" | "rangedWeapon" | "armor" | "shield";
@@ -26,17 +29,21 @@ export default function InventoryScreen() {
     updateItemQuantity,
   } = useCharacter();
 
+  // --- TEMA ---
+  const { colors } = useTheme();
+  const styles = useMemo(() => getStyles(colors), [colors]);
+
   // --- ESTADOS ---
   const [equipModalVisible, setEquipModalVisible] = useState(false);
   const [selectedSlot, setSelectedSlot] = useState<EquipSlotType | null>(null);
 
   // Estados do formulário de equipamento
   const [editName, setEditName] = useState("");
-  const [editStats, setEditStats] = useState(""); // Para armas
-  const [editDefense, setEditDefense] = useState(""); // Para armaduras (string para input, converte depois)
-  const [editDesc, setEditDesc] = useState(""); // Descrição
+  const [editStats, setEditStats] = useState("");
+  const [editDefense, setEditDefense] = useState("");
+  const [editDesc, setEditDesc] = useState("");
 
-  // Estados de Item da Mochila (Mantidos igual)
+  // Estados de Item da Mochila
   const [addItemModalVisible, setAddItemModalVisible] = useState(false);
   const [newItemName, setNewItemName] = useState("");
   const [newItemType, setNewItemType] = useState<ItemType>("consumable");
@@ -67,7 +74,7 @@ export default function InventoryScreen() {
     }
   };
 
-  // --- HANDLERS MOCHILA (Mantidos) ---
+  // --- HANDLERS MOCHILA ---
   const handleAddItem = () => {
     if (!newItemName.trim()) return;
     const qty = parseInt(newItemQty) || 1;
@@ -106,17 +113,29 @@ export default function InventoryScreen() {
     }
   };
 
-  // Helper de Tags da Mochila
+  // Helper de Tags da Mochila (Agora usa as cores do tema)
   const getBadgeInfo = (type: ItemType) => {
     switch (type) {
       case "consumable":
-        return { label: "Consumível", bg: "#e0f2f1", text: "#00695c" };
+        return {
+          label: "Consumível",
+          bg: colors.success + "20",
+          text: colors.success,
+        }; // Verde Transparente
       case "key":
-        return { label: "Item Chave", bg: "#fff8e1", text: "#ff8f00" };
+        return {
+          label: "Item Chave",
+          bg: colors.warning + "20",
+          text: colors.warning,
+        }; // Laranja Transparente
       case "equipment":
-        return { label: "Equipamento", bg: "#f3e5f5", text: "#7b1fa2" };
+        return {
+          label: "Equipamento",
+          bg: colors.primary + "20",
+          text: colors.primary,
+        }; // Roxo Transparente
       default:
-        return { label: "Item", bg: "#eee", text: "#333" };
+        return { label: "Item", bg: colors.border, text: colors.text };
     }
   };
 
@@ -141,16 +160,14 @@ export default function InventoryScreen() {
     );
   };
 
-  // Verifica se o slot selecionado é de defesa (Armadura ou Escudo)
   const isDefenseSlot = selectedSlot === "armor" || selectedSlot === "shield";
 
   return (
     <View style={styles.container}>
-      {/* Seção Fixa: Equipamentos (Grid 2x2) */}
+      {/* Seção Fixa: Equipamentos */}
       <View style={styles.equipSection}>
         <Text style={styles.sectionTitle}>Equipamento Atual</Text>
 
-        {/* Linha 1: Armas */}
         <View style={styles.equipRow}>
           <EquipSlot
             label="Curto Alcance"
@@ -160,6 +177,8 @@ export default function InventoryScreen() {
             onPress={() =>
               handleEditSlot("meleeWeapon", character.equipment.meleeWeapon)
             }
+            styles={styles}
+            colors={colors}
           />
           <EquipSlot
             label="Longo Alcance"
@@ -169,10 +188,11 @@ export default function InventoryScreen() {
             onPress={() =>
               handleEditSlot("rangedWeapon", character.equipment.rangedWeapon)
             }
+            styles={styles}
+            colors={colors}
           />
         </View>
 
-        {/* Linha 2: Defesa */}
         <View style={styles.equipRow}>
           <EquipSlot
             label="Armadura"
@@ -180,6 +200,8 @@ export default function InventoryScreen() {
             icon="shirt"
             type="defense"
             onPress={() => handleEditSlot("armor", character.equipment.armor)}
+            styles={styles}
+            colors={colors}
           />
           <EquipSlot
             label="Escudo"
@@ -187,6 +209,8 @@ export default function InventoryScreen() {
             icon="shield"
             type="defense"
             onPress={() => handleEditSlot("shield", character.equipment.shield)}
+            styles={styles}
+            colors={colors}
           />
         </View>
       </View>
@@ -196,7 +220,7 @@ export default function InventoryScreen() {
         <View style={styles.backpackHeader}>
           <Text style={styles.sectionHeader}>Mochila</Text>
           <TouchableOpacity onPress={() => setAddItemModalVisible(true)}>
-            <Ionicons name="add-circle" size={28} color="#6200ea" />
+            <Ionicons name="add-circle" size={28} color={colors.primary} />
           </TouchableOpacity>
         </View>
         <FlatList
@@ -211,7 +235,7 @@ export default function InventoryScreen() {
         />
       </View>
 
-      {/* --- MODAL 1: EDITAR EQUIPAMENTO (Dinâmico) --- */}
+      {/* --- MODAL 1: EDITAR EQUIPAMENTO --- */}
       <Modal
         visible={equipModalVisible}
         animationType="fade"
@@ -228,19 +252,17 @@ export default function InventoryScreen() {
                 : "Arma"}
             </Text>
 
-            {/* Nome */}
             <View style={styles.inputGroup}>
               <Text style={styles.inputLabel}>Nome do Item</Text>
               <TextInput
                 style={styles.input}
                 value={editName}
                 onChangeText={setEditName}
+                placeholderTextColor={colors.textSecondary}
               />
             </View>
 
-            {/* Inputs Condicionais */}
             {isDefenseSlot ? (
-              // Se for Armadura/Escudo: Mostra CA e Descrição
               <>
                 <View style={styles.inputGroup}>
                   <Text style={styles.inputLabel}>Bônus de Defesa (CA)</Text>
@@ -252,6 +274,7 @@ export default function InventoryScreen() {
                       onChangeText={setEditDefense}
                       keyboardType="numeric"
                       placeholder="Ex: 2"
+                      placeholderTextColor={colors.textSecondary}
                     />
                   </View>
                 </View>
@@ -263,17 +286,18 @@ export default function InventoryScreen() {
                     onChangeText={setEditDesc}
                     multiline
                     placeholder="Ex: Dá desvantagem em furtividade..."
+                    placeholderTextColor={colors.textSecondary}
                   />
                 </View>
               </>
             ) : (
-              // Se for Arma: Mostra Dano
               <View style={styles.inputGroup}>
                 <Text style={styles.inputLabel}>Dano (ex: 1d6 + 2)</Text>
                 <TextInput
                   style={styles.input}
                   value={editStats}
                   onChangeText={setEditStats}
+                  placeholderTextColor={colors.textSecondary}
                 />
               </View>
             )}
@@ -293,7 +317,7 @@ export default function InventoryScreen() {
         </View>
       </Modal>
 
-      {/* --- MODAL 2: ADICIONAR ITEM NA MOCHILA --- */}
+      {/* --- MODAL 2: ADICIONAR ITEM --- */}
       <Modal
         visible={addItemModalVisible}
         animationType="slide"
@@ -309,6 +333,7 @@ export default function InventoryScreen() {
                 placeholder="Ex: Poção"
                 value={newItemName}
                 onChangeText={setNewItemName}
+                placeholderTextColor={colors.textSecondary}
               />
             </View>
             <View style={styles.inputGroup}>
@@ -318,6 +343,7 @@ export default function InventoryScreen() {
                 keyboardType="numeric"
                 value={newItemQty}
                 onChangeText={setNewItemQty}
+                placeholderTextColor={colors.textSecondary}
               />
             </View>
             <Text style={styles.inputLabel}>Tipo</Text>
@@ -361,7 +387,7 @@ export default function InventoryScreen() {
         </View>
       </Modal>
 
-      {/* --- MODAL 3: AÇÕES DO ITEM --- */}
+      {/* --- MODAL 3: AÇÕES --- */}
       <Modal
         visible={itemActionModalVisible}
         animationType="fade"
@@ -402,9 +428,16 @@ export default function InventoryScreen() {
   );
 }
 
-// Componente EquipSlot Melhorado
-const EquipSlot = ({ label, item, onPress, icon, type }: any) => {
-  // Se for defesa, mostramos a CA. Se for arma, mostramos o Dano.
+// Componente EquipSlot Melhorado (Recebe styles/colors)
+const EquipSlot = ({
+  label,
+  item,
+  onPress,
+  icon,
+  type,
+  styles,
+  colors,
+}: any) => {
   const isDefense = type === "defense";
   const displayValue = isDefense
     ? item.defense > 0
@@ -416,14 +449,13 @@ const EquipSlot = ({ label, item, onPress, icon, type }: any) => {
     <TouchableOpacity style={styles.slot} activeOpacity={0.7} onPress={onPress}>
       <View style={styles.slotHeader}>
         <Text style={styles.slotLabel}>{label}</Text>
-        <Ionicons name={icon} size={14} color="#666" />
+        <Ionicons name={icon} size={14} color={colors.textSecondary} />
       </View>
 
       <Text style={styles.slotValue} numberOfLines={1}>
         {item.name || "Vazio"}
       </Text>
 
-      {/* Renderiza a info extra (Dano ou CA) se houver item */}
       {item.name !== "Nenhum" && item.name !== "Vazio" && (
         <View style={styles.infoRow}>
           <View style={[styles.statsBadge, isDefense && styles.defenseBadge]}>
@@ -432,12 +464,11 @@ const EquipSlot = ({ label, item, onPress, icon, type }: any) => {
               {displayValue}
             </Text>
           </View>
-          {/* Se for defesa e tiver descrição, mostra ícone pequeno */}
           {isDefense && item.description ? (
             <Ionicons
               name="information-circle"
               size={16}
-              color="#888"
+              color={colors.textSecondary}
               style={{ marginLeft: 4 }}
             />
           ) : null}
@@ -447,193 +478,217 @@ const EquipSlot = ({ label, item, onPress, icon, type }: any) => {
   );
 };
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#f0f2f5" },
-  equipSection: {
-    backgroundColor: "#fff",
-    padding: 16,
-    elevation: 2,
-    marginBottom: 10,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: "bold",
-    marginBottom: 12,
-    color: "#333",
-  },
+// --- ESTILOS DINÂMICOS ---
+const getStyles = (colors: ThemeColors) =>
+  StyleSheet.create({
+    container: { flex: 1, backgroundColor: colors.background },
 
-  equipRow: { flexDirection: "row", gap: 10, marginBottom: 10 },
+    // Equipamento
+    equipSection: {
+      backgroundColor: colors.surface,
+      padding: 16,
+      elevation: 2,
+      marginBottom: 10,
+    },
+    sectionTitle: {
+      fontSize: 18,
+      fontWeight: "bold",
+      marginBottom: 12,
+      color: colors.text,
+    },
+    equipRow: { flexDirection: "row", gap: 10, marginBottom: 10 },
 
-  // Slot
-  slot: {
-    flex: 1, // Garante que ocupem espaço igual no grid
-    backgroundColor: "#f9f9f9",
-    padding: 12,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: "#e0e0e0",
-    minHeight: 100,
-    justifyContent: "space-between",
-  },
-  slotHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    marginBottom: 4,
-  },
-  slotLabel: {
-    fontSize: 10,
-    textTransform: "uppercase",
-    color: "#888",
-    fontWeight: "bold",
-  },
-  slotValue: { fontSize: 16, fontWeight: "bold", color: "#222" },
+    // Slot
+    slot: {
+      flex: 1,
+      backgroundColor: colors.inputBg, // Melhor contraste em dark mode
+      padding: 12,
+      borderRadius: 8,
+      borderWidth: 1,
+      borderColor: colors.border,
+      minHeight: 100,
+      justifyContent: "space-between",
+    },
+    slotHeader: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      marginBottom: 4,
+    },
+    slotLabel: {
+      fontSize: 10,
+      textTransform: "uppercase",
+      color: colors.textSecondary,
+      fontWeight: "bold",
+    },
+    slotValue: { fontSize: 16, fontWeight: "bold", color: colors.text },
+    infoRow: { flexDirection: "row", alignItems: "center", marginTop: 4 },
 
-  infoRow: { flexDirection: "row", alignItems: "center", marginTop: 4 },
+    // Badges
+    statsBadge: {
+      alignSelf: "flex-start",
+      backgroundColor: colors.border,
+      paddingHorizontal: 6,
+      paddingVertical: 2,
+      borderRadius: 4,
+    },
+    statsText: {
+      fontSize: 12,
+      fontWeight: "bold",
+      color: colors.textSecondary,
+    },
+    defenseBadge: { backgroundColor: colors.focus + "20" }, // Azul com transparência
+    defenseText: { color: colors.focus },
 
-  // Badge de Arma (Cinza)
-  statsBadge: {
-    alignSelf: "flex-start",
-    backgroundColor: "#eceff1",
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 4,
-  },
-  statsText: { fontSize: 12, fontWeight: "bold", color: "#546e7a" },
+    // Mochila
+    backpackSection: { flex: 1, backgroundColor: colors.surface },
+    backpackHeader: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "center",
+      paddingRight: 16,
+    },
+    sectionHeader: {
+      fontSize: 18,
+      fontWeight: "bold",
+      marginLeft: 16,
+      marginBottom: 8,
+      marginTop: 8,
+      color: colors.text,
+    },
+    listContent: { padding: 16 },
+    emptyText: {
+      textAlign: "center",
+      color: colors.textSecondary,
+      marginTop: 20,
+      fontStyle: "italic",
+    },
+    itemRow: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "center",
+      paddingVertical: 12,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border,
+    },
+    itemMain: { flexDirection: "column", gap: 4, alignItems: "flex-start" },
+    itemName: { fontSize: 16, fontWeight: "500", color: colors.text },
 
-  // Badge de Defesa (Azul)
-  defenseBadge: { backgroundColor: "#e3f2fd" },
-  defenseText: { color: "#1565c0" },
+    // Badge da Lista (Background dinâmico definido no renderItem)
+    badge: {
+      paddingHorizontal: 8,
+      paddingVertical: 2,
+      borderRadius: 4,
+      alignSelf: "flex-start",
+    },
+    badgeText: { fontSize: 10, fontWeight: "bold", textTransform: "uppercase" },
 
-  // Mochila (Styles mantidos)
-  backpackSection: { flex: 1, backgroundColor: "#fff" },
-  backpackHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingRight: 16,
-  },
-  sectionHeader: {
-    fontSize: 18,
-    fontWeight: "bold",
-    marginLeft: 16,
-    marginBottom: 8,
-    marginTop: 8,
-    color: "#444",
-  },
-  listContent: { padding: 16 },
-  emptyText: {
-    textAlign: "center",
-    color: "#999",
-    marginTop: 20,
-    fontStyle: "italic",
-  },
-  itemRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: "#f0f0f0",
-  },
-  itemMain: { flexDirection: "column", gap: 4, alignItems: "flex-start" },
-  itemName: { fontSize: 16, fontWeight: "500", color: "#222" },
-  badge: {
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 4,
-    alignSelf: "flex-start",
-  },
-  badgeText: { fontSize: 10, fontWeight: "bold", textTransform: "uppercase" },
-  itemQty: { fontSize: 16, fontWeight: "bold", color: "#666" },
-  separator: { height: 1, backgroundColor: "#eee" },
+    itemQty: { fontSize: 16, fontWeight: "bold", color: colors.textSecondary },
+    separator: { height: 1, backgroundColor: colors.border },
 
-  // Modais
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: "rgba(0,0,0,0.5)",
-    justifyContent: "center",
-    alignItems: "center",
-    padding: 20,
-  },
-  modalCard: {
-    backgroundColor: "#fff",
-    width: "100%",
-    borderRadius: 12,
-    padding: 20,
-    elevation: 5,
-  },
-  modalTitle: {
-    fontSize: 20,
-    fontWeight: "bold",
-    marginBottom: 20,
-    textAlign: "center",
-  },
-  inputGroup: { marginBottom: 16 },
-  inputLabel: { fontSize: 14, color: "#666", marginBottom: 6 },
-  input: {
-    borderWidth: 1,
-    borderColor: "#ddd",
-    borderRadius: 8,
-    padding: 12,
-    fontSize: 16,
-    backgroundColor: "#f9f9f9",
-  },
-  rowCenter: { flexDirection: "row", alignItems: "center" },
-  prefix: { fontSize: 18, fontWeight: "bold", marginRight: 8, color: "#555" },
+    // Modais
+    modalOverlay: {
+      flex: 1,
+      backgroundColor: "rgba(0,0,0,0.6)",
+      justifyContent: "center",
+      alignItems: "center",
+      padding: 20,
+    },
+    modalCard: {
+      backgroundColor: colors.surface,
+      width: "100%",
+      borderRadius: 12,
+      padding: 20,
+      elevation: 5,
+    },
+    modalTitle: {
+      fontSize: 20,
+      fontWeight: "bold",
+      marginBottom: 20,
+      textAlign: "center",
+      color: colors.text,
+    },
 
-  modalButtons: { flexDirection: "row", gap: 10, marginTop: 10 },
-  cancelBtn: {
-    flex: 1,
-    padding: 12,
-    alignItems: "center",
-    borderRadius: 8,
-    backgroundColor: "#f5f5f5",
-  },
-  saveBtn: {
-    flex: 1,
-    padding: 12,
-    alignItems: "center",
-    borderRadius: 8,
-    backgroundColor: "#6200ea",
-  },
-  cancelText: { color: "#666", fontWeight: "bold" },
-  saveText: { color: "#fff", fontWeight: "bold" },
+    inputGroup: { marginBottom: 16 },
+    inputLabel: { fontSize: 14, color: colors.textSecondary, marginBottom: 6 },
+    input: {
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderRadius: 8,
+      padding: 12,
+      fontSize: 16,
+      backgroundColor: colors.inputBg,
+      color: colors.text,
+    },
 
-  typeSelector: { flexDirection: "row", gap: 8, marginBottom: 20 },
-  typeChip: {
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 20,
-    backgroundColor: "#f0f0f0",
-    borderWidth: 1,
-    borderColor: "#ccc",
-  },
-  typeChipActive: { backgroundColor: "#6200ea", borderColor: "#6200ea" },
-  typeText: { fontSize: 12, color: "#666" },
-  typeTextActive: { color: "#fff", fontWeight: "bold" },
+    rowCenter: { flexDirection: "row", alignItems: "center" },
+    prefix: {
+      fontSize: 18,
+      fontWeight: "bold",
+      marginRight: 8,
+      color: colors.text,
+    },
 
-  itemDesc: { textAlign: "center", marginBottom: 20, color: "#666" },
-  actionBtnPrimary: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "#00c853",
-    padding: 12,
-    borderRadius: 8,
-    marginBottom: 10,
-    gap: 8,
-  },
-  actionBtnDestructive: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "#e53935",
-    padding: 12,
-    borderRadius: 8,
-    marginBottom: 10,
-    gap: 8,
-  },
-  actionBtnText: { color: "#fff", fontWeight: "bold" },
-  closeBtnSimple: { alignItems: "center", padding: 10, marginTop: 5 },
-  closeBtnText: { color: "#666" },
-});
+    modalButtons: { flexDirection: "row", gap: 10, marginTop: 10 },
+    cancelBtn: {
+      flex: 1,
+      padding: 12,
+      alignItems: "center",
+      borderRadius: 8,
+      backgroundColor: colors.inputBg,
+    },
+    saveBtn: {
+      flex: 1,
+      padding: 12,
+      alignItems: "center",
+      borderRadius: 8,
+      backgroundColor: colors.primary,
+    },
+    cancelText: { color: colors.textSecondary, fontWeight: "bold" },
+    saveText: { color: "#fff", fontWeight: "bold" },
+
+    typeSelector: { flexDirection: "row", gap: 8, marginBottom: 20 },
+    typeChip: {
+      paddingHorizontal: 12,
+      paddingVertical: 8,
+      borderRadius: 20,
+      backgroundColor: colors.inputBg,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    typeChipActive: {
+      backgroundColor: colors.primary,
+      borderColor: colors.primary,
+    },
+    typeText: { fontSize: 12, color: colors.textSecondary },
+    typeTextActive: { color: "#fff", fontWeight: "bold" },
+
+    itemDesc: {
+      textAlign: "center",
+      marginBottom: 20,
+      color: colors.textSecondary,
+    },
+
+    actionBtnPrimary: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+      backgroundColor: colors.success,
+      padding: 12,
+      borderRadius: 8,
+      marginBottom: 10,
+      gap: 8,
+    },
+    actionBtnDestructive: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+      backgroundColor: colors.error,
+      padding: 12,
+      borderRadius: 8,
+      marginBottom: 10,
+      gap: 8,
+    },
+    actionBtnText: { color: "#fff", fontWeight: "bold" },
+    closeBtnSimple: { alignItems: "center", padding: 10, marginTop: 5 },
+    closeBtnText: { color: colors.textSecondary },
+  });

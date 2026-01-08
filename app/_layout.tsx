@@ -2,8 +2,8 @@
 import { Stack } from "expo-router";
 import React from "react";
 import { ActivityIndicator, View } from "react-native";
-import { SafeAreaProvider } from "react-native-safe-area-context";
 import { CharacterProvider, useCharacter } from "../context/CharacterContext";
+import { ThemeProvider } from "../context/ThemeContext"; // <--- Importe
 
 // Componente Wrapper para gerenciar o Loading
 function AppContent() {
@@ -27,12 +27,14 @@ function AppContent() {
   return <Stack screenOptions={{ headerShown: false }} />;
 }
 
-export default function RootLayout() {
+export default function Layout() {
   return (
-    <SafeAreaProvider>
+    <ThemeProvider>
       <CharacterProvider>
-        <AppContent />
+        <Stack screenOptions={{ headerShown: false }}>
+          <Stack.Screen name="(tabs)" />
+        </Stack>
       </CharacterProvider>
-    </SafeAreaProvider>
+    </ThemeProvider>
   );
 }

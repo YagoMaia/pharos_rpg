@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "pharos_rp",
-    "slug": "pharos_rp",
+    "name": "Pharos RPG",
+    "slug": "pharos_rpg",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
@@ -14,7 +14,7 @@
     "android": {
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
-        "foregroundImage": "./assets/images/android-icon-foreground.png",
+        "foregroundImage": "./assets/images/icon.png",
         "backgroundImage": "./assets/images/android-icon-background.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
@@ -48,7 +48,7 @@
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "6767bb13-4740-4087-8f0d-16f5e5914051"
+        "projectId": "bac5e30e-9f44-4506-a37a-49918c6913b6"
       }
     }
   }

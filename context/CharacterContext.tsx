@@ -87,7 +87,7 @@ interface CharacterContextType {
   updateAttribute: (attr: AttributeName, newValue: number) => void;
   updateNameAndClass: (name: string, className?: CharacterClass) => void;
   updateEquipment: (
-    slot: "meleeWeapon" | "rangedWeapon" | "armor",
+    slot: "meleeWeapon" | "rangedWeapon" | "armor" | "shield",
     item: EquipmentItem
   ) => void;
   updateAncestry: (ancestryId: string) => void;
@@ -221,8 +221,14 @@ export const CharacterProvider = ({ children }: { children: ReactNode }) => {
   };
 
   // 3. Função para atualizar Nome e Classe
-  const updateNameAndClass = (name: string, className: CharacterClass) => {
+  const updateNameAndClass = (name: string, className?: CharacterClass) => {
     // 1. Busca os dados padrão da nova classe selecionada
+
+    if (!className) {
+      setCharacter((prev) => ({ ...prev, name }));
+      return;
+    }
+
     const newClassData = CLASS_DATA[className];
 
     // Segurança: Caso você ainda não tenha preenchido os dados daquela classe no arquivo
@@ -241,7 +247,7 @@ export const CharacterProvider = ({ children }: { children: ReactNode }) => {
       // Substituição Automática:
       skills: newClassData.skills,
       stances: newClassData.stances,
-      currentStanceIndex: 0, // Reseta para a primeira postura
+      currentStanceIndex: -1, // Reseta para a primeira postura
 
       // Opcional: Se a nova classe NÃO for mágica, você pode querer limpar o grimório
       grimoire: MAGIC_CLASSES.includes(className) ? prev.grimoire : [],

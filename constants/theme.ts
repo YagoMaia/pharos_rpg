@@ -1,53 +1,56 @@
-/**
- * Below are the colors that are used in the app. The colors are defined in the light and dark mode.
- * There are many other ways to style your app. For example, [Nativewind](https://www.nativewind.dev/), [Tamagui](https://tamagui.dev/), [unistyles](https://reactnativeunistyles.vercel.app), etc.
- */
+// src/constants/theme.ts
 
-import { Platform } from 'react-native';
-
-const tintColorLight = '#0a7ea4';
-const tintColorDark = '#fff';
-
-export const Colors = {
-  light: {
-    text: '#11181C',
-    background: '#fff',
-    tint: tintColorLight,
-    icon: '#687076',
-    tabIconDefault: '#687076',
-    tabIconSelected: tintColorLight,
-  },
-  dark: {
-    text: '#ECEDEE',
-    background: '#151718',
-    tint: tintColorDark,
-    icon: '#9BA1A6',
-    tabIconDefault: '#9BA1A6',
-    tabIconSelected: tintColorDark,
-  },
+export const lightTheme = {
+  dark: false,
+  colors: {
+    background: '#f0f2f5',
+    surface: '#ffffff',      // Cards, Modais
+    primary: '#6200ea',      // Roxo principal
+    secondary: '#03dac6',
+    text: '#333333',
+    textSecondary: '#666666',
+    border: '#e0e0e0',
+    inputBg: '#f9f9f9',
+    error: '#e53935',
+    success: '#2e7d32',
+    warning: '#f9a825',
+    
+    // Cores específicas de RPG
+    hp: '#e53935',
+    focus: '#1e88e5',
+    gold: '#f9a825',
+    
+    // Elementos de UI
+    iconDefault: '#666666',
+    cardBorder: '#e0e0e0',
+  }
 };
 
-export const Fonts = Platform.select({
-  ios: {
-    /** iOS `UIFontDescriptorSystemDesignDefault` */
-    sans: 'system-ui',
-    /** iOS `UIFontDescriptorSystemDesignSerif` */
-    serif: 'ui-serif',
-    /** iOS `UIFontDescriptorSystemDesignRounded` */
-    rounded: 'ui-rounded',
-    /** iOS `UIFontDescriptorSystemDesignMonospaced` */
-    mono: 'ui-monospace',
-  },
-  default: {
-    sans: 'normal',
-    serif: 'serif',
-    rounded: 'normal',
-    mono: 'monospace',
-  },
-  web: {
-    sans: "system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif",
-    serif: "Georgia, 'Times New Roman', serif",
-    rounded: "'SF Pro Rounded', 'Hiragino Maru Gothic ProN', Meiryo, 'MS PGothic', sans-serif",
-    mono: "SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace",
-  },
-});
+export const darkTheme = {
+  dark: true,
+  colors: {
+    background: '#121212',   // Preto quase absoluto
+    surface: '#1e1e1e',      // Cinza escuro para cards
+    primary: '#bb86fc',      // Roxo mais claro (melhor contraste no escuro)
+    secondary: '#03dac6',
+    text: '#e0e0e0',         // Branco suave
+    textSecondary: '#a0a0a0',
+    border: '#333333',
+    inputBg: '#2c2c2c',
+    error: '#cf6679',
+    success: '#81c784',
+    warning: '#ffd54f',
+
+    // Cores específicas de RPG
+    hp: '#ef5350',           // Vermelho mais claro
+    focus: '#42a5f5',        // Azul mais claro
+    gold: '#ffca28',
+
+    // Elementos de UI
+    iconDefault: '#a0a0a0',
+    cardBorder: '#333333',
+  }
+};
+
+// Tipo para ajudar no TypeScript
+export type ThemeColors = typeof lightTheme.colors;
