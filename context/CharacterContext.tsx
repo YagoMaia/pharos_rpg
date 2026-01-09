@@ -30,6 +30,7 @@ const INITIAL_CHARACTER: Character = {
   class: undefined, // O usuário vai escolher no Modal
   ancestry: undefined, // O usuário vai escolher no Modal
   culturalOrigin: undefined, // O usuário vai escolher no Modal
+  deathSaves: { successes: 0, failures: 0 }, // <--- NOVO CAMPO
 
   // Valores padrão (Médios)
   stats: {
@@ -102,6 +103,7 @@ interface CharacterContextType {
   updateItemQuantity: (itemId: string, change: number) => void;
   addSpell: (spell: Spell) => void;
   removeSpell: (spellId: string) => void;
+  updateDeathSave: (type: "success" | "failure", value: number) => void; // <--- NOVA FUNÇÃO
 }
 
 const CharacterContext = createContext<CharacterContextType | undefined>(
@@ -145,11 +147,18 @@ export const CharacterProvider = ({ children }: { children: ReactNode }) => {
     }
   }, [character, isLoading]);
 
+  // Função para atualizar HP/Foco
   const updateStat = (stat: "hp" | "focus", change: number) => {
     setCharacter((prev) => {
       const currentVal = prev.stats[stat].current;
       const maxVal = prev.stats[stat].max;
       const newValue = Math.min(Math.max(currentVal + change, 0), maxVal);
+
+      // Lógica de Reset de Death Saves
+      let newDeathSaves = prev.deathSaves;
+      if (stat === "hp" && newValue > 0) {
+        newDeathSaves = { successes: 0, failures: 0 };
+      }
 
       return {
         ...prev,
@@ -157,8 +166,20 @@ export const CharacterProvider = ({ children }: { children: ReactNode }) => {
           ...prev.stats,
           [stat]: { ...prev.stats[stat], current: newValue },
         },
+        deathSaves: newDeathSaves, // Atualiza ou reseta
       };
     });
+  };
+
+  // Nova função para controlar os Death Saves
+  const updateDeathSave = (type: "success" | "failure", value: number) => {
+    setCharacter((prev) => ({
+      ...prev,
+      deathSaves: {
+        ...prev.deathSaves,
+        [type === "success" ? "successes" : "failures"]: value,
+      },
+    }));
   };
 
   const setStanceIndex = (index: number) => {
@@ -457,6 +478,7 @@ export const CharacterProvider = ({ children }: { children: ReactNode }) => {
         updateItemQuantity,
         addSpell,
         removeSpell,
+        updateDeathSave,
       }}
     >
       {children}

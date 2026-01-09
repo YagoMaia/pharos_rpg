@@ -34,6 +34,7 @@ export default function HomeScreen() {
     performLongRest,
     updateOrigin,
     updateAncestry,
+    updateDeathSave,
   } = useCharacter();
 
   const { colors } = useTheme(); // <--- Pegue as cores
@@ -327,6 +328,66 @@ export default function HomeScreen() {
           styles={styles}
           colors={colors}
         />
+
+        {/* --- SEÇÃO DE DEATH SAVES (CONDICIONAL) --- */}
+        {character.stats.hp.current === 0 && (
+          <View style={styles.deathSaveContainer}>
+            <Text style={styles.deathSaveTitle}>TESTES DE MORTE</Text>
+
+            <View style={styles.deathSaveRow}>
+              {/* Sucessos */}
+              <View style={styles.deathSaveGroup}>
+                <Text style={styles.deathSaveLabel}>Sucessos</Text>
+                <View style={styles.dotsContainer}>
+                  {[1, 2, 3].map((i) => (
+                    <TouchableOpacity
+                      key={`succ-${i}`}
+                      style={[
+                        styles.deathSaveDot,
+                        character.deathSaves.successes >= i &&
+                          styles.deathSaveDotSuccess,
+                      ]}
+                      onPress={() =>
+                        updateDeathSave(
+                          "success",
+                          character.deathSaves.successes === i ? i - 1 : i
+                        )
+                      }
+                    />
+                  ))}
+                </View>
+              </View>
+
+              {/* Falhas */}
+              <View style={styles.deathSaveGroup}>
+                <Text style={styles.deathSaveLabel}>Falhas</Text>
+                <View style={styles.dotsContainer}>
+                  {[1, 2, 3].map((i) => (
+                    <TouchableOpacity
+                      key={`fail-${i}`}
+                      style={[
+                        styles.deathSaveDot,
+                        character.deathSaves.failures >= i &&
+                          styles.deathSaveDotFailure,
+                      ]}
+                      onPress={() =>
+                        updateDeathSave(
+                          "failure",
+                          character.deathSaves.failures === i ? i - 1 : i
+                        )
+                      }
+                    />
+                  ))}
+                </View>
+              </View>
+            </View>
+
+            <Text style={styles.deathSaveHelp}>
+              Se chegar a 3 sucessos, você estabiliza. Se chegar a 3 falhas, o
+              personagem morre.
+            </Text>
+          </View>
+        )}
 
         <View style={styles.divider} />
 
@@ -1185,5 +1246,63 @@ const getStyles = (colors: ThemeColors) =>
     adjustBtnText: {
       fontWeight: "bold",
       color: colors.text,
+    },
+
+    deathSaveContainer: {
+      backgroundColor: colors.surface,
+      padding: 16,
+      borderRadius: 12,
+      borderWidth: 2,
+      borderColor: colors.error, // Vermelho para chamar atenção
+      marginBottom: 16,
+      alignItems: "center",
+    },
+    deathSaveTitle: {
+      fontSize: 18,
+      fontWeight: "bold",
+      color: colors.error,
+      marginBottom: 12,
+      letterSpacing: 2,
+    },
+    deathSaveRow: {
+      flexDirection: "row",
+      gap: 40,
+      marginBottom: 12,
+    },
+    deathSaveGroup: {
+      alignItems: "center",
+    },
+    deathSaveLabel: {
+      fontSize: 14,
+      fontWeight: "bold",
+      color: colors.textSecondary,
+      marginBottom: 8,
+      textTransform: "uppercase",
+    },
+    dotsContainer: {
+      flexDirection: "row",
+      gap: 8,
+    },
+    deathSaveDot: {
+      width: 24,
+      height: 24,
+      borderRadius: 12,
+      borderWidth: 2,
+      borderColor: colors.textSecondary,
+      backgroundColor: "transparent",
+    },
+    deathSaveDotSuccess: {
+      backgroundColor: colors.success, // Verde
+      borderColor: colors.success,
+    },
+    deathSaveDotFailure: {
+      backgroundColor: colors.error, // Vermelho
+      borderColor: colors.error,
+    },
+    deathSaveHelp: {
+      fontSize: 12,
+      color: colors.textSecondary,
+      fontStyle: "italic",
+      textAlign: "center",
     },
   });

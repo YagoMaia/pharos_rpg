@@ -1,6 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import React, { useMemo } from "react";
 import {
+  Alert,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -17,7 +18,7 @@ import { useCharacter } from "../../context/CharacterContext";
 import { useTheme } from "../../context/ThemeContext";
 import { AttributeName } from "../../types/rpg";
 
-// Definição dos Grupos de Perícias
+// 1. Definição dos Grupos de Perícias (Atualizado)
 const SKILL_GROUPS = [
   {
     attribute: "Força",
@@ -25,11 +26,20 @@ const SKILL_GROUPS = [
   },
   {
     attribute: "Destreza",
-    skills: ["Acrobacia", "Furtividade", "Prestidigitação"],
+    skills: ["Acrobacia", "Furtividade", "Ladinagem", "Pilotagem"],
   },
   {
     attribute: "Inteligência",
-    skills: ["Arcanismo", "História", "Investigação", "Natureza", "Religião"],
+    skills: [
+      "Arcanismo",
+      "Engenharia",
+      "História",
+      "Investigação",
+      "Natureza",
+      "Navegação",
+      "Ocultismo",
+      "Religião",
+    ],
   },
   {
     attribute: "Sabedoria",
@@ -43,9 +53,76 @@ const SKILL_GROUPS = [
   },
   {
     attribute: "Carisma",
-    skills: ["Atuação", "Enganação", "Intimidação", "Persuasão"],
+    skills: [
+      "Atuação",
+      "Enganação",
+      "Etiqueta",
+      "Intimidação",
+      "Manha",
+      "Persuasão",
+    ],
+  },
+  {
+    attribute: "Constituição", // <--- Adicionado
+    skills: ["Concentração", "Ofício"],
   },
 ];
+
+// 2. Dicionário de Descrições (Para o Long Press)
+const SKILL_DESCRIPTIONS: Record<string, string> = {
+  // FORÇA
+  Atletismo:
+    "Cobre situações difíceis que você tenta resolver através de vigor físico e movimento (escalar, nadar, saltar).",
+
+  // DESTREZA
+  Acrobacia:
+    "Manter o equilíbrio em situações precárias (cordas, tempestades) ou realizar manobras evasivas.",
+  Furtividade: "A arte de passar despercebido e se esconder.",
+  Ladinagem:
+    "Habilidade manual para abrir fechaduras, desarmar armadilhas ou realizar truques de mãos rápidos.",
+  Pilotagem:
+    "Controlar veículos terrestres ou aquáticos em situações de estresse.",
+
+  // INTELIGÊNCIA
+  Arcanismo:
+    "Estudo da magia sancionada, Pedras-Mana e teoria mágica. Identifica itens mágicos seguros.",
+  Engenharia:
+    "Conhecimento sobre máquinas, estruturas, pólvora e tecnologia (Manomai, comportas).",
+  História:
+    "Conhecimento sobre o passado de Pharos, a Cisão, linhagens reais e batalhas.",
+  Investigação:
+    "Deduzir informações de pistas, encontrar objetos ocultos ou analisar cenas de crime.",
+  Natureza: "Biologia, plantas, clima e bestas naturais de Pharos.",
+  Navegação:
+    "Ler mapas, usar astrolábio, calcular rotas e se orientar pelas estrelas.",
+  Ocultismo:
+    "Conhecimentos proibidos, magia antiga (Dalum), criaturas do Pálido e seitas.",
+  Religião:
+    "Rituais, hierarquias e dogmas de Adihn, Inam, Falchin e Kananismo.",
+
+  // SABEDORIA
+  "Adestrar Animais": "Acalmar, controlar ou intuir intenções de bestas.",
+  Intuição:
+    "Ler verdadeiras intenções, detectar mentiras ou perceber encantamentos.",
+  Medicina: "Estabilizar feridos, diagnosticar doenças e tratar venenos.",
+  Percepção:
+    "Estar alerta ao redor. Ouvir conversas, ver inimigos escondidos ou notar detalhes.",
+  Sobrevivência: "Viver em ambientes hostis (rastrear, caçar, encontrar água).",
+
+  // CARISMA
+  Atuação: "Entreter, disfarçar-se ou assumir uma persona.",
+  Enganação: "Mentir convincentemente, esconder a verdade ou criar distrações.",
+  Etiqueta: "Normas sociais, burocracia e protocolos da alta sociedade.",
+  Intimidação: "Usar ameaças ou presença física para coagir outros.",
+  Manha: "Conhecimento das ruas, submundo, gírias criminosas e mercado negro.",
+  Persuasão:
+    "Convencer outros através de lógica, charme ou diplomacia honesta.",
+
+  // CONSTITUIÇÃO (Adicionado)
+  Concentração:
+    "A capacidade de manter o foco mental sob dor física extrema. Essencial para Magos manterem feitiços ativos enquanto tomam dano, ou para Guerreiros se manterem em uma Postura difícil.",
+  Ofício: "A capacidade de realizar trabalho árduo, contínuo e exigente.",
+};
 
 export default function BiographyScreen() {
   const { character, updateBackstory, toggleTrainedSkill } = useCharacter();
@@ -54,8 +131,15 @@ export default function BiographyScreen() {
   const { colors } = useTheme();
   const styles = useMemo(() => getStyles(colors), [colors]);
 
-  // Bônus de Proficiência (Fixo em +2 para nível 1)
+  // Bônus de Proficiência Base
   const PROFICIENCY_BONUS = 2;
+
+  const handleShowDescription = (skill: string) => {
+    Alert.alert(
+      skill,
+      SKILL_DESCRIPTIONS[skill] || "Sem descrição disponível."
+    );
+  };
 
   return (
     <KeyboardAvoidingView
@@ -74,21 +158,20 @@ export default function BiographyScreen() {
             <Text style={styles.sectionTitle}>Perícias Treinadas</Text>
           </View>
           <Text style={styles.helperText}>
-            Toque para marcar as perícias em que você é proficiente (+
-            {PROFICIENCY_BONUS}).
+            Toque para treinar (+{PROFICIENCY_BONUS}). Segure para ver a
+            descrição.
           </Text>
 
           {/* Renderização Agrupada */}
           <View style={styles.groupsWrapper}>
             {SKILL_GROUPS.map((group) => {
-              // 1. BUSCA O MODIFICADOR DO ATRIBUTO DESTE GRUPO
               const attrName = group.attribute as AttributeName;
               const attrMod = character.attributes[attrName]?.modifier || 0;
               const formattedMod = attrMod >= 0 ? `+${attrMod}` : `${attrMod}`;
 
               return (
                 <View key={group.attribute} style={styles.groupContainer}>
-                  {/* CABEÇALHO DO GRUPO COM O MODIFICADOR */}
+                  {/* CABEÇALHO DO GRUPO */}
                   <View style={styles.groupHeader}>
                     <Text style={styles.attributeLabel}>
                       {group.attribute}{" "}
@@ -104,7 +187,7 @@ export default function BiographyScreen() {
                       const isTrained =
                         character.trainedSkills?.includes(skill);
 
-                      // Calcula o valor final da perícia (Mod Atributo + Proficiência se treinado)
+                      // Cálculo do Bônus Total
                       const skillTotal =
                         attrMod + (isTrained ? PROFICIENCY_BONUS : 0);
                       const formattedTotal =
@@ -118,9 +201,10 @@ export default function BiographyScreen() {
                             isTrained && styles.skillChipActive,
                           ]}
                           onPress={() => toggleTrainedSkill(skill)}
+                          onLongPress={() => handleShowDescription(skill)} // <--- Descrição aqui
+                          delayLongPress={500}
                           activeOpacity={0.7}
                         >
-                          {/* Nome da Perícia */}
                           <Text
                             style={[
                               styles.skillText,
@@ -130,7 +214,7 @@ export default function BiographyScreen() {
                             {skill}
                           </Text>
 
-                          {/* Valor Total da Perícia (Pílula pequena) */}
+                          {/* Pílula do Valor */}
                           <View
                             style={[
                               styles.modPill,
@@ -222,7 +306,6 @@ const getStyles = (colors: ThemeColors) =>
     groupsWrapper: { gap: 24 },
     groupContainer: { gap: 10 },
 
-    // Header do Grupo (Ex: FORÇA +2)
     groupHeader: {
       flexDirection: "row",
       alignItems: "center",
@@ -236,7 +319,7 @@ const getStyles = (colors: ThemeColors) =>
       letterSpacing: 1,
     },
     modTextHighlight: {
-      color: colors.primary, // Cor de destaque para o número (+2)
+      color: colors.primary,
     },
     line: {
       flex: 1,
@@ -245,7 +328,7 @@ const getStyles = (colors: ThemeColors) =>
       opacity: 0.5,
     },
 
-    // Chips de Perícia
+    // Chips
     skillsContainer: {
       flexDirection: "row",
       flexWrap: "wrap",
@@ -278,7 +361,7 @@ const getStyles = (colors: ThemeColors) =>
       fontWeight: "bold",
     },
 
-    // Pílula do Modificador Individual da Perícia
+    // Pílula do Modificador
     modPill: {
       paddingHorizontal: 6,
       paddingVertical: 2,
@@ -293,7 +376,7 @@ const getStyles = (colors: ThemeColors) =>
       color: colors.text,
     },
 
-    // Área de Texto
+    // Textarea
     textAreaContainer: {
       backgroundColor: colors.surface,
       borderRadius: 8,

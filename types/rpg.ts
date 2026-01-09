@@ -168,4 +168,9 @@ export interface Character {
   silver: number;
   backstory: string;
   trainedSkills: string[];
+
+  deathSaves: {
+    successes: number;
+    failures: number;
+  };
 }
