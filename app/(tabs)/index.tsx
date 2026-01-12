@@ -35,6 +35,7 @@ export default function HomeScreen() {
     updateOrigin,
     updateAncestry,
     updateDeathSave,
+    updateLevel,
   } = useCharacter();
 
   const { colors } = useTheme(); // <--- Pegue as cores
@@ -193,7 +194,7 @@ export default function HomeScreen() {
               {character.ancestry?.name || "Sem Origem"}
             </Text>
             <View style={styles.levelBadge}>
-              <Text style={styles.levelText}>Nível 1</Text>
+              <Text style={styles.levelText}>Nível {character.level}</Text>
             </View>
           </View>
         </View>
@@ -521,7 +522,7 @@ export default function HomeScreen() {
         </View>
       </Modal>
 
-      {/* --- MODAL EDIÇÃO --- */}
+      {/* --- MODAL EDIÇÃO (AGORA COM NÍVEL) --- */}
       <Modal
         visible={isEditModalVisible}
         animationType="slide"
@@ -536,18 +537,44 @@ export default function HomeScreen() {
           </View>
 
           <ScrollView contentContainerStyle={styles.modalContent}>
-            {/* 1. Identidade */}
+            {/* 1. Identidade & Nível */}
             <Text style={styles.sectionTitle}>Identidade</Text>
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>Nome</Text>
-              <TextInput
-                style={styles.input}
-                value={character.name}
-                onChangeText={(txt) =>
-                  updateNameAndClass(txt, character.class as CharacterClass)
-                }
-                placeholderTextColor={colors.textSecondary}
-              />
+
+            <View style={styles.row}>
+              {/* Campo Nome (Ocupa mais espaço) */}
+              <View style={[styles.inputGroup, { flex: 1, marginRight: 10 }]}>
+                <Text style={styles.label}>Nome</Text>
+                <TextInput
+                  style={styles.input}
+                  value={character.name}
+                  onChangeText={(txt) =>
+                    updateNameAndClass(txt, character.class as CharacterClass)
+                  }
+                  placeholderTextColor={colors.textSecondary}
+                />
+              </View>
+
+              {/* Campo Nível (Ocupa menos espaço) */}
+              <View style={[styles.inputGroup, { width: 110 }]}>
+                <Text style={styles.label}>Nível</Text>
+                <View style={styles.stepper}>
+                  <TouchableOpacity
+                    style={styles.stepBtn}
+                    onPress={() => updateLevel(character.level - 1 || 1)}
+                  >
+                    <Ionicons name="remove" size={20} color={colors.text} />
+                  </TouchableOpacity>
+                  <Text style={styles.attrEditValue}>
+                    {character.level || 1}
+                  </Text>
+                  <TouchableOpacity
+                    style={styles.stepBtn}
+                    onPress={() => updateLevel(character.level + 1 || 1)}
+                  >
+                    <Ionicons name="add" size={20} color={colors.text} />
+                  </TouchableOpacity>
+                </View>
+              </View>
             </View>
 
             <View style={styles.inputGroup}>
@@ -665,7 +692,7 @@ export default function HomeScreen() {
               ))}
             </View>
 
-            {/* 4. Stats & Atributos (Simplificado para brevidade, use a mesma lógica de cores do input acima) */}
+            {/* 4. Stats & Atributos */}
             <Text style={styles.sectionTitle}>Status Máximos</Text>
             <View style={styles.row}>
               <View style={[styles.inputGroup, { flex: 1, marginRight: 8 }]}>

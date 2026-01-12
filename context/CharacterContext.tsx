@@ -26,6 +26,7 @@ const STORAGE_KEY = "@rpg_sheet_data_v2";
 // Dados iniciais (Padrão caso não haja nada salvo)
 const INITIAL_CHARACTER: Character = {
   name: "Novo Personagem",
+  level: 1, // <--- ADICIONE ISTO (Padrão 1)
   image: undefined,
   class: undefined, // O usuário vai escolher no Modal
   ancestry: undefined, // O usuário vai escolher no Modal
@@ -104,6 +105,8 @@ interface CharacterContextType {
   addSpell: (spell: Spell) => void;
   removeSpell: (spellId: string) => void;
   updateDeathSave: (type: "success" | "failure", value: number) => void; // <--- NOVA FUNÇÃO
+  updateLevel: (newLevel: number) => void; // <--- NOVA FUNÇÃO
+  updateCurrentStat: (stat: "hp" | "focus", newValue: number) => void; // <--- NOVA
 }
 
 const CharacterContext = createContext<CharacterContextType | undefined>(
@@ -453,6 +456,27 @@ export const CharacterProvider = ({ children }: { children: ReactNode }) => {
     }));
   };
 
+  const updateLevel = (newLevel: number) => {
+    const validLevel = Math.max(1, Math.min(newLevel, 20));
+    setCharacter((prev) => ({ ...prev, level: validLevel }));
+  };
+
+  const updateCurrentStat = (stat: "hp" | "focus", newValue: number) => {
+    setCharacter((prev) => {
+      const maxVal = prev.stats[stat].max;
+      // Garante que não seja menor que 0 nem maior que o Máximo
+      const validValue = Math.max(0, Math.min(newValue, maxVal));
+
+      return {
+        ...prev,
+        stats: {
+          ...prev.stats,
+          [stat]: { ...prev.stats[stat], current: validValue },
+        },
+      };
+    });
+  };
+
   return (
     <CharacterContext.Provider
       value={{
@@ -479,6 +503,8 @@ export const CharacterProvider = ({ children }: { children: ReactNode }) => {
         addSpell,
         removeSpell,
         updateDeathSave,
+        updateLevel,
+        updateCurrentStat
       }}
     >
       {children}

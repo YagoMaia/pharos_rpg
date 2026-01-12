@@ -119,6 +119,7 @@ export const ALL_SKILLS = [
 
 export interface Character {
   name: string;
+  level: number;
   image?: string;
 
   // ADICIONE '?' PARA TORNAR OPCIONAL
