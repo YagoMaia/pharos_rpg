@@ -27,6 +27,7 @@ export default function InventoryScreen() {
     addItem,
     removeItem,
     updateItemQuantity,
+    updateItem,
   } = useCharacter();
 
   // --- TEMA ---
@@ -51,6 +52,34 @@ export default function InventoryScreen() {
   const [newItemQty, setNewItemQty] = useState("1");
   const [itemActionModalVisible, setItemActionModalVisible] = useState(false);
   const [selectedItem, setSelectedItem] = useState<Item | null>(null);
+
+  const [editItemModalVisible, setEditItemModalVisible] = useState(false);
+  const [targetItemName, setTargetItemName] = useState("");
+  const [targetItemQty, setTargetItemQty] = useState("");
+  const [targetItemType, setTargetItemType] = useState<ItemType>("consumable");
+
+  const handleEditItemPress = () => {
+    if (!selectedItem) return;
+    setTargetItemName(selectedItem.name);
+    setTargetItemQty(String(selectedItem.quantity));
+    setTargetItemType(selectedItem.type);
+
+    setItemActionModalVisible(false); // Fecha menu de ações
+    setEditItemModalVisible(true); // Abre modal de edição
+  };
+
+  // Salva a edição do item da mochila
+  const handleSaveItemEdit = () => {
+    if (!selectedItem || !targetItemName.trim()) return;
+
+    updateItem(selectedItem.id, {
+      name: targetItemName,
+      quantity: parseInt(targetItemQty) || 1,
+      type: targetItemType,
+    });
+
+    setEditItemModalVisible(false);
+  };
 
   // --- HANDLERS EQUIPAMENTO ---
   const handleEditSlot = (slot: EquipSlotType, item: EquipmentItem) => {
@@ -168,7 +197,6 @@ export default function InventoryScreen() {
       {/* Seção Fixa: Equipamentos */}
       <View style={styles.equipSection}>
         <Text style={styles.sectionTitle}>Equipamento Atual</Text>
-
         <View style={styles.equipRow}>
           <EquipSlot
             label="Curto Alcance"
@@ -193,7 +221,6 @@ export default function InventoryScreen() {
             colors={colors}
           />
         </View>
-
         <View style={styles.equipRow}>
           <EquipSlot
             label="Armadura"
@@ -236,7 +263,7 @@ export default function InventoryScreen() {
         />
       </View>
 
-      {/* --- MODAL 1: EDITAR EQUIPAMENTO --- */}
+      {/* --- MODAL 1: EDITAR EQUIPAMENTO (Slot) --- */}
       <Modal
         visible={equipModalVisible}
         animationType="fade"
@@ -244,15 +271,7 @@ export default function InventoryScreen() {
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>
-              Editar{" "}
-              {selectedSlot === "shield"
-                ? "Escudo"
-                : selectedSlot === "armor"
-                ? "Armadura"
-                : "Arma"}
-            </Text>
-
+            <Text style={styles.modalTitle}>Editar Slot</Text>
             <View style={styles.inputGroup}>
               <Text style={styles.inputLabel}>Nome do Item</Text>
               <TextInput
@@ -262,7 +281,6 @@ export default function InventoryScreen() {
                 placeholderTextColor={colors.textSecondary}
               />
             </View>
-
             {isDefenseSlot ? (
               <>
                 <View style={styles.inputGroup}>
@@ -274,19 +292,17 @@ export default function InventoryScreen() {
                       value={editDefense}
                       onChangeText={setEditDefense}
                       keyboardType="numeric"
-                      placeholder="Ex: 2"
                       placeholderTextColor={colors.textSecondary}
                     />
                   </View>
                 </View>
                 <View style={styles.inputGroup}>
-                  <Text style={styles.inputLabel}>Descrição / Efeito</Text>
+                  <Text style={styles.inputLabel}>Descrição</Text>
                   <TextInput
                     style={[styles.input, { height: 60 }]}
                     value={editDesc}
                     onChangeText={setEditDesc}
                     multiline
-                    placeholder="Ex: Dá desvantagem em furtividade..."
                     placeholderTextColor={colors.textSecondary}
                   />
                 </View>
@@ -302,7 +318,6 @@ export default function InventoryScreen() {
                 />
               </View>
             )}
-
             <View style={styles.modalButtons}>
               <TouchableOpacity
                 onPress={() => setEquipModalVisible(false)}
@@ -388,7 +403,7 @@ export default function InventoryScreen() {
         </View>
       </Modal>
 
-      {/* --- MODAL 3: AÇÕES --- */}
+      {/* --- MODAL 3: AÇÕES DO ITEM --- */}
       <Modal
         visible={itemActionModalVisible}
         animationType="fade"
@@ -400,6 +415,8 @@ export default function InventoryScreen() {
             <Text style={styles.itemDesc}>
               Quantidade atual: {selectedItem?.quantity}
             </Text>
+
+            {/* BOTÃO USAR */}
             {selectedItem?.type === "consumable" && (
               <TouchableOpacity
                 style={styles.actionBtnPrimary}
@@ -409,6 +426,20 @@ export default function InventoryScreen() {
                 <Text style={styles.actionBtnText}>Usar Item (-1)</Text>
               </TouchableOpacity>
             )}
+
+            {/* BOTÃO EDITAR (NOVO) */}
+            <TouchableOpacity
+              style={[
+                styles.actionBtnPrimary,
+                { backgroundColor: colors.primary },
+              ]}
+              onPress={handleEditItemPress}
+            >
+              <Ionicons name="pencil" size={20} color="#fff" />
+              <Text style={styles.actionBtnText}>Editar Detalhes</Text>
+            </TouchableOpacity>
+
+            {/* BOTÃO DESCARTAR */}
             <TouchableOpacity
               style={styles.actionBtnDestructive}
               onPress={handleDiscardItem}
@@ -416,12 +447,89 @@ export default function InventoryScreen() {
               <Ionicons name="trash" size={20} color="#fff" />
               <Text style={styles.actionBtnText}>Jogar Fora (Tudo)</Text>
             </TouchableOpacity>
+
             <TouchableOpacity
               style={styles.closeBtnSimple}
               onPress={() => setItemActionModalVisible(false)}
             >
               <Text style={styles.closeBtnText}>Fechar</Text>
             </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* --- MODAL 4: EDITAR ITEM EXISTENTE (NOVO) --- */}
+      <Modal
+        visible={editItemModalVisible}
+        animationType="slide"
+        transparent={true}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>Editar Item</Text>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>Nome</Text>
+              <TextInput
+                style={styles.input}
+                value={targetItemName}
+                onChangeText={setTargetItemName}
+                placeholderTextColor={colors.textSecondary}
+              />
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>Quantidade</Text>
+              <TextInput
+                style={styles.input}
+                keyboardType="numeric"
+                value={targetItemQty}
+                onChangeText={setTargetItemQty}
+                placeholderTextColor={colors.textSecondary}
+              />
+            </View>
+
+            <Text style={styles.inputLabel}>Tipo</Text>
+            <View style={styles.typeSelector}>
+              {(["consumable", "equipment", "key"] as ItemType[]).map((t) => (
+                <TouchableOpacity
+                  key={t}
+                  style={[
+                    styles.typeChip,
+                    targetItemType === t && styles.typeChipActive,
+                  ]}
+                  onPress={() => setTargetItemType(t)}
+                >
+                  <Text
+                    style={[
+                      styles.typeText,
+                      targetItemType === t && styles.typeTextActive,
+                    ]}
+                  >
+                    {t === "consumable"
+                      ? "Consumível"
+                      : t === "equipment"
+                      ? "Equip"
+                      : "Chave"}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                onPress={() => setEditItemModalVisible(false)}
+                style={styles.cancelBtn}
+              >
+                <Text style={styles.cancelText}>Cancelar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={handleSaveItemEdit}
+                style={styles.saveBtn}
+              >
+                <Text style={styles.saveText}>Salvar</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
       </Modal>

@@ -415,7 +415,7 @@ export default function GMCombatScreen() {
 
       <TouchableOpacity
         style={styles.fab}
-        // onPress={() => setModalVisible(true)}
+        onPress={() => setModalVisible(true)}
       >
         <Ionicons name="person-add" size={24} color="#fff" />
       </TouchableOpacity>

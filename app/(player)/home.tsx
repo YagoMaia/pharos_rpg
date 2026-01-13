@@ -57,10 +57,10 @@ export default function HomeScreen() {
   };
 
   const saveMoney = () => {
-    const val = parseInt(tempSilver);
-    if (!isNaN(val)) {
-      updateSilver(val);
-    }
+    // Se vazio ou inválido, assume 0. Se quiser manter o valor anterior em caso de erro, a lógica atual está ok.
+    // Mas geralmente, em UX, campo vazio = 0.
+    const val = parseInt(tempSilver) || 0;
+    updateSilver(val);
     setMoneyModalVisible(false);
   };
 
@@ -556,7 +556,7 @@ export default function HomeScreen() {
               </View>
 
               {/* Campo Nível (Ocupa menos espaço) */}
-              <View style={[styles.inputGroup, { width: 110 }]}>
+              <View style={[styles.inputGroup, { width: 120 }]}>
                 <Text style={styles.label}>Nível</Text>
                 <View style={styles.stepper}>
                   <TouchableOpacity

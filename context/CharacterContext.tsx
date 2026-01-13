@@ -107,6 +107,7 @@ interface CharacterContextType {
   updateDeathSave: (type: "success" | "failure", value: number) => void; // <--- NOVA FUNÇÃO
   updateLevel: (newLevel: number) => void; // <--- NOVA FUNÇÃO
   updateCurrentStat: (stat: "hp" | "focus", newValue: number) => void; // <--- NOVA
+  updateItem: (itemId: string, data: Partial<Item>) => void; // <--- Adicione isso
 }
 
 const CharacterContext = createContext<CharacterContextType | undefined>(
@@ -212,10 +213,8 @@ export const CharacterProvider = ({ children }: { children: ReactNode }) => {
       stats: {
         ...prev.stats,
         [stat]: {
-          ...prev.stats[stat],
-          max: newMax,
-          // Opcional: Se o máximo diminuir para menos que o atual, reduz o atual também
-          current: Math.min(prev.stats[stat].current, newMax),
+          ...prev.stats[stat], // Mantém o 'current' que já estava
+          max: newMax, // Altera SÓ o máximo
         },
       },
     }));
@@ -477,6 +476,15 @@ export const CharacterProvider = ({ children }: { children: ReactNode }) => {
     });
   };
 
+  const updateItem = (itemId: string, data: Partial<Item>) => {
+    setCharacter((prev) => ({
+      ...prev,
+      backpack: prev.backpack.map((item) =>
+        item.id === itemId ? { ...item, ...data } : item
+      ),
+    }));
+  };
+
   return (
     <CharacterContext.Provider
       value={{
@@ -505,6 +513,7 @@ export const CharacterProvider = ({ children }: { children: ReactNode }) => {
         updateDeathSave,
         updateLevel,
         updateCurrentStat,
+        updateItem,
       }}
     >
       {children}

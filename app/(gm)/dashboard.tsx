@@ -43,7 +43,7 @@ export default function GMDashboard() {
             onPress={() => rollDice(d)}
           >
             <MaterialCommunityIcons
-              name={`dice-d${d}` as any}
+              name={d === 100 ? "circle-outline" : (`dice-d${d}` as any)}
               size={32}
               color="#fff"
             />

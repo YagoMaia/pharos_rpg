@@ -6,7 +6,6 @@ import { useTheme } from "@/context/ThemeContext";
 export default function GMLayout() {
   const { colors, isDark, toggleTheme } = useTheme();
 
-  // Cor temática do Mestre (Vermelho Escuro/Dourado)
   const gmColor = "#c62828";
 
   return (
