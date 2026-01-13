@@ -17,8 +17,8 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { useCharacter } from "../../context/CharacterContext";
-import { useTheme } from "../../context/ThemeContext"; // <--- Importe o hook
+import { useCharacter } from "@/context/CharacterContext";
+import { useTheme } from "@/context/ThemeContext"; // <--- Importe o hook
 
 export default function HomeScreen() {
   const {

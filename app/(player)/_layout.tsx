@@ -5,7 +5,7 @@ import React from "react";
 import { TouchableOpacity } from "react-native";
 
 // Contextos
-import { useTheme } from "../../context/ThemeContext"; // <--- Importe o Tema
+import { useTheme } from "@/context/ThemeContext"; // <--- Importe o Tema
 
 export default function TabLayout() {
   // Pegamos as cores e a função de trocar tema aqui no Layout

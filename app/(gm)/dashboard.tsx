@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from "react";
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from "react-native";
-import { useTheme } from "../../context/ThemeContext";
+import { useTheme } from "@/context/ThemeContext";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 
 const DICES = [4, 6, 8, 10, 12, 20, 100];
@@ -68,14 +68,14 @@ const getStyles = (colors: any) => StyleSheet.create({
   resultValue: { fontSize: 64, fontWeight: 'bold', color: "#c62828" }, // Vermelho Mestre
   
   sectionTitle: { fontSize: 18, fontWeight: 'bold', color: colors.text, marginBottom: 12 },
-  diceGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginBottom: 30 },
+  diceGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginBottom: 3 },
   diceBtn: {
     width: '30%',
     aspectRatio: 1,
     backgroundColor: "#c62828",
     borderRadius: 12,
     alignItems: 'center',
-    justifyContent: 'center',
+    justifyContent: 'space-evenly',
     elevation: 2
   },
   diceText: { color: '#fff', fontWeight: 'bold', marginTop: 4 },

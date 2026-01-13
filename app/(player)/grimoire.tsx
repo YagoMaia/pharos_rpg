@@ -12,10 +12,10 @@ import {
 } from "react-native";
 
 // Imports de Contexto e Dados
-import { useCharacter } from "../../context/CharacterContext";
-import { useTheme } from "../../context/ThemeContext";
-import { MAGIC_SCHOOLS } from "../../data/spellData";
-import { Spell } from "../../types/rpg";
+import { useCharacter } from "@/context/CharacterContext";
+import { useTheme } from "@/context/ThemeContext";
+import { MAGIC_SCHOOLS } from "@/data/spellData";
+import { Spell } from "@/types/rpg";
 import { ThemeColors } from "@/constants/theme";
 
 // Helper de Cores dos Círculos

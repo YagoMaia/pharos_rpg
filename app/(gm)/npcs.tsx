@@ -1,5 +1,4 @@
-import { useCampaign } from "@/context/CampaignContext";
-import { Ionicons } from "@expo/vector-icons";
+import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import React, { useMemo, useState } from "react";
 import {
   Alert,
@@ -11,8 +10,11 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { useTheme } from "../../context/ThemeContext";
-import { NpcTemplate } from "../../types/rpg";
+
+// Ajuste os caminhos conforme sua pasta real
+import { useCampaign } from "@/context/CampaignContext";
+import { useTheme } from "@/context/ThemeContext";
+import { NpcTemplate } from "@/types/rpg";
 
 export default function NpcScreen() {
   const { npcLibrary, saveNpcToLibrary, deleteNpcFromLibrary, addCombatant } =
@@ -20,14 +22,21 @@ export default function NpcScreen() {
   const { colors } = useTheme();
   const styles = useMemo(() => getStyles(colors), [colors]);
 
-  const [modalVisible, setModalVisible] = useState(false);
+  // Modais
+  const [createModalVisible, setCreateModalVisible] = useState(false);
+  const [qtyModalVisible, setQtyModalVisible] = useState(false);
 
-  // Form State
+  // States de Criação
   const [name, setName] = useState("");
   const [hp, setHp] = useState("");
   const [ac, setAc] = useState("");
   const [notes, setNotes] = useState("");
 
+  // State para Adicionar ao Combate
+  const [selectedNpc, setSelectedNpc] = useState<NpcTemplate | null>(null);
+  const [quantity, setQuantity] = useState("1");
+
+  // --- LÓGICA DE SALVAR NO BESTIÁRIO ---
   const handleSave = () => {
     if (!name) return;
     saveNpcToLibrary({
@@ -36,7 +45,7 @@ export default function NpcScreen() {
       armorClass: parseInt(ac) || 10,
       notes,
     });
-    setModalVisible(false);
+    setCreateModalVisible(false);
     resetForm();
   };
 
@@ -47,31 +56,30 @@ export default function NpcScreen() {
     setNotes("");
   };
 
-  // Enviar NPC para a tela de Combate
-  const handleAddToCombat = (npc: NpcTemplate) => {
-    Alert.prompt(
-      "Adicionar ao Combate",
-      `Quantos ${npc.name}?`,
-      [
-        { text: "Cancelar", style: "cancel" },
-        {
-          text: "Adicionar",
-          onPress: (qty) => {
-            const quantity = parseInt(qty || "1") || 1;
-            for (let i = 0; i < quantity; i++) {
-              // Iniciativa aleatória básica (d20) ou 0 para editar depois
-              const init = Math.floor(Math.random() * 20) + 1;
-              addCombatant(npc.name, npc.maxHp, init, "npc");
-            }
-            Alert.alert(
-              "Sucesso",
-              `${quantity}x ${npc.name} enviados para o Combate.`
-            );
-          },
-        },
-      ],
-      "plain-text",
-      "1"
+  // --- LÓGICA DE PREPARAR ADIÇÃO ---
+  const openAddModal = (npc: NpcTemplate) => {
+    setSelectedNpc(npc);
+    setQuantity("1");
+    setQtyModalVisible(true);
+  };
+
+  // --- LÓGICA DE EFETIVAR ADIÇÃO AO COMBATE ---
+  const confirmAddToCombat = () => {
+    if (!selectedNpc) return;
+
+    const qty = parseInt(quantity) || 1;
+
+    for (let i = 0; i < qty; i++) {
+      const init = Math.floor(Math.random() * 20) + 1; // D20 Simples
+      // Dica: Se quiser somar destreza futuramente, adicione 'initBonus' no NpcTemplate
+
+      addCombatant(selectedNpc.name, selectedNpc.maxHp, init, "npc");
+    }
+
+    setQtyModalVisible(false);
+    Alert.alert(
+      "Sucesso",
+      `${qty}x ${selectedNpc.name} enviados para o combate.`
     );
   };
 
@@ -80,7 +88,7 @@ export default function NpcScreen() {
       <FlatList
         data={npcLibrary}
         keyExtractor={(item) => item.id}
-        contentContainerStyle={{ padding: 16 }}
+        contentContainerStyle={{ padding: 16, paddingBottom: 80 }}
         ListEmptyComponent={<Text style={styles.empty}>Nenhum NPC salvo.</Text>}
         renderItem={({ item }) => (
           <View style={styles.card}>
@@ -96,12 +104,14 @@ export default function NpcScreen() {
               ) : null}
             </View>
             <View style={styles.actions}>
+              {/* Botão de Espada: Abre Modal de Quantidade */}
               <TouchableOpacity
-                onPress={() => handleAddToCombat(item)}
+                onPress={() => openAddModal(item)}
                 style={styles.actionBtn}
               >
-                <Ionicons name="dice" size={20} color="#fff" />
+                <MaterialCommunityIcons name="sword" size={20} color="#fff" />
               </TouchableOpacity>
+
               <TouchableOpacity
                 onPress={() => deleteNpcFromLibrary(item.id)}
                 style={[styles.actionBtn, { backgroundColor: colors.inputBg }]}
@@ -115,13 +125,13 @@ export default function NpcScreen() {
 
       <TouchableOpacity
         style={styles.fab}
-        onPress={() => setModalVisible(true)}
+        onPress={() => setCreateModalVisible(true)}
       >
         <Ionicons name="add" size={30} color="#fff" />
       </TouchableOpacity>
 
-      {/* Modal Criar NPC */}
-      <Modal visible={modalVisible} animationType="slide" transparent>
+      {/* --- MODAL 1: CRIAR NOVO NPC --- */}
+      <Modal visible={createModalVisible} animationType="slide" transparent>
         <View style={styles.modalOverlay}>
           <View style={styles.modalCard}>
             <Text style={styles.modalTitle}>Novo NPC</Text>
@@ -161,15 +171,52 @@ export default function NpcScreen() {
 
             <View style={styles.modalBtns}>
               <TouchableOpacity
-                onPress={() => setModalVisible(false)}
+                onPress={() => setCreateModalVisible(false)}
                 style={styles.cancelBtn}
               >
-                <Text style={{ color: colors.text }}>Cancelar</Text>
+                <Text style={styles.cancelText}>Cancelar</Text>
               </TouchableOpacity>
               <TouchableOpacity onPress={handleSave} style={styles.saveBtn}>
-                <Text style={{ color: "#fff", fontWeight: "bold" }}>
-                  Salvar
-                </Text>
+                <Text style={styles.saveText}>Salvar</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* --- MODAL 2: QUANTIDADE (Funciona no Android) --- */}
+      <Modal visible={qtyModalVisible} animationType="fade" transparent>
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalCard, { width: "80%" }]}>
+            <Text style={styles.modalTitle}>Adicionar ao Combate</Text>
+            <Text style={{ color: colors.textSecondary, marginBottom: 10 }}>
+              Quantos {selectedNpc?.name} deseja adicionar?
+            </Text>
+
+            <TextInput
+              style={[
+                styles.input,
+                { textAlign: "center", fontSize: 24, fontWeight: "bold" },
+              ]}
+              keyboardType="numeric"
+              value={quantity}
+              onChangeText={setQuantity}
+              autoFocus
+              selectTextOnFocus
+            />
+
+            <View style={styles.modalBtns}>
+              <TouchableOpacity
+                onPress={() => setQtyModalVisible(false)}
+                style={styles.cancelBtn}
+              >
+                <Text style={styles.cancelText}>Cancelar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={confirmAddToCombat}
+                style={styles.saveBtn}
+              >
+                <Text style={styles.saveText}>Confirmar</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -205,11 +252,10 @@ const getStyles = (colors: any) =>
       width: 40,
       height: 40,
       borderRadius: 20,
-      backgroundColor: "#c62828",
+      backgroundColor: "#c62828", // Vermelho do Mestre
       alignItems: "center",
       justifyContent: "center",
     },
-
     fab: {
       position: "absolute",
       bottom: 20,
@@ -222,23 +268,26 @@ const getStyles = (colors: any) =>
       justifyContent: "center",
       elevation: 5,
     },
-    // Modal styles (simplificado)
+    // Modal Styles
     modalOverlay: {
       flex: 1,
       backgroundColor: "rgba(0,0,0,0.5)",
       justifyContent: "center",
+      alignItems: "center", // Centraliza o modal menor
       padding: 20,
     },
     modalCard: {
       backgroundColor: colors.surface,
       padding: 20,
       borderRadius: 12,
+      width: "100%",
     },
     modalTitle: {
       fontSize: 20,
       fontWeight: "bold",
       color: colors.text,
       marginBottom: 15,
+      textAlign: "center",
     },
     input: {
       backgroundColor: colors.inputBg,
@@ -262,4 +311,6 @@ const getStyles = (colors: any) =>
       backgroundColor: "#c62828",
       borderRadius: 8,
     },
+    cancelText: { color: colors.textSecondary, fontWeight: "bold" },
+    saveText: { color: "#fff", fontWeight: "bold" },
   });

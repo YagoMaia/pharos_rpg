@@ -12,9 +12,9 @@ import {
 } from "react-native";
 
 // Imports de Contexto e Tipos
-import { useCharacter } from "../../context/CharacterContext";
-import { useTheme } from "../../context/ThemeContext"; // <--- Hook do Tema
-import { EquipmentItem, Item, ItemType } from "../../types/rpg";
+import { useCharacter } from "@/context/CharacterContext";
+import { useTheme } from "@/context/ThemeContext"; // <--- Hook do Tema
+import { EquipmentItem, Item, ItemType } from "@/types/rpg";
 import { ThemeColors } from "@/constants/theme";
 
 // Adicionado 'shield' ao tipo

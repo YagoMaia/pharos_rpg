@@ -11,8 +11,8 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { useTheme } from "../../context/ThemeContext";
-import { Combatant } from "../../types/rpg";
+import { useTheme } from "@/context/ThemeContext";
+import { Combatant } from "@/types/rpg";
 
 export default function GMCombatScreen() {
   const {
@@ -158,7 +158,7 @@ export default function GMCombatScreen() {
               />
               <TextInput
                 style={[styles.input, { flex: 1 }]}
-                placeholder="Init"
+                placeholder="Iniciativa"
                 placeholderTextColor={colors.textSecondary}
                 keyboardType="numeric"
                 value={manualInit}

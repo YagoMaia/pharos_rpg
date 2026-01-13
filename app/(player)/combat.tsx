@@ -10,9 +10,9 @@ import {
 } from "react-native";
 
 // Imports de Contexto e Tipos
-import { useCharacter } from "../../context/CharacterContext";
-import { useTheme } from "../../context/ThemeContext"; // <--- Hook do Tema
-import { Skill } from "../../types/rpg";
+import { useCharacter } from "@/context/CharacterContext";
+import { useTheme } from "@/context/ThemeContext"; // <--- Hook do Tema
+import { Skill } from "@/types/rpg";
 import { ThemeColors } from "@/constants/theme";
 
 export default function CombatScreen() {

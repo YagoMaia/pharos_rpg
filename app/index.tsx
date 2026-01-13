@@ -6,18 +6,12 @@ import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
 export default function RoleSelectionScreen() {
   const router = useRouter();
-  //   const { toggleGameMasterMode } = useCharacter();
-  // Nota: Você pode adaptar o contexto para setar o modo explicitamente aqui
 
   const handleSelectPlayer = () => {
-    // Define modo jogador no contexto (se precisar)
-    // isGameMaster = false
     router.replace("/(player)/home"); // Redireciona para as abas de jogador
   };
 
   const handleSelectGM = () => {
-    // Define modo mestre no contexto
-    // toggleGameMasterMode(); // ou setIsGameMaster(true)
     router.replace("/(gm)/dashboard"); // Redireciona para as abas de mestre
   };
 

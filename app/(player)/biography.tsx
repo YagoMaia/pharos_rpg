@@ -14,9 +14,9 @@ import {
 
 // Imports de Contexto e Tipos
 import { ThemeColors } from "@/constants/theme";
-import { useCharacter } from "../../context/CharacterContext";
-import { useTheme } from "../../context/ThemeContext";
-import { AttributeName } from "../../types/rpg";
+import { useCharacter } from "@/context/CharacterContext";
+import { useTheme } from "@/context/ThemeContext";
+import { AttributeName } from "@/types/rpg";
 
 // 1. Definição dos Grupos de Perícias (Atualizado)
 const SKILL_GROUPS = [
