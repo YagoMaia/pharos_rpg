@@ -504,7 +504,7 @@ export const CharacterProvider = ({ children }: { children: ReactNode }) => {
         removeSpell,
         updateDeathSave,
         updateLevel,
-        updateCurrentStat
+        updateCurrentStat,
       }}
     >
       {children}

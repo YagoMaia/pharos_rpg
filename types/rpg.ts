@@ -175,3 +175,23 @@ export interface Character {
     failures: number;
   };
 }
+
+export interface NpcTemplate {
+  id: string;
+  name: string;
+  maxHp: number;
+  armorClass: number; // Útil para o mestre
+  notes: string;
+}
+
+export interface Combatant {
+  id: string;
+  name: string; // Ex: "Goblin #1", "Yago"
+  baseName: string; // Ex: "Goblin" (usado para gerar o número)
+  initiative: number; // Valor da iniciativa
+  hp: {
+    current: number;
+    max: number;
+  };
+  type: "player" | "npc"; // Para saber se destacamos visualmente
+}
