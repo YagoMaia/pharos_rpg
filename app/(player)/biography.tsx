@@ -1,7 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import React, { useMemo } from "react";
 import {
-  Alert,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -17,6 +16,7 @@ import { ThemeColors } from "@/constants/theme";
 import { useCharacter } from "@/context/CharacterContext";
 import { useTheme } from "@/context/ThemeContext";
 import { AttributeName } from "@/types/rpg";
+import { useAlert } from "@/context/AlertContext";
 
 // 1. Definição dos Grupos de Perícias (Atualizado)
 const SKILL_GROUPS = [
@@ -130,15 +130,13 @@ export default function BiographyScreen() {
   // Hook do Tema
   const { colors } = useTheme();
   const styles = useMemo(() => getStyles(colors), [colors]);
+  const {showAlert} = useAlert();
 
   // Bônus de Proficiência Base
   const PROFICIENCY_BONUS = 2;
 
   const handleShowDescription = (skill: string) => {
-    Alert.alert(
-      skill,
-      SKILL_DESCRIPTIONS[skill] || "Sem descrição disponível."
-    );
+    showAlert(skill, SKILL_DESCRIPTIONS[skill] || "Sem descrição disponível.");
   };
 
   return (

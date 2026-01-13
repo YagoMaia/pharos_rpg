@@ -1,7 +1,6 @@
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import React, { useMemo, useState } from "react";
 import {
-  Alert,
   FlatList,
   Modal,
   StyleSheet,
@@ -12,6 +11,7 @@ import {
 } from "react-native";
 
 // Ajuste os caminhos conforme sua pasta real
+import { useAlert } from "@/context/AlertContext";
 import { useCampaign } from "@/context/CampaignContext";
 import { useTheme } from "@/context/ThemeContext";
 import { NpcTemplate } from "@/types/rpg";
@@ -21,6 +21,7 @@ export default function NpcScreen() {
     useCampaign();
   const { colors } = useTheme();
   const styles = useMemo(() => getStyles(colors), [colors]);
+  const { showAlert } = useAlert(); // <--- Pegue a função
 
   // Modais
   const [createModalVisible, setCreateModalVisible] = useState(false);
@@ -77,7 +78,7 @@ export default function NpcScreen() {
     }
 
     setQtyModalVisible(false);
-    Alert.alert(
+    showAlert(
       "Sucesso",
       `${qty}x ${selectedNpc.name} enviados para o combate.`
     );

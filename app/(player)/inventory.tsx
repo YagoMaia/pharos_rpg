@@ -1,7 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import React, { useMemo, useState } from "react";
 import {
-  Alert,
   FlatList,
   Modal,
   StyleSheet,
@@ -12,10 +11,11 @@ import {
 } from "react-native";
 
 // Imports de Contexto e Tipos
+import { ThemeColors } from "@/constants/theme";
+import { useAlert } from "@/context/AlertContext";
 import { useCharacter } from "@/context/CharacterContext";
 import { useTheme } from "@/context/ThemeContext"; // <--- Hook do Tema
 import { EquipmentItem, Item, ItemType } from "@/types/rpg";
-import { ThemeColors } from "@/constants/theme";
 
 // Adicionado 'shield' ao tipo
 type EquipSlotType = "meleeWeapon" | "rangedWeapon" | "armor" | "shield";
@@ -32,6 +32,7 @@ export default function InventoryScreen() {
   // --- TEMA ---
   const { colors } = useTheme();
   const styles = useMemo(() => getStyles(colors), [colors]);
+  const { showAlert } = useAlert();
 
   // --- ESTADOS ---
   const [equipModalVisible, setEquipModalVisible] = useState(false);
@@ -92,14 +93,14 @@ export default function InventoryScreen() {
   const handleConsumeItem = () => {
     if (selectedItem) {
       updateItemQuantity(selectedItem.id, -1);
-      Alert.alert("Item Usado", `Você usou 1x ${selectedItem.name}.`);
+      showAlert("Item Usado", `Você usou 1x ${selectedItem.name}.`);
       setItemActionModalVisible(false);
     }
   };
 
   const handleDiscardItem = () => {
     if (selectedItem) {
-      Alert.alert("Descartar", `Jogar fora ${selectedItem.name}?`, [
+      showAlert("Descartar", `Jogar fora ${selectedItem.name}?`, [
         { text: "Cancelar", style: "cancel" },
         {
           text: "Jogar Fora",

@@ -1,7 +1,6 @@
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import React, { useMemo, useState } from "react";
 import {
-  Alert,
   FlatList,
   StyleSheet,
   Text,
@@ -10,10 +9,11 @@ import {
 } from "react-native";
 
 // Imports de Contexto e Tipos
+import { ThemeColors } from "@/constants/theme";
+import { useAlert } from "@/context/AlertContext";
 import { useCharacter } from "@/context/CharacterContext";
 import { useTheme } from "@/context/ThemeContext"; // <--- Hook do Tema
 import { Skill } from "@/types/rpg";
-import { ThemeColors } from "@/constants/theme";
 
 export default function CombatScreen() {
   const { character, setStanceIndex, updateStat } = useCharacter();
@@ -281,10 +281,11 @@ const InfoRow = ({ label, text, color, styles }: any) => (
 const SkillCard = ({ skill, styles, colors, updateStat, character }: any) => {
   const [expanded, setExpanded] = useState(false);
   const hasEnoughFocus = character.stats.focus.current >= skill.cost;
+  const { showAlert } = useAlert();
 
   const handleUseSkill = () => {
     if (!hasEnoughFocus) {
-      Alert.alert("Foco Insuficiente", "Sem foco para usar esta habilidade.");
+      showAlert("Foco Insuficiente", "Sem foco para usar esta habilidade.");
       return;
     }
     updateStat("focus", -skill.cost);

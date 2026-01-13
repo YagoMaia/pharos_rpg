@@ -13,6 +13,7 @@ import {
 } from "react-native";
 import { useTheme } from "@/context/ThemeContext";
 import { Combatant } from "@/types/rpg";
+import { useAlert } from "@/context/AlertContext"; // <--- Importe o hook
 
 export default function GMCombatScreen() {
   const {
@@ -24,7 +25,9 @@ export default function GMCombatScreen() {
     clearCombat,
   } = useCampaign();
   const { colors } = useTheme();
+  const { showAlert } = useAlert(); // <--- Pegue a função
   const styles = useMemo(() => getStyles(colors), [colors]);
+  
 
   const [modalVisible, setModalVisible] = useState(false);
   const [manualName, setManualName] = useState("");
@@ -105,7 +108,7 @@ export default function GMCombatScreen() {
           </TouchableOpacity>
           <TouchableOpacity
             onPress={() =>
-              Alert.alert("Limpar", "Remover todos?", [
+              showAlert("Limpar", "Remover todos?", [
                 { text: "Sim", onPress: clearCombat },
                 { text: "Não" },
               ])

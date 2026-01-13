@@ -1,7 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import React, { useMemo, useState } from "react";
 import {
-  Alert,
   Modal,
   ScrollView,
   SectionList,
@@ -12,11 +11,12 @@ import {
 } from "react-native";
 
 // Imports de Contexto e Dados
+import { ThemeColors } from "@/constants/theme";
+import { useAlert } from "@/context/AlertContext";
 import { useCharacter } from "@/context/CharacterContext";
 import { useTheme } from "@/context/ThemeContext";
 import { MAGIC_SCHOOLS } from "@/data/spellData";
 import { Spell } from "@/types/rpg";
-import { ThemeColors } from "@/constants/theme";
 
 // Helper de Cores dos Círculos
 const getCircleTheme = (circle: number) => {
@@ -41,6 +41,7 @@ export default function GrimoireScreen() {
   const { colors } = useTheme();
   const styles = useMemo(() => getStyles(colors), [colors]);
   const [learnModalVisible, setLearnModalVisible] = useState(false);
+  const { showAlert } = useAlert();
 
   // Agrupamento de magias
   const sections = useMemo(() => {
@@ -162,7 +163,7 @@ export default function GrimoireScreen() {
                       isLearned={!!isLearned}
                       onLearn={() => {
                         addSpell(spell);
-                        Alert.alert(
+                        showAlert(
                           "Sucesso",
                           `${spell.name} adicionada ao grimório.`
                         );
@@ -269,13 +270,14 @@ const SpellCard = ({
   const castCost = spell.circle * 2;
   const currentFocus = character.stats.focus.current;
   const canCast = currentFocus >= castCost;
+  const { showAlert } = useAlert();
 
   const handleCast = () => {
     if (!canCast) {
-      Alert.alert("Foco Insuficiente", `Você precisa de ${castCost} de foco.`);
+      showAlert("Foco Insuficiente", `Você precisa de ${castCost} de foco.`);
       return;
     }
-    Alert.alert(
+    showAlert(
       "Conjurar Magia",
       `Gastar ${castCost} de Foco para lançar ${spell.name}?`,
       [
@@ -286,7 +288,7 @@ const SpellCard = ({
   };
 
   const handleForget = () => {
-    Alert.alert("Esquecer Magia", "Tem certeza?", [
+    showAlert("Esquecer Magia", "Tem certeza?", [
       { text: "Não", style: "cancel" },
       {
         text: "Sim",

@@ -2,12 +2,14 @@
 import { Ionicons } from "@expo/vector-icons";
 
 import { ThemeColors } from "@/constants/theme";
+import { useAlert } from "@/context/AlertContext";
+import { useCharacter } from "@/context/CharacterContext";
+import { useTheme } from "@/context/ThemeContext"; // <--- Importe o hook
 import { ANCESTRIES, CULTURAL_ORIGINS } from "@/data/origins";
 import { ALL_CLASSES, AttributeName, CharacterClass } from "@/types/rpg";
 import * as ImagePicker from "expo-image-picker"; // Importação da biblioteca
 import React, { useMemo, useState } from "react";
 import {
-  Alert,
   Image,
   Modal,
   ScrollView,
@@ -17,8 +19,6 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { useCharacter } from "@/context/CharacterContext";
-import { useTheme } from "@/context/ThemeContext"; // <--- Importe o hook
 
 export default function HomeScreen() {
   const {
@@ -39,6 +39,7 @@ export default function HomeScreen() {
   } = useCharacter();
 
   const { colors } = useTheme(); // <--- Pegue as cores
+  const { showAlert } = useAlert();
 
   // 3. Gerar Estilos baseados nas cores atuais
   const styles = useMemo(() => getStyles(colors), [colors]);
@@ -64,7 +65,7 @@ export default function HomeScreen() {
   };
 
   const handleShortRest = () => {
-    Alert.alert(
+    showAlert(
       "Descanso Curto",
       "Deseja gastar algumas horas para descansar? Isso recuperará metade da sua Vida e Foco máximos.",
       [
@@ -75,7 +76,7 @@ export default function HomeScreen() {
   };
 
   const handleLongRest = () => {
-    Alert.alert(
+    showAlert(
       "Descanso Longo",
       "Deseja dormir uma noite completa? Isso recuperará TODA a sua Vida e Foco.",
       [
@@ -86,7 +87,7 @@ export default function HomeScreen() {
   };
 
   const handleReset = () => {
-    Alert.alert(
+    showAlert(
       "Resetar Ficha",
       "Tem a certeza? Isto apagará todo o progresso e restaurará os dados iniciais do código.",
       [
@@ -107,7 +108,7 @@ export default function HomeScreen() {
       await ImagePicker.requestMediaLibraryPermissionsAsync();
 
     if (permissionResult.granted === false) {
-      Alert.alert(
+      showAlert(
         "Permissão necessária",
         "É necessário permitir o acesso à galeria para mudar a foto."
       );
