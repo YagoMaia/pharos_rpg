@@ -276,15 +276,16 @@ const getStyles = (colors: ThemeColors) =>
       borderWidth: 1,
       borderColor: colors.border,
       padding: 12,
-      minHeight: 300,
+      height: 300,
       elevation: 2,
       marginBottom: 50,
     },
     textArea: {
+      flex: 1,
       fontSize: 16,
       lineHeight: 24,
       color: colors.text,
-      height: "50%",
+      // height: "50%",
       textAlignVertical: "top",
     },
   });
