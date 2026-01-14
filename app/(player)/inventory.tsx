@@ -28,12 +28,14 @@ export default function InventoryScreen() {
     removeItem,
     updateItemQuantity,
     updateItem,
+    getLoadMetrics,
   } = useCharacter();
 
   // --- TEMA ---
   const { colors } = useTheme();
   const styles = useMemo(() => getStyles(colors), [colors]);
   const { showAlert } = useAlert();
+  const { currentLoad, maxLoad, isOverloaded } = getLoadMetrics();
 
   // --- ESTADOS ---
   const [equipModalVisible, setEquipModalVisible] = useState(false);
@@ -58,14 +60,19 @@ export default function InventoryScreen() {
   const [targetItemQty, setTargetItemQty] = useState("");
   const [targetItemType, setTargetItemType] = useState<ItemType>("consumable");
 
+  const [editWeight, setEditWeight] = useState("0");
+  const [newItemWeight, setNewItemWeight] = useState("0");
+  const [targetItemWeight, setTargetItemWeight] = useState("0");
+
   const handleEditItemPress = () => {
     if (!selectedItem) return;
     setTargetItemName(selectedItem.name);
     setTargetItemQty(String(selectedItem.quantity));
     setTargetItemType(selectedItem.type);
+    setTargetItemWeight(String(selectedItem.weight || 0));
 
-    setItemActionModalVisible(false); // Fecha menu de ações
-    setEditItemModalVisible(true); // Abre modal de edição
+    setItemActionModalVisible(false);
+    setEditItemModalVisible(true);
   };
 
   // Salva a edição do item da mochila
@@ -76,6 +83,7 @@ export default function InventoryScreen() {
       name: targetItemName,
       quantity: parseInt(targetItemQty) || 1,
       type: targetItemType,
+      weight: parseFloat(targetItemWeight) || 0,
     });
 
     setEditItemModalVisible(false);
@@ -87,6 +95,7 @@ export default function InventoryScreen() {
     setEditName(item.name);
     setEditStats(item.stats);
     setEditDefense(item.defense ? String(item.defense) : "0");
+    setEditWeight(item.weight ? String(item.weight) : "0");
     setEditDesc(item.description || "");
     setEquipModalVisible(true);
   };
@@ -98,6 +107,7 @@ export default function InventoryScreen() {
         stats: editStats,
         defense: parseInt(editDefense) || 0,
         description: editDesc,
+        weight: parseFloat(editWeight) || 0,
       };
       updateEquipment(selectedSlot, newItem);
       setEquipModalVisible(false);
@@ -108,9 +118,10 @@ export default function InventoryScreen() {
   const handleAddItem = () => {
     if (!newItemName.trim()) return;
     const qty = parseInt(newItemQty) || 1;
-    addItem(newItemName, newItemType, qty);
+    addItem(newItemName, newItemType, qty, parseFloat(newItemWeight) || 0);
     setNewItemName("");
     setNewItemQty("1");
+    setNewItemWeight("0");
     setAddItemModalVisible(false);
   };
 
@@ -169,20 +180,62 @@ export default function InventoryScreen() {
     }
   };
 
+  const renderLoadBar = () => {
+    const percent = Math.min((currentLoad / maxLoad) * 100, 100);
+    const barColor = isOverloaded ? colors.error : colors.primary; // Vermelho se pesado, Azul se ok
+
+    return (
+      <View style={styles.loadContainer}>
+        <View style={styles.loadHeader}>
+          <Text style={styles.loadLabel}>
+            Carga Total {isOverloaded && "(SOBRECARGA)"}
+          </Text>
+          <Text
+            style={[styles.loadValue, isOverloaded && { color: colors.error }]}
+          >
+            {currentLoad} / {maxLoad} kg
+          </Text>
+        </View>
+        <View style={styles.loadBarBg}>
+          <View
+            style={[
+              styles.loadBarFill,
+              { width: `${percent}%`, backgroundColor: barColor },
+            ]}
+          />
+        </View>
+      </View>
+    );
+  };
+
   const renderItem = ({ item }: { item: Item }) => {
     const badge = getBadgeInfo(item.type);
     return (
       <TouchableOpacity
         style={styles.itemRow}
         onPress={() => handleItemPress(item)}
-        activeOpacity={0.7}
       >
         <View style={styles.itemMain}>
           <Text style={styles.itemName}>{item.name}</Text>
-          <View style={[styles.badge, { backgroundColor: badge.bg }]}>
-            <Text style={[styles.badgeText, { color: badge.text }]}>
-              {badge.label}
-            </Text>
+          <View style={{ flexDirection: "row", gap: 6 }}>
+            <View style={[styles.badge, { backgroundColor: badge.bg }]}>
+              <Text style={[styles.badgeText, { color: badge.text }]}>
+                {badge.label}
+              </Text>
+            </View>
+            {/* Badge de Peso */}
+            {item.weight > 0 && (
+              <View style={styles.weightBadge}>
+                <Ionicons
+                  name="scale-outline"
+                  size={10}
+                  color={colors.textSecondary}
+                />
+                <Text style={styles.weightText}>
+                  {item.weight * item.quantity}kg
+                </Text>
+              </View>
+            )}
           </View>
         </View>
         <Text style={styles.itemQty}>x{item.quantity}</Text>
@@ -194,6 +247,7 @@ export default function InventoryScreen() {
 
   return (
     <View style={styles.container}>
+      {renderLoadBar()}
       {/* Seção Fixa: Equipamentos */}
       <View style={styles.equipSection}>
         <Text style={styles.sectionTitle}>Equipamento Atual</Text>
@@ -318,6 +372,17 @@ export default function InventoryScreen() {
                 />
               </View>
             )}
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>Peso (kg)</Text>
+              <TextInput
+                style={styles.input}
+                keyboardType="numeric"
+                value={editWeight}
+                onChangeText={setEditWeight}
+                placeholder="0.0"
+                placeholderTextColor={colors.textSecondary}
+              />
+            </View>
             <View style={styles.modalButtons}>
               <TouchableOpacity
                 onPress={() => setEquipModalVisible(false)}
@@ -387,6 +452,17 @@ export default function InventoryScreen() {
                   </Text>
                 </TouchableOpacity>
               ))}
+            </View>
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>Peso Unitário (kg)</Text>
+              <TextInput
+                style={styles.input}
+                keyboardType="numeric"
+                value={newItemWeight}
+                onChangeText={setNewItemWeight}
+                placeholder="0.0"
+                placeholderTextColor={colors.textSecondary}
+              />
             </View>
             <View style={styles.modalButtons}>
               <TouchableOpacity
@@ -515,7 +591,17 @@ export default function InventoryScreen() {
                 </TouchableOpacity>
               ))}
             </View>
-
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>Peso Unitário (kg)</Text>
+              <TextInput
+                style={styles.input}
+                keyboardType="numeric"
+                value={targetItemWeight}
+                onChangeText={setTargetItemWeight}
+                placeholder="0.0"
+                placeholderTextColor={colors.textSecondary}
+              />
+            </View>
             <View style={styles.modalButtons}>
               <TouchableOpacity
                 onPress={() => setEditItemModalVisible(false)}
@@ -800,4 +886,48 @@ const getStyles = (colors: ThemeColors) =>
     actionBtnText: { color: "#fff", fontWeight: "bold" },
     closeBtnSimple: { alignItems: "center", padding: 10, marginTop: 5 },
     closeBtnText: { color: colors.textSecondary },
+    loadContainer: {
+      paddingHorizontal: 16,
+      paddingTop: 16,
+      paddingBottom: 8,
+      backgroundColor: colors.surface,
+      marginBottom: 8,
+    },
+    loadHeader: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      marginBottom: 6,
+    },
+    loadLabel: {
+      fontSize: 12,
+      fontWeight: "bold",
+      color: colors.textSecondary,
+      textTransform: "uppercase",
+    },
+    loadValue: {
+      fontSize: 12,
+      fontWeight: "bold",
+      color: colors.text,
+    },
+    loadBarBg: {
+      height: 8,
+      backgroundColor: colors.border,
+      borderRadius: 4,
+      overflow: "hidden",
+    },
+    loadBarFill: {
+      height: "100%",
+    },
+    weightBadge: {
+      flexDirection: "row",
+      alignItems: "center",
+      backgroundColor: colors.inputBg,
+      paddingHorizontal: 6,
+      borderRadius: 4,
+      gap: 2,
+    },
+    weightText: {
+      fontSize: 10,
+      color: colors.textSecondary,
+    },
   });

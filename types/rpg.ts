@@ -49,6 +49,7 @@ export interface Skill {
   cost: number;
   actionType: ActionType;
   description: string;
+  level: number;
 }
 
 export interface Stance {
@@ -70,7 +71,16 @@ export interface Item {
   name: string;
   description?: string;
   quantity: number;
-  type: ItemType; // Substitui ou complementa o isKeyItem
+  type: ItemType;
+  weight: number;
+}
+
+export interface EquipmentItem {
+  name: string;
+  stats: string;
+  defense?: number;
+  description?: string;
+  weight: number;
 }
 
 export interface Spell {
@@ -82,12 +92,6 @@ export interface Spell {
   effect: string;
 }
 
-export interface EquipmentItem {
-  name: string;
-  stats: string; // Usado para Armas (ex: "1d6")
-  defense?: number; // Usado para Armadura/Escudo (ex: 2)
-  description?: string; // Descrição opcional
-}
 export const ALL_SKILLS = [
   "Atletismo",
   "Acrobacia",
@@ -173,6 +177,12 @@ export interface Character {
   deathSaves: {
     successes: number;
     failures: number;
+  };
+
+  turnActions: {
+    standard: boolean;
+    bonus: boolean;
+    reaction: boolean;
   };
 }
 
