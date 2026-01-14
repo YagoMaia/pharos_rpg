@@ -175,3 +175,100 @@ export interface Character {
     failures: number;
   };
 }
+
+// export interface NpcTemplate {
+//   id: string;
+//   name: string;
+//   maxHp: number;
+//   armorClass: number; // Útil para o mestre
+//   notes: string;
+// }
+
+// ATUALIZE O COMBATANT ASSIM:
+export interface Combatant {
+  id: string;
+  name: string;
+  baseName: string;
+  initiative: number;
+  hp: {
+    current: number;
+    max: number;
+  };
+  type: "player" | "npc";
+
+  // Detalhes
+  armorClass: number;
+  maxFocus: number;
+  currentFocus: number;
+  attributes?: Attributes;
+  equipment?: string;
+  actions?: string; // Esse continua string (texto livre)
+
+  // MUDANÇA AQUI: De 'string' para 'Array'
+  stances?: NpcStance[];
+  skills?: NpcSkill[];
+
+  activeStanceId?: string | null; // ID da postura ativa
+}
+
+export interface Attributes {
+  str: number;
+  dex: number;
+  con: number;
+  int: number;
+  wis: number;
+  cha: number;
+}
+
+export interface NpcStance {
+  id: string;
+  name: string; // Ex: "Defensiva"
+  acBonus: number; // Ex: 2 (Isso é o que importa pro cálculo)
+  description: string;
+}
+
+export interface NpcSkill {
+  id: string;
+  name: string; // Ex: "Ataque Brutal"
+  cost: number; // Ex: 2 (Para descontar do foco)
+  description: string;
+}
+
+export interface NpcTemplate {
+  id: string;
+  name: string;
+  subline: string;
+
+  // Stats
+  maxHp: number;
+  armorClass: number; // CA Base (sem postura)
+  maxFocus: number;
+
+  attributes: Attributes; // Reutilizando do Player (str, dex...)
+
+  // Agora são Arrays estruturados, não mais strings gigantes
+  stances: NpcStance[];
+  skills: NpcSkill[];
+
+  // Mantemos equipamentos/ações como texto pois variam muito
+  equipment: string;
+  actions: string;
+
+  // Iniciativa e Deslocamento
+  initiativeBonus: number;
+  speed: string;
+}
+
+// Exemplo de tipos para o futuro WebSocket
+
+export type WebSocketEvent =
+  | {
+      type: "JOIN_SESSION";
+      payload: { sessionId: string; character: Character };
+    }
+  | { type: "UPDATE_HP"; payload: { combatantId: string; newHp: number } }
+  | {
+      type: "CHANGE_STANCE";
+      payload: { combatantId: string; stanceId: string; newAC: number };
+    }
+  | { type: "NEXT_TURN"; payload: { currentInitiative: number } };

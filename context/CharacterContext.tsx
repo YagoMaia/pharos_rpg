@@ -107,6 +107,8 @@ interface CharacterContextType {
   updateDeathSave: (type: "success" | "failure", value: number) => void; // <--- NOVA FUNÇÃO
   updateLevel: (newLevel: number) => void; // <--- NOVA FUNÇÃO
   updateCurrentStat: (stat: "hp" | "focus", newValue: number) => void; // <--- NOVA
+  updateItem: (itemId: string, data: Partial<Item>) => void; // <--- Adicione isso
+  importCharacter: (data: any) => void; // <--- NOVA FUNÇÃO
 }
 
 const CharacterContext = createContext<CharacterContextType | undefined>(
@@ -212,10 +214,8 @@ export const CharacterProvider = ({ children }: { children: ReactNode }) => {
       stats: {
         ...prev.stats,
         [stat]: {
-          ...prev.stats[stat],
-          max: newMax,
-          // Opcional: Se o máximo diminuir para menos que o atual, reduz o atual também
-          current: Math.min(prev.stats[stat].current, newMax),
+          ...prev.stats[stat], // Mantém o 'current' que já estava
+          max: newMax, // Altera SÓ o máximo
         },
       },
     }));
@@ -477,6 +477,70 @@ export const CharacterProvider = ({ children }: { children: ReactNode }) => {
     });
   };
 
+  const updateItem = (itemId: string, data: Partial<Item>) => {
+    setCharacter((prev) => ({
+      ...prev,
+      backpack: prev.backpack.map((item) =>
+        item.id === itemId ? { ...item, ...data } : item
+      ),
+    }));
+  };
+
+  useEffect(() => {
+    const debugAllData = async () => {
+      try {
+        // 1. Pega todas as chaves existentes no banco
+        const keys = await AsyncStorage.getAllKeys();
+        console.log("🔑 CHAVES ENCONTRADAS:", keys);
+
+        // 2. Pega os valores de todas essas chaves
+        const result = await AsyncStorage.multiGet(keys);
+
+        console.log("📦 CONTEÚDO DO STORAGE:");
+        result.forEach(([key, value]) => {
+          console.log(`\n👉 KEY: ${key}`);
+          // Tenta mostrar bonitinho se for JSON, senão mostra texto puro
+          try {
+            console.log("📄 VALOR:", JSON.parse(value || "null"));
+          } catch {
+            console.log("📄 VALOR (Texto):", value);
+          }
+        });
+        console.log("\n-----------------------------");
+      } catch (error) {
+        console.error("Erro no debug:", error);
+      }
+    };
+
+    debugAllData();
+  }, []);
+
+  const importCharacter = (importedData: any) => {
+    setCharacter((prev) => {
+        // Pega a estrutura zerada (com campos novos) e joga os dados importados por cima
+        const migratedCharacter: Character = {
+            ...INITIAL_CHARACTER, // Garante level, deathSaves, etc
+            ...importedData,      // Sobrescreve com nome, itens, xp antigos
+            
+            // Garante que objetos aninhados não quebrem
+            stats: { 
+                ...INITIAL_CHARACTER.stats, 
+                ...(importedData.stats || {}) 
+            },
+            attributes: {
+                ...INITIAL_CHARACTER.attributes,
+                ...(importedData.attributes || {})
+            },
+            
+            // Garante os campos novos explicitamente se vierem nulos
+            level: importedData.level || 1,
+            deathSaves: importedData.deathSaves || { successes: 0, failures: 0 },
+        };
+
+        return migratedCharacter;
+    });
+};
+
   return (
     <CharacterContext.Provider
       value={{
@@ -504,7 +568,9 @@ export const CharacterProvider = ({ children }: { children: ReactNode }) => {
         removeSpell,
         updateDeathSave,
         updateLevel,
-        updateCurrentStat
+        updateCurrentStat,
+        updateItem,
+        importCharacter
       }}
     >
       {children}

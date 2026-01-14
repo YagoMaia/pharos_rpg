@@ -1,40 +1,24 @@
 // app/_layout.tsx
+import { AlertProvider } from "@/context/AlertContext";
+import { CampaignProvider } from "@/context/CampaignContext"; // <--- Novo
+import { CharacterProvider } from "@/context/CharacterContext";
+import { ThemeProvider } from "@/context/ThemeContext";
 import { Stack } from "expo-router";
-import React from "react";
-import { ActivityIndicator, View } from "react-native";
-import { CharacterProvider, useCharacter } from "../context/CharacterContext";
-import { ThemeProvider } from "../context/ThemeContext"; // <--- Importe
 
-// Componente Wrapper para gerenciar o Loading
-function AppContent() {
-  const { isLoading } = useCharacter();
-
-  if (isLoading) {
-    return (
-      <View
-        style={{
-          flex: 1,
-          justifyContent: "center",
-          alignItems: "center",
-          backgroundColor: "#fff",
-        }}
-      >
-        <ActivityIndicator size="large" color="#6200ea" />
-      </View>
-    );
-  }
-
-  return <Stack screenOptions={{ headerShown: false }} />;
-}
-
-export default function Layout() {
+export default function RootLayout() {
   return (
     <ThemeProvider>
-      <CharacterProvider>
-        <Stack screenOptions={{ headerShown: false }}>
-          <Stack.Screen name="(tabs)" />
-        </Stack>
-      </CharacterProvider>
+      <AlertProvider>
+        <CharacterProvider>
+          <CampaignProvider>
+            <Stack screenOptions={{ headerShown: false }}>
+              <Stack.Screen name="index" />
+              <Stack.Screen name="(player)" />
+              <Stack.Screen name="(gm)" />
+            </Stack>
+          </CampaignProvider>
+        </CharacterProvider>
+      </AlertProvider>
     </ThemeProvider>
   );
 }
