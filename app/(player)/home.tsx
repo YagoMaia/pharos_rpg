@@ -7,6 +7,7 @@ import { useCharacter } from "@/context/CharacterContext";
 import { useTheme } from "@/context/ThemeContext"; // <--- Importe o hook
 import { ANCESTRIES, CULTURAL_ORIGINS } from "@/data/origins";
 import { ALL_CLASSES, AttributeName, CharacterClass } from "@/types/rpg";
+import * as Clipboard from "expo-clipboard"; // <--- 1. IMPORTAÇÃO NOVA
 import * as ImagePicker from "expo-image-picker"; // Importação da biblioteca
 import React, { useMemo, useState } from "react";
 import {
@@ -36,6 +37,7 @@ export default function HomeScreen() {
     updateAncestry,
     updateDeathSave,
     updateLevel,
+    importCharacter,
   } = useCharacter();
 
   const { colors } = useTheme(); // <--- Pegue as cores
@@ -50,6 +52,19 @@ export default function HomeScreen() {
 
   const [isMoneyModalVisible, setMoneyModalVisible] = useState(false);
   const [tempSilver, setTempSilver] = useState("");
+
+  const handleExport = async () => {
+    try {
+      const dataStr = JSON.stringify(character);
+      await Clipboard.setStringAsync(dataStr);
+      showAlert(
+        "Ficha Copiada!",
+        "Os dados do personagem foram copiados para a área de transferência.\n\nAgora abra o aplicativo novo (Mestre) e use o botão de Importar."
+      );
+    } catch (error) {
+      showAlert("Erro", "Falha ao copiar dados para a área de transferência.");
+    }
+  };
 
   const openMoneyModal = () => {
     setTempSilver(String(character.silver || 0));
@@ -141,6 +156,53 @@ export default function HomeScreen() {
     setTempSilver(String(newVal));
   };
 
+  const handleImport = async () => {
+    try {
+      // 1. Lê o texto da memória
+      const content = await Clipboard.getStringAsync();
+
+      if (!content) {
+        showAlert("Erro", "Área de transferência vazia.");
+        return;
+      }
+
+      // 2. Tenta converter para JSON
+      const parsedData = JSON.parse(content);
+
+      // 3. Validação básica (vê se tem nome e status)
+      if (!parsedData.name || !parsedData.stats) {
+        showAlert(
+          "Inválido",
+          "O texto copiado não parece ser uma ficha de personagem válida."
+        );
+        return;
+      }
+
+      // 4. Confirmação antes de sobrescrever
+      showAlert(
+        "Importar Ficha",
+        `Deseja substituir o personagem atual por "${parsedData.name}"?\n\nIsso apagará os dados atuais deste app.`,
+        [
+          { text: "Cancelar", style: "cancel" },
+          {
+            text: "Sim, Substituir",
+            style: "destructive",
+            onPress: () => {
+              importCharacter(parsedData);
+              // Opcional: Avisar sucesso
+              // showAlert("Sucesso", "Personagem importado!");
+            },
+          },
+        ]
+      );
+    } catch (error) {
+      showAlert(
+        "Erro",
+        "Falha ao ler ou processar a ficha. O formato está correto?"
+      );
+    }
+  };
+
   return (
     <View style={styles.mainContainer}>
       <ScrollView
@@ -150,8 +212,27 @@ export default function HomeScreen() {
         {/* --- HEADER --- */}
         <View style={styles.topBar}>
           <Text style={styles.screenTitle}>Ficha</Text>
+          {/* Agrupamento dos 3 botões à direita */}
           <View style={{ flexDirection: "row", gap: 10 }}>
-            {/* Botão de Editar */}
+            {/* 1. Botão Importar (Download) */}
+            <TouchableOpacity onPress={handleImport} style={styles.iconBtn}>
+              <Ionicons
+                name="download-outline"
+                size={24}
+                color={colors.primary}
+              />
+            </TouchableOpacity>
+
+            {/* 2. Botão Exportar (Share) */}
+            <TouchableOpacity onPress={handleExport} style={styles.iconBtn}>
+              <Ionicons
+                name="share-social-outline"
+                size={24}
+                color={colors.primary}
+              />
+            </TouchableOpacity>
+
+            {/* 3. Botão Editar (Settings) */}
             <TouchableOpacity
               onPress={() => setEditModalVisible(true)}
               style={styles.iconBtn}
@@ -1111,9 +1192,10 @@ const getStyles = (colors: ThemeColors) =>
     modalHeader: {
       flexDirection: "row",
       justifyContent: "space-between",
-      alignItems: "center",
+      alignItems: "baseline",
       padding: 20,
       borderBottomWidth: 1,
+      marginTop: 20,
       borderBottomColor: colors.border,
     },
     modalTitle: { fontSize: 18, fontWeight: "bold", color: colors.text },

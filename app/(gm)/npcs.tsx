@@ -195,9 +195,6 @@ export default function NpcScreen() {
 
   // Preenche o formulário com dados existentes
   const handleEdit = (npc: NpcTemplate) => {
-    console.log("Editando NPC:", npc); // <--- VEJA ISSO NO TERMINAL
-    console.log("Posturas:", npc.stances);
-
     setEditingId(npc.id);
     setName(npc.name);
     setSubline(npc.subline || "");

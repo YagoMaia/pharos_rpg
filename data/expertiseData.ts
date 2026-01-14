@@ -17,7 +17,6 @@ export const SKILL_GROUPS = [
       "Investigação",
       "Natureza",
       "Navegação",
-      "Ocultismo",
       "Religião",
     ],
   },
@@ -29,6 +28,7 @@ export const SKILL_GROUPS = [
       "Medicina",
       "Percepção",
       "Sobrevivência",
+      "Ocultismo",
     ],
   },
   {
@@ -43,7 +43,7 @@ export const SKILL_GROUPS = [
     ],
   },
   {
-    attribute: "Constituição", // <--- Adicionado
+    attribute: "Constituição",
     skills: ["Concentração", "Ofício"],
   },
 ];
