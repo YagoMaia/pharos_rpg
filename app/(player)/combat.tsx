@@ -44,8 +44,10 @@ export default function CombatScreen() {
       baseAC = 10 + dexMod;
     } else if (armorDef >= 16) {
       baseAC = armorDef;
-    } else {
+    } else if (armorDef >= 13) {
       baseAC = armorDef + Math.min(dexMod, 2);
+    } else {
+      baseAC = armorDef + dexMod;
     }
     baseAC += shieldDef;
 
