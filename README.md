@@ -1,50 +1,89 @@
-# Welcome to your Expo app 👋
+# Pharos RPG
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+Pharos RPG é um aplicativo móvel, desenvolvido com React Native e Expo, projetado para auxiliar em sessões de RPG de mesa. Ele oferece ferramentas tanto para Mestres de Jogo (GMs) quanto para Jogadores, facilitando a gestão de campanhas e personagens.
 
-## Get started
+## 🔮 Sobre o Projeto
 
-1. Install dependencies
+O aplicativo possui duas áreas principais, cada uma com funcionalidades específicas para cada tipo de usuário:
 
-   ```bash
-   npm install
+### Para Jogadores
+- **Biografia:** Crie e gerencie a história e os detalhes do seu personagem.
+- **Inventário:** Mantenha um registro dos itens, equipamentos e dinheiro.
+- **Grimório:** Uma lista de magias e habilidades disponíveis para o personagem.
+- **Combate:** Ferramentas para auxiliar durante os encontros de combate.
+- **Ficha:** Acesso rápido à ficha completa do personagem.
+
+### Para Mestres (GM)
+- **Dashboard:** Um painel de controle para ter uma visão geral da campanha.
+- **NPCs:** Crie e gerencie Personagens Não-Jogáveis (NPCs).
+- **Combate:** Gerencie a iniciativa, pontos de vida e status dos participantes do combate.
+
+## 🛠️ Tecnologias Utilizadas
+
+- **React Native:** Framework para desenvolvimento de aplicativos móveis multiplataforma.
+- **Expo:** Plataforma e conjunto de ferramentas para facilitar o desenvolvimento com React Native.
+- **TypeScript:** Superset do JavaScript que adiciona tipagem estática.
+- **Expo Router:** Sistema de roteamento e navegação baseado em arquivos para aplicativos Expo.
+
+## 🚀 Começando
+
+Siga estas instruções para configurar e executar o projeto em seu ambiente de desenvolvimento local.
+
+### Pré-requisitos
+
+- [Node.js](https://nodejs.org/) (versão LTS recomendada)
+- [pnpm](https://pnpm.io/installation) (ou `npm`/`yarn` se preferir)
+- [Expo Go](https://expo.dev/go) (aplicativo para Android/iOS para testar o projeto)
+
+### Instalação
+
+1. **Clone o repositório:**
+   ```sh
+   git clone <URL_DO_SEU_REPOSITORIO>
+   cd pharos_rp
    ```
 
-2. Start the app
-
-   ```bash
-   npx expo start
+2. **Instale as dependências:**
+   ```sh
+   pnpm install
    ```
 
-In the output, you'll find options to open the app in a
+### Executando o Projeto
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
+1. **Inicie o servidor de desenvolvimento:**
+   ```sh
+   pnpm start
+   ```
 
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
+2. Com o servidor em execução, um QR code será exibido no terminal. Use o aplicativo **Expo Go** no seu celular para escanear o QR code e carregar o aplicativo.
 
-## Get a fresh project
+### Outros Scripts
 
-When you're ready, run:
+- **Executar em Android:**
+  ```sh
+  pnpm android
+  ```
+- **Executar em iOS:**
+  ```sh
+  pnpm ios
+  ```
+- **Verificar o código com o linter:**
+  ```sh
+  pnpm lint
+  ```
 
-```bash
-npm run reset-project
+## 📂 Estrutura do Projeto
+
 ```
-
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
-
-## Learn more
-
-To learn more about developing your project with Expo, look at the following resources:
-
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
-
-## Join the community
-
-Join our community of developers creating universal apps.
-
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+pharos_rp/
+├── app/                # Telas e navegação (Expo Router)
+│   ├── (gm)/           # Telas exclusivas para o Mestre
+│   └── (player)/       # Telas exclusivas para o Jogador
+├── assets/             # Imagens, fontes e outros arquivos estáticos
+├── components/         # Componentes React reutilizáveis
+├── constants/          # Constantes globais (cores, temas)
+├── context/            # Provedores de Contexto React
+├── data/               # Dados estáticos do sistema de RPG (classes, magias)
+├── hooks/              # Hooks React customizados
+└── types/              # Definições de tipos TypeScript
+```
