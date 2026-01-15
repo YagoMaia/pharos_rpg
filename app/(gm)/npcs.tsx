@@ -1,5 +1,5 @@
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   FlatList,
   Modal,
@@ -12,13 +12,27 @@ import {
 } from "react-native";
 
 import { useAlert } from "@/context/AlertContext";
+import { CLASS_DATA } from "@/data/classData";
+import { ANCESTRIES } from "@/data/origins";
 import { useCampaign } from "../../context/CampaignContext";
 import { useTheme } from "../../context/ThemeContext";
-import { Attributes, NpcSkill, NpcStance, NpcTemplate } from "../../types/rpg";
+import {
+  ALL_CLASSES,
+  Attribute,
+  AttributeName,
+  CharacterClass,
+  NpcTemplate,
+  Skill,
+  Stance,
+} from "../../types/rpg";
 
-const MOCK_NPC_TEMPLATE = {
+const MOCK_NPC_TEMPLATE: Omit<NpcTemplate, "id"> = {
   name: "Lutador Bandido",
-  subline: "Humano – Guerreiro Nível 1",
+  // --- NOVOS CAMPOS ESTRUTURAIS ---
+  level: 1,
+  class: "Corsário",
+  ancestry: "Namig",
+
   maxHp: 10,
   hpFormula: "1d10 + 2",
   armorClass: 15,
@@ -27,45 +41,18 @@ const MOCK_NPC_TEMPLATE = {
   initiativeBonus: 0,
   maxFocus: 8,
   attributes: {
-    str: 14,
-    dex: 10,
-    con: 14,
-    int: 8,
-    wis: 10,
-    cha: 10,
+    Força: { name: "Força", value: 10, modifier: 0 },
+    Destreza: { name: "Destreza", value: 10, modifier: 0 },
+    Constituição: { name: "Constituição", value: 10, modifier: 0 },
+    Inteligência: { name: "Inteligência", value: 10, modifier: 0 },
+    Sabedoria: { name: "Sabedoria", value: 10, modifier: 0 },
+    Carisma: { name: "Carisma", value: 10, modifier: 0 },
   },
   equipment: "Maça, Espada Curta, Escudo, Gibão de Peles.",
   actions:
     "- Maça/Espada: Corpo-a-corpo, +4 para acertar. Dano: 1d6 + 2 (Impacto).",
-  stances: [
-    {
-      id: "mock-st-1",
-      name: "Defensor",
-      acBonus: 2,
-      description:
-        "Reação para impor Desvantagem em ataque contra aliado adjacente. Movimento cai pela metade.",
-    },
-    {
-      id: "mock-st-2",
-      name: "Ofensiva",
-      acBonus: -2,
-      description: "Dobra proficiência no dano (+2 extra).",
-    },
-  ],
-  skills: [
-    {
-      id: "mock-sk-1",
-      name: "Ataque Brutal",
-      cost: 2,
-      description: "Adiciona o dado da arma novamente ao dano (Total 2d6+2).",
-    },
-    {
-      id: "mock-sk-2",
-      name: "Segundo Fôlego",
-      cost: 3,
-      description: "Cura a si mesmo em 1d10+2 (Ação Bônus).",
-    },
-  ],
+  stances: CLASS_DATA["Corsário"].stances,
+  skills: CLASS_DATA["Corsário"].skills,
 };
 
 // Função auxiliar
@@ -97,11 +84,11 @@ export default function NpcScreen() {
   const [editingId, setEditingId] = useState<string | null>(null); // Null = Criando, String = Editando
 
   // --- ESTADOS DO FORMULÁRIO ---
-  const [formTab, setFormTab] = useState<"general" | "attrs" | "details">(
-    "general"
-  );
+  const [formTab, setFormTab] = useState<"general" | "details">("general");
 
   const [name, setName] = useState("");
+  const [npcClass, setNpcClass] = useState<CharacterClass | "">("");
+  const [level, setLevel] = useState("1");
   const [subline, setSubline] = useState("");
   const [hp, setHp] = useState("");
   const [hpFormula, setHpFormula] = useState("");
@@ -110,68 +97,70 @@ export default function NpcScreen() {
   const [speed, setSpeed] = useState("");
   const [init, setInit] = useState("");
   const [focus, setFocus] = useState("");
-  const [attrs, setAttrs] = useState<Attributes>({
-    str: 10,
-    dex: 10,
-    con: 10,
-    int: 10,
-    wis: 10,
-    cha: 10,
+  const [attrs, setAttrs] = useState<Record<AttributeName, Attribute>>({
+    Força: { name: "Força", value: 10, modifier: 0 },
+    Destreza: { name: "Destreza", value: 10, modifier: 0 },
+    Constituição: { name: "Constituição", value: 10, modifier: 0 },
+    Inteligência: { name: "Inteligência", value: 10, modifier: 0 },
+    Sabedoria: { name: "Sabedoria", value: 10, modifier: 0 },
+    Carisma: { name: "Carisma", value: 10, modifier: 0 },
   });
+  const [ancestry, setAncestry] = useState("");
 
   // Detalhes Texto
   const [equip, setEquip] = useState("");
   const [actions, setActions] = useState("");
 
   // --- LOGICA DE LISTAS DINÂMICAS (STANCES & SKILLS) ---
-  const [npcStances, setNpcStances] = useState<NpcStance[]>([]);
-  const [npcSkills, setNpcSkills] = useState<NpcSkill[]>([]);
+  const [npcStances, setNpcStances] = useState<Stance[]>([]);
+  const [npcSkills, setNpcSkills] = useState<Skill[]>([]);
+  const ATTRIBUTE_ORDER: AttributeName[] = [
+    "Força",
+    "Destreza",
+    "Constituição",
+    "Inteligência",
+    "Sabedoria",
+    "Carisma",
+  ];
 
-  // Temp inputs para Stance
-  const [tempStanceName, setTempStanceName] = useState("");
-  const [tempStanceBonus, setTempStanceBonus] = useState("");
-  const [tempStanceDesc, setTempStanceDesc] = useState("");
+  const handleAttributeChange = (key: AttributeName, text: string) => {
+    const newValue = parseInt(text) || 0;
+    // Recalcula o modificador: (Valor - 10) / 2 arredondado para baixo
+    const newModifier = Math.floor((newValue - 10) / 2);
 
-  // Temp inputs para Skill
-  const [tempSkillName, setTempSkillName] = useState("");
-  const [tempSkillCost, setTempSkillCost] = useState("");
-  const [tempSkillDesc, setTempSkillDesc] = useState("");
-
-  const addStanceToNpc = () => {
-    if (!tempStanceName) return;
-    const newStance: NpcStance = {
-      id: Date.now().toString(),
-      name: tempStanceName,
-      acBonus: parseInt(tempStanceBonus) || 0,
-      description: tempStanceDesc,
-    };
-    setNpcStances([...npcStances, newStance]);
-    setTempStanceName("");
-    setTempStanceBonus("");
-    setTempStanceDesc("");
+    setAttrs((prev) => ({
+      ...prev,
+      [key]: {
+        ...prev[key], // Mantém o nome e outros dados se houver
+        value: newValue,
+        modifier: newModifier,
+      },
+    }));
   };
 
-  const removeStance = (id: string) => {
-    setNpcStances((prev) => prev.filter((s) => s.id !== id));
+  // Helper apenas para mostrar o sinal de + ou - na tela
+  const formatModString = (mod: number) => {
+    return mod >= 0 ? `+${mod}` : `${mod}`;
   };
 
-  const addSkillToNpc = () => {
-    if (!tempSkillName) return;
-    const newSkill: NpcSkill = {
-      id: Date.now().toString(),
-      name: tempSkillName,
-      cost: parseInt(tempSkillCost) || 0,
-      description: tempSkillDesc,
-    };
-    setNpcSkills([...npcSkills, newSkill]);
-    setTempSkillName("");
-    setTempSkillCost("");
-    setTempSkillDesc("");
-  };
+  useEffect(() => {
+    if (npcClass && CLASS_DATA[npcClass as CharacterClass]) {
+      const data = CLASS_DATA[npcClass as CharacterClass];
+      const numericLevel = parseInt(level) || 1;
 
-  const removeSkill = (id: string) => {
-    setNpcSkills((prev) => prev.filter((s) => s.id !== id));
-  };
+      // Filtra skills por nível
+      const autoSkills = data.skills.filter(
+        (s) => (s.level || 1) <= numericLevel
+      );
+      const autoStances = data.stances;
+
+      // Atualiza o estado visual do form (para o mestre ver o que o NPC tem)
+      // Opcional: Você pode querer MANTER as skills manuais adicionadas.
+      // Aqui estou substituindo para ficar "igual ao player".
+      setNpcSkills(autoSkills);
+      setNpcStances(autoStances);
+    }
+  }, [npcClass, level]);
 
   // Limpa o formulário e o estado de edição
   const resetForm = () => {
@@ -185,7 +174,14 @@ export default function NpcScreen() {
     setSpeed("");
     setInit("");
     setFocus("");
-    setAttrs({ str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 });
+    setAttrs({
+      Força: { name: "Força", value: 10, modifier: 0 },
+      Destreza: { name: "Destreza", value: 10, modifier: 0 },
+      Constituição: { name: "Constituição", value: 10, modifier: 0 },
+      Inteligência: { name: "Inteligência", value: 10, modifier: 0 },
+      Sabedoria: { name: "Sabedoria", value: 10, modifier: 0 },
+      Carisma: { name: "Carisma", value: 10, modifier: 0 },
+    });
     setEquip("");
     setActions("");
     setNpcStances([]);
@@ -197,35 +193,28 @@ export default function NpcScreen() {
   const handleEdit = (npc: NpcTemplate) => {
     setEditingId(npc.id);
     setName(npc.name);
-    setSubline(npc.subline || "");
     setHp(String(npc.maxHp));
     // setHpFormula(npc.hpFormula); // Se tiver no type, descomente
     setAc(String(npc.armorClass));
-    // setAcDetail(npc.acDetail);   // Se tiver no type, descomente
+    setAcDetail(npc.acDetail || ""); // Se tiver no type, descomente
     setSpeed(npc.speed || "");
     setInit(String(npc.initiativeBonus));
     setFocus(String(npc.maxFocus));
     setAttrs(
-      npc.attributes || { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 }
+      npc.attributes || {
+        Força: { name: "Força", value: 10, modifier: 0 },
+        Destreza: { name: "Destreza", value: 10, modifier: 0 },
+        Constituição: { name: "Constituição", value: 10, modifier: 0 },
+        Inteligência: { name: "Inteligência", value: 10, modifier: 0 },
+        Sabedoria: { name: "Sabedoria", value: 10, modifier: 0 },
+        Carisma: { name: "Carisma", value: 10, modifier: 0 },
+      }
     );
 
-    // Texto Livre
     setEquip(npc.equipment || "");
     setActions(npc.actions || "");
-
-    // --- CORREÇÃO AQUI ---
-    // Verifica se é um array antes de setar. Se for string antiga, ignora ou converte (aqui ignoramos)
-    if (Array.isArray(npc.stances)) {
-      setNpcStances(npc.stances);
-    } else {
-      setNpcStances([]);
-    }
-
-    if (Array.isArray(npc.skills)) {
-      setNpcSkills(npc.skills);
-    } else {
-      setNpcSkills([]);
-    }
+    setNpcClass(npc.class || "");
+    setAncestry(npc.ancestry || "");
 
     setModalVisible(true);
   };
@@ -239,7 +228,7 @@ export default function NpcScreen() {
       maxHp: parseInt(hp) || 10,
       //   hpFormula,
       armorClass: parseInt(ac) || 10,
-      //   acDetail,
+      acDetail,
       speed: speed || "9m",
       initiativeBonus: parseInt(init) || 0,
       maxFocus: parseInt(focus) || 0,
@@ -311,9 +300,6 @@ export default function NpcScreen() {
           <View style={styles.cardHeader}>
             <View style={{ flex: 1 }}>
               <Text style={styles.cardTitle}>{item.name}</Text>
-              <Text style={styles.cardSub}>
-                {item.subline || "NPC Genérico"}
-              </Text>
             </View>
             <View style={{ alignItems: "flex-end" }}>
               <View style={styles.badgeRow}>
@@ -364,10 +350,12 @@ export default function NpcScreen() {
               {item.attributes &&
                 Object.entries(item.attributes).map(([key, val]) => (
                   <View key={key} style={styles.attrBox}>
-                    <Text style={styles.attrLabel}>{key.toUpperCase()}</Text>
-                    <Text style={styles.attrVal}>{val}</Text>
+                    <Text style={styles.attrLabel}>
+                      {key.substring(0, 3).toUpperCase()}
+                    </Text>
+                    <Text style={styles.attrVal}>{val.value}</Text>
                     <Text style={styles.attrMod}>
-                      {formatMod(val as number)}
+                      {formatMod(val.value as number)}
                     </Text>
                   </View>
                 ))}
@@ -399,8 +387,8 @@ export default function NpcScreen() {
                   {item.stances.map((s, index) => (
                     <Text key={s.id || index} style={styles.bodyText}>
                       • <Text style={{ fontWeight: "bold" }}>{s.name}</Text> (
-                      {s.acBonus > 0 ? `+${s.acBonus}` : s.acBonus} CA):{" "}
-                      {s.description}
+                      {(s.acBonus || 0) > 0 ? `+${s.acBonus}` : s.acBonus} CA):{" "}
+                      {s.benefit}
                     </Text>
                   ))}
                 </View>
@@ -532,19 +520,6 @@ export default function NpcScreen() {
               </Text>
             </TouchableOpacity>
             <TouchableOpacity
-              onPress={() => setFormTab("attrs")}
-              style={[styles.tabItem, formTab === "attrs" && styles.tabActive]}
-            >
-              <Text
-                style={[
-                  styles.tabText,
-                  formTab === "attrs" && styles.tabTextActive,
-                ]}
-              >
-                Atributos
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
               onPress={() => setFormTab("details")}
               style={[
                 styles.tabItem,
@@ -575,14 +550,67 @@ export default function NpcScreen() {
                   placeholderTextColor={colors.textSecondary}
                 />
 
-                <Text style={styles.label}>Subtítulo</Text>
-                <TextInput
-                  style={styles.input}
-                  value={subline}
-                  onChangeText={setSubline}
-                  placeholder="Ex: Humano Nível 1"
-                  placeholderTextColor={colors.textSecondary}
-                />
+                <View style={styles.row}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.label}>Nível</Text>
+                    <TextInput
+                      style={styles.input}
+                      value={level}
+                      onChangeText={setLevel}
+                      keyboardType="numeric"
+                      placeholder="1"
+                      placeholderTextColor={colors.textSecondary}
+                    />
+                  </View>
+                </View>
+
+                {/* SELETOR DE CLASSE (Igual Player) */}
+                <Text style={styles.label}>Classe</Text>
+                <View style={styles.chipContainer}>
+                  {ALL_CLASSES.map((cls) => {
+                    const isSelected = npcClass === cls;
+                    return (
+                      <TouchableOpacity
+                        key={cls}
+                        style={[styles.chip, isSelected && styles.chipActive]}
+                        onPress={() => setNpcClass(cls)}
+                      >
+                        <Text
+                          style={[
+                            styles.chipText,
+                            isSelected && styles.chipTextActive,
+                          ]}
+                        >
+                          {cls}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+
+                {/* SELETOR DE ANCESTRALIDADE (Igual Player) */}
+                <Text style={styles.label}>Ancestralidade</Text>
+                <View style={styles.chipContainer}>
+                  {ANCESTRIES.map((anc) => {
+                    const isSelected = ancestry === anc.name; // ou anc.id dependendo do seu dado
+                    return (
+                      <TouchableOpacity
+                        key={anc.id}
+                        style={[styles.chip, isSelected && styles.chipActive]}
+                        onPress={() => setAncestry(anc.name)}
+                      >
+                        <Text
+                          style={[
+                            styles.chipText,
+                            isSelected && styles.chipTextActive,
+                          ]}
+                        >
+                          {anc.name}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
 
                 <View style={styles.row}>
                   <View style={{ flex: 1, marginRight: 8 }}>
@@ -666,33 +694,6 @@ export default function NpcScreen() {
               </>
             )}
 
-            {/* ABA ATRIBUTOS */}
-            {formTab === "attrs" && (
-              <View style={styles.attrFormGrid}>
-                {Object.keys(attrs).map((key) => (
-                  <View key={key} style={styles.attrInputBox}>
-                    <Text style={styles.labelCenter}>{key.toUpperCase()}</Text>
-                    <TextInput
-                      style={[styles.input, { textAlign: "center" }]}
-                      keyboardType="numeric"
-                      value={String(attrs[key as keyof Attributes])}
-                      onChangeText={(t) =>
-                        setAttrs({ ...attrs, [key]: parseInt(t) || 10 })
-                      }
-                    />
-                    <Text
-                      style={{
-                        textAlign: "center",
-                        color: colors.textSecondary,
-                      }}
-                    >
-                      {formatMod(attrs[key as keyof Attributes])}
-                    </Text>
-                  </View>
-                ))}
-              </View>
-            )}
-
             {/* ABA DETALHES */}
             {formTab === "details" && (
               <>
@@ -713,125 +714,38 @@ export default function NpcScreen() {
                   placeholderTextColor={colors.textSecondary}
                 />
 
-                {/* SEÇÃO POSTURAS */}
-                <Text style={styles.sectionHeader}>
-                  Posturas ({npcStances.length})
-                </Text>
-                {npcStances.map((s) => (
-                  <View key={s.id} style={styles.miniItem}>
-                    <View style={{ flex: 1 }}>
-                      <Text style={styles.miniItemTitle}>
-                        {s.name} ({s.acBonus > 0 ? `+${s.acBonus}` : s.acBonus}{" "}
-                        CA)
-                      </Text>
-                      <Text style={styles.miniItemDesc}>{s.description}</Text>
-                    </View>
-                    <TouchableOpacity onPress={() => removeStance(s.id)}>
-                      <Ionicons
-                        name="close-circle"
-                        size={24}
-                        color={colors.error}
-                      />
-                    </TouchableOpacity>
-                  </View>
-                ))}
-
-                <View style={styles.addBox}>
-                  <View
-                    style={{ flexDirection: "row", gap: 10, marginBottom: 8 }}
-                  >
-                    <TextInput
-                      style={[styles.input, { flex: 2, marginBottom: 0 }]}
-                      placeholder="Nome da Postura"
-                      value={tempStanceName}
-                      onChangeText={setTempStanceName}
-                      placeholderTextColor={colors.textSecondary}
-                    />
-                    <TextInput
-                      style={[styles.input, { flex: 1, marginBottom: 0 }]}
-                      placeholder="CA (+/-)"
-                      keyboardType="numeric"
-                      value={tempStanceBonus}
-                      onChangeText={setTempStanceBonus}
-                      placeholderTextColor={colors.textSecondary}
-                    />
-                  </View>
-                  <TextInput
-                    style={[styles.input, { height: 50, marginBottom: 8 }]}
-                    placeholder="Descrição / Efeito"
-                    multiline
-                    value={tempStanceDesc}
-                    onChangeText={setTempStanceDesc}
-                    placeholderTextColor={colors.textSecondary}
-                  />
-                  <TouchableOpacity
-                    onPress={addStanceToNpc}
-                    style={styles.addBtnSmall}
-                  >
-                    <Text style={styles.addBtnText}>+ Adicionar Postura</Text>
-                  </TouchableOpacity>
-                </View>
-
                 <View style={styles.divider} />
 
-                {/* SEÇÃO HABILIDADES */}
-                <Text style={styles.sectionHeader}>
-                  Habilidades ({npcSkills.length})
-                </Text>
-                {npcSkills.map((s) => (
-                  <View key={s.id} style={styles.miniItem}>
-                    <View style={{ flex: 1 }}>
-                      <Text style={styles.miniItemTitle}>
-                        {s.name} ({s.cost} Foco)
+                <View style={styles.attrFormGrid}>
+                  {ATTRIBUTE_ORDER.map((key) => (
+                    <View key={key} style={styles.attrInputBox}>
+                      {/* Label (Ex: FOR, DES) */}
+                      <Text style={styles.labelCenter}>
+                        {key.substring(0, 3).toUpperCase()}
                       </Text>
-                      <Text style={styles.miniItemDesc}>{s.description}</Text>
-                    </View>
-                    <TouchableOpacity onPress={() => removeSkill(s.id)}>
-                      <Ionicons
-                        name="close-circle"
-                        size={24}
-                        color={colors.error}
-                      />
-                    </TouchableOpacity>
-                  </View>
-                ))}
 
-                <View style={styles.addBox}>
-                  <View
-                    style={{ flexDirection: "row", gap: 10, marginBottom: 8 }}
-                  >
-                    <TextInput
-                      style={[styles.input, { flex: 2, marginBottom: 0 }]}
-                      placeholder="Nome da Habilidade"
-                      value={tempSkillName}
-                      onChangeText={setTempSkillName}
-                      placeholderTextColor={colors.textSecondary}
-                    />
-                    <TextInput
-                      style={[styles.input, { flex: 1, marginBottom: 0 }]}
-                      placeholder="Custo Foco"
-                      keyboardType="numeric"
-                      value={tempSkillCost}
-                      onChangeText={setTempSkillCost}
-                      placeholderTextColor={colors.textSecondary}
-                    />
-                  </View>
-                  <TextInput
-                    style={[styles.input, { height: 50, marginBottom: 8 }]}
-                    placeholder="Descrição / Efeito"
-                    multiline
-                    value={tempSkillDesc}
-                    onChangeText={setTempSkillDesc}
-                    placeholderTextColor={colors.textSecondary}
-                  />
-                  <TouchableOpacity
-                    onPress={addSkillToNpc}
-                    style={styles.addBtnSmall}
-                  >
-                    <Text style={styles.addBtnText}>
-                      + Adicionar Habilidade
-                    </Text>
-                  </TouchableOpacity>
+                      {/* Input do Valor */}
+                      <TextInput
+                        style={[styles.input, { textAlign: "center" }]}
+                        keyboardType="numeric"
+                        // Acessa .value, pois attrs[key] agora é um objeto
+                        value={String(attrs[key].value)}
+                        onChangeText={(t) => handleAttributeChange(key, t)}
+                      />
+
+                      {/* Exibição do Modificador */}
+                      <Text
+                        style={{
+                          textAlign: "center",
+                          color: colors.textSecondary,
+                          fontSize: 12,
+                        }}
+                      >
+                        {/* Acessa .modifier direto do objeto calculado */}
+                        {formatModString(attrs[key].modifier)}
+                      </Text>
+                    </View>
+                  ))}
                 </View>
               </>
             )}
@@ -1152,5 +1066,32 @@ const getStyles = (colors: any) =>
       color: colors.text,
       fontWeight: "bold",
       fontSize: 12,
+    },
+    chipContainer: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      gap: 8,
+      marginBottom: 16,
+    },
+    chip: {
+      paddingVertical: 8,
+      paddingHorizontal: 16,
+      borderRadius: 20,
+      backgroundColor: colors.inputBg,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    chipActive: {
+      backgroundColor: colors.primary,
+      borderColor: colors.primary,
+    },
+    chipText: {
+      color: colors.textSecondary,
+      fontWeight: "500",
+      fontSize: 12,
+    },
+    chipTextActive: {
+      color: "#fff",
+      fontWeight: "bold",
     },
   });

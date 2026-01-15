@@ -173,17 +173,10 @@ export default function CombatScreen() {
     }
     baseAC += shieldDef;
 
-    let stanceMod = 0;
-    if (!isNeutral && activeStance) {
-      const sId = activeStance.id;
-      if (sId === "gue_defensor") stanceMod = 1;
-      if (sId === "gue_ofensiva") stanceMod = -2;
-      if (sId === "cor_danca") stanceMod = 2;
-      if (sId === "cor_explosao") stanceMod = -2;
-    }
+    let stanceMod = activeStance?.acBonus || 0;
 
     return { total: baseAC + stanceMod, stanceMod, base: baseAC };
-  }, [character.equipment, character.attributes, activeStance, isNeutral]);
+  }, [character.equipment, character.attributes, activeStance]);
 
   const renderSkill = ({ item }: { item: Skill }) => (
     <SkillCard
