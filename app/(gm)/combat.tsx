@@ -90,6 +90,25 @@ const CombatantCard = ({ item }: { item: Combatant }) => {
     );
   };
 
+  const handleStanceChange = (newStanceId: string | null) => {
+    if (newStanceId !== null) {
+      if (item.activeStanceId === newStanceId) return;
+
+      if (!actions.bonus) {
+        showAlert(
+          "Ação Indisponível",
+          "Mudar de postura requer uma Ação Bônus neste turno."
+        );
+        return;
+      }
+
+      const newActions = { ...actions, bonus: false };
+      updateCombatant(item.id, "turnActions", newActions);
+    }
+
+    updateCombatant(item.id, "activeStanceId", newStanceId);
+  };
+
   return (
     <View
       style={[
@@ -195,14 +214,10 @@ const CombatantCard = ({ item }: { item: Combatant }) => {
           </TouchableOpacity>
         </View>
       </TouchableOpacity>
-      {/* <--- MUDANÇA CRUCIAL: O Touchable fecha AQUI, antes do expanded */}
 
-      {/* ÁREA EXPANDIDA (Agora é irmã do cabeçalho, não filha) */}
       {expanded && (
         <View
           style={styles.detailsBody}
-          // Esses props abaixo não são mais estritamente necessários agora,
-          // mas mal não fazem.
           onStartShouldSetResponder={() => true}
           onTouchEnd={(e) => e.stopPropagation()}
         >
@@ -263,16 +278,13 @@ const CombatantCard = ({ item }: { item: Combatant }) => {
             </TouchableOpacity>
           </View>
 
-          {/* SELETOR DE POSTURAS */}
           {item.stances && item.stances.length > 0 && (
             <View style={styles.section}>
               <Text style={styles.sectionHeader}>Postura Ativa</Text>
               <View style={styles.stanceContainer}>
-                {/* Botão Neutra */}
+                {/* Botão Neutra (Geralmente é ação livre 'soltar' a postura) */}
                 <TouchableOpacity
-                  onPress={() =>
-                    updateCombatant(item.id, "activeStanceId", null)
-                  }
+                  onPress={() => handleStanceChange(null)}
                   style={[
                     styles.stanceBtn,
                     !item.activeStanceId && styles.activeStanceBtn,
@@ -288,18 +300,21 @@ const CombatantCard = ({ item }: { item: Combatant }) => {
                   </Text>
                 </TouchableOpacity>
 
-                {/* Botões das Posturas */}
+                {/* Botões das Posturas (Custam Ação Bônus) */}
                 {item.stances.map((s) => {
                   const isActive = item.activeStanceId === s.id;
+                  // Se não tem ação bônus E não é a postura atual, fica apagado
+                  const canSwitch = actions.bonus || isActive;
+
                   return (
                     <TouchableOpacity
                       key={s.id}
-                      onPress={() =>
-                        updateCombatant(item.id, "activeStanceId", s.id)
-                      }
+                      onPress={() => handleStanceChange(s.id)}
+                      // Feedback visual: Opacidade se não puder trocar
                       style={[
                         styles.stanceBtn,
                         isActive && styles.activeStanceBtn,
+                        !canSwitch && { opacity: 0.5 },
                       ]}
                     >
                       <Text

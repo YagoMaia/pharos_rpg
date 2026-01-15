@@ -18,17 +18,7 @@ import { Skill } from "@/types/rpg";
 const SkillCard = ({ skill, styles, updateStat, character }: any) => {
   const [expanded, setExpanded] = useState(false);
   const { toggleAction } = useCharacter();
-  // const hasEnoughFocus = character.stats.focus.current >= skill.cost;
   const { showAlert } = useAlert();
-
-  // const handleUseSkill = () => {
-  //   if (!hasEnoughFocus) {
-  //     showAlert("Foco Insuficiente", "Sem foco para usar esta habilidade.");
-  //     return;
-  //   }
-  //   updateStat("focus", -skill.cost);
-  //   toggleAction(skill.actionType);
-  // };
 
   const getActionKey = (
     actionString: string
@@ -37,17 +27,13 @@ const SkillCard = ({ skill, styles, updateStat, character }: any) => {
     const lower = actionString.toLowerCase();
     if (lower.includes("bônus") || lower.includes("bonus")) return "bonus";
     if (lower.includes("reação") || lower.includes("reacao")) return "reaction";
-    // Assume padrão para "Ação Padrão", "Ataque", etc.
     return "standard";
   };
 
   const actionKey = getActionKey(skill.action || skill.actionType);
 
-  // 2. Verificações
   const hasEnoughFocus = character.stats.focus.current >= skill.cost;
 
-  // Verifica se a ação está disponível (true) no turno
-  // Se actionKey for null (ex: passiva), assume que está disponível
   const isActionAvailable = actionKey ? character.turnActions[actionKey] : true;
 
   const handleUseSkill = () => {
@@ -142,6 +128,7 @@ export default function CombatScreen() {
 
   // Hook do Tema
   const { colors } = useTheme();
+  const { showAlert } = useAlert();
   // Gerar estilos dinâmicos
   const styles = useMemo(() => getStyles(colors), [colors]);
 
@@ -177,6 +164,30 @@ export default function CombatScreen() {
 
     return { total: baseAC + stanceMod, stanceMod, base: baseAC };
   }, [character.equipment, character.attributes, activeStance]);
+
+  const handleStanceChange = (newIndex: number) => {
+    // 1. Se for para ficar Neutro (-1), é ação livre (ou "soltar" postura)
+    if (newIndex === -1) {
+      setStanceIndex(-1);
+      return;
+    }
+
+    // 2. Se já estiver nessa postura, não faz nada
+    if (character.currentStanceIndex === newIndex) return;
+
+    // 3. Verifica se tem Ação Bônus
+    if (!turnActions.bonus) {
+      showAlert(
+        "Ação Indisponível",
+        "Entrar em uma postura requer uma Ação Bônus neste turno."
+      );
+      return;
+    }
+
+    // 4. Executa: Muda a postura E gasta a ação
+    setStanceIndex(newIndex);
+    toggleAction("bonus"); // Isso vai mudar de true para false
+  };
 
   const renderSkill = ({ item }: { item: Skill }) => (
     <SkillCard
@@ -260,7 +271,6 @@ export default function CombatScreen() {
         </View>
       </View>
 
-      {/* --- SELETOR DE POSTURA --- */}
       <ScrollView
         style={{ maxHeight: 800 }}
         nestedScrollEnabled={true}
@@ -276,7 +286,7 @@ export default function CombatScreen() {
                 styles.stanceBtn,
                 isNeutral && styles.stanceBtnNeutralActive,
               ]}
-              onPress={() => setStanceIndex(-1)}
+              onPress={() => handleStanceChange(-1)}
             >
               <Text
                 style={[
@@ -293,8 +303,10 @@ export default function CombatScreen() {
               style={[
                 styles.stanceBtn,
                 currentStanceIdx === 0 && styles.stanceBtnP1Active,
+                currentStanceIdx !== 0 &&
+                  !turnActions.bonus && { opacity: 0.5 },
               ]}
-              onPress={() => setStanceIndex(0)}
+              onPress={() => handleStanceChange(0)}
             >
               <Text
                 style={[
@@ -311,8 +323,10 @@ export default function CombatScreen() {
               style={[
                 styles.stanceBtn,
                 currentStanceIdx === 1 && styles.stanceBtnP2Active,
+                currentStanceIdx !== 1 &&
+                  !turnActions.bonus && { opacity: 0.5 },
               ]}
-              onPress={() => setStanceIndex(1)}
+              onPress={() => handleStanceChange(1)}
             >
               <Text
                 style={[
@@ -381,10 +395,9 @@ export default function CombatScreen() {
 
         {/* --- RASTREADOR DE AÇÕES (ACTIONS TRACKER) --- */}
         <View style={styles.combatSection}>
-          <View style={[styles.sectionHeader, { marginBottom: 8 }]}>
-            {/* <Ionicons name="skull-outline" size={20} color={colors.primary} /> */}
-            <Text style={styles.sectionTitle}>Turno & Ações</Text>
-          </View>
+          <Text style={[styles.sectionTitle, { marginBottom: 8 }]}>
+            Turno & Ações
+          </Text>
 
           <View style={styles.actionsRow}>
             {/* Ação Padrão */}
