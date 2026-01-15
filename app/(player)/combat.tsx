@@ -1,7 +1,7 @@
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import React, { useMemo, useState } from "react";
 import {
-  FlatList,
+  ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -12,14 +12,123 @@ import {
 import { ThemeColors } from "@/constants/theme";
 import { useAlert } from "@/context/AlertContext";
 import { useCharacter } from "@/context/CharacterContext";
-import { useTheme } from "@/context/ThemeContext"; // <--- Hook do Tema
+import { useTheme } from "@/context/ThemeContext";
 import { Skill } from "@/types/rpg";
 
+const SkillCard = ({ skill, styles, updateStat, character }: any) => {
+  const [expanded, setExpanded] = useState(false);
+  const { toggleAction } = useCharacter();
+  const { showAlert } = useAlert();
+
+  const getActionKey = (
+    actionString: string
+  ): "standard" | "bonus" | "reaction" | null => {
+    if (!actionString) return null;
+    const lower = actionString.toLowerCase();
+    if (lower.includes("bônus") || lower.includes("bonus")) return "bonus";
+    if (lower.includes("reação") || lower.includes("reacao")) return "reaction";
+    return "standard";
+  };
+
+  const actionKey = getActionKey(skill.action || skill.actionType);
+
+  const hasEnoughFocus = character.stats.focus.current >= skill.cost;
+
+  const isActionAvailable = actionKey ? character.turnActions[actionKey] : true;
+
+  const handleUseSkill = () => {
+    // Checa Foco
+    if (!hasEnoughFocus) {
+      showAlert(
+        "Foco Insuficiente",
+        "Você não tem foco para usar esta habilidade."
+      );
+      return;
+    }
+
+    // Checa Ação
+    if (!isActionAvailable) {
+      showAlert(
+        "Ação Indisponível",
+        `Você já gastou sua ${skill.action || "ação"} neste turno.`
+      );
+      return;
+    }
+
+    // 3. Executa o Gasto
+    updateStat("focus", -skill.cost);
+
+    // Só consome a ação se ela existir e for mapeável
+    if (actionKey) {
+      toggleAction(actionKey);
+    }
+
+    // Opcional: Feedback visual ou fechar o card
+    // setExpanded(false);
+  };
+
+  return (
+    <TouchableOpacity
+      style={styles.skillCard}
+      onPress={() => setExpanded(!expanded)}
+      activeOpacity={0.8}
+    >
+      <View style={styles.skillHeader}>
+        <View>
+          <Text style={styles.skillName}>{skill.name}</Text>
+          <Text style={styles.skillType}>{skill.actionType}</Text>
+        </View>
+        <View
+          style={[
+            styles.costBadge,
+            !hasEnoughFocus && styles.costBadgeDisabled,
+          ]}
+        >
+          <Text
+            style={[
+              styles.costText,
+              !hasEnoughFocus && styles.costTextDisabled,
+            ]}
+          >
+            {skill.cost} Foco
+          </Text>
+        </View>
+      </View>
+      {expanded && (
+        <View style={styles.skillBody}>
+          <Text style={styles.description}>{skill.description}</Text>
+          <TouchableOpacity
+            style={[
+              styles.useButton,
+              (!hasEnoughFocus || !isActionAvailable) &&
+                styles.useButtonDisabled,
+            ]}
+            onPress={handleUseSkill}
+            disabled={!hasEnoughFocus}
+          >
+            <Text style={styles.useButtonText}>
+              {hasEnoughFocus ? "USAR HABILIDADE" : "FOCO INSUFICIENTE"}
+            </Text>
+          </TouchableOpacity>
+        </View>
+      )}
+    </TouchableOpacity>
+  );
+};
+
 export default function CombatScreen() {
-  const { character, setStanceIndex, updateStat } = useCharacter();
+  const { character, setStanceIndex, updateStat, toggleAction, endTurn } =
+    useCharacter();
+
+  const turnActions = character.turnActions || {
+    standard: true,
+    bonus: true,
+    reaction: true,
+  };
 
   // Hook do Tema
   const { colors } = useTheme();
+  const { showAlert } = useAlert();
   // Gerar estilos dinâmicos
   const styles = useMemo(() => getStyles(colors), [colors]);
 
@@ -51,17 +160,34 @@ export default function CombatScreen() {
     }
     baseAC += shieldDef;
 
-    let stanceMod = 0;
-    if (!isNeutral && activeStance) {
-      const sId = activeStance.id;
-      if (sId === "gue_defensor") stanceMod = 1;
-      if (sId === "gue_ofensiva") stanceMod = -2;
-      if (sId === "cor_danca") stanceMod = 2;
-      if (sId === "cor_explosao") stanceMod = -2;
-    }
+    let stanceMod = activeStance?.acBonus || 0;
 
     return { total: baseAC + stanceMod, stanceMod, base: baseAC };
-  }, [character.equipment, character.attributes, activeStance, isNeutral]);
+  }, [character.equipment, character.attributes, activeStance]);
+
+  const handleStanceChange = (newIndex: number) => {
+    // 1. Se for para ficar Neutro (-1), é ação livre (ou "soltar" postura)
+    if (newIndex === -1) {
+      setStanceIndex(-1);
+      return;
+    }
+
+    // 2. Se já estiver nessa postura, não faz nada
+    if (character.currentStanceIndex === newIndex) return;
+
+    // 3. Verifica se tem Ação Bônus
+    if (!turnActions.bonus) {
+      showAlert(
+        "Ação Indisponível",
+        "Entrar em uma postura requer uma Ação Bônus neste turno."
+      );
+      return;
+    }
+
+    // 4. Executa: Muda a postura E gasta a ação
+    setStanceIndex(newIndex);
+    toggleAction("bonus"); // Isso vai mudar de true para false
+  };
 
   const renderSkill = ({ item }: { item: Skill }) => (
     <SkillCard
@@ -145,128 +271,299 @@ export default function CombatScreen() {
         </View>
       </View>
 
-      {/* --- SELETOR DE POSTURA --- */}
-      <View style={styles.stanceSelectorContainer}>
-        <Text style={styles.sectionLabel}>Postura Atual</Text>
+      <ScrollView
+        style={{ maxHeight: 800 }}
+        nestedScrollEnabled={true}
+        showsVerticalScrollIndicator={true}
+      >
+        <View style={styles.stanceSelectorContainer}>
+          <Text style={styles.sectionLabel}>Postura Atual</Text>
 
-        <View style={styles.stanceToggleGroup}>
-          {/* Botão Neutra */}
-          <TouchableOpacity
-            style={[
-              styles.stanceBtn,
-              isNeutral && styles.stanceBtnNeutralActive,
-            ]}
-            onPress={() => setStanceIndex(-1)}
-          >
-            <Text
+          <View style={styles.stanceToggleGroup}>
+            {/* Botão Neutra */}
+            <TouchableOpacity
               style={[
-                styles.stanceBtnText,
-                isNeutral && styles.stanceBtnTextActive,
+                styles.stanceBtn,
+                isNeutral && styles.stanceBtnNeutralActive,
               ]}
+              onPress={() => handleStanceChange(-1)}
             >
-              Neutra
-            </Text>
-          </TouchableOpacity>
+              <Text
+                style={[
+                  styles.stanceBtnText,
+                  isNeutral && styles.stanceBtnTextActive,
+                ]}
+              >
+                Neutra
+              </Text>
+            </TouchableOpacity>
 
-          {/* Botão Postura 1 */}
-          <TouchableOpacity
-            style={[
-              styles.stanceBtn,
-              currentStanceIdx === 0 && styles.stanceBtnP1Active,
-            ]}
-            onPress={() => setStanceIndex(0)}
-          >
-            <Text
+            {/* Botão Postura 1 */}
+            <TouchableOpacity
               style={[
-                styles.stanceBtnText,
-                currentStanceIdx === 0 && { color: "#fff" },
+                styles.stanceBtn,
+                currentStanceIdx === 0 && styles.stanceBtnP1Active,
+                currentStanceIdx !== 0 &&
+                  !turnActions.bonus && { opacity: 0.5 },
               ]}
+              onPress={() => handleStanceChange(0)}
             >
-              I
-            </Text>
-          </TouchableOpacity>
+              <Text
+                style={[
+                  styles.stanceBtnText,
+                  currentStanceIdx === 0 && { color: "#fff" },
+                ]}
+              >
+                I
+              </Text>
+            </TouchableOpacity>
 
-          {/* Botão Postura 2 */}
-          <TouchableOpacity
-            style={[
-              styles.stanceBtn,
-              currentStanceIdx === 1 && styles.stanceBtnP2Active,
-            ]}
-            onPress={() => setStanceIndex(1)}
-          >
-            <Text
+            {/* Botão Postura 2 */}
+            <TouchableOpacity
               style={[
-                styles.stanceBtnText,
-                currentStanceIdx === 1 && { color: "#fff" },
+                styles.stanceBtn,
+                currentStanceIdx === 1 && styles.stanceBtnP2Active,
+                currentStanceIdx !== 1 &&
+                  !turnActions.bonus && { opacity: 0.5 },
               ]}
+              onPress={() => handleStanceChange(1)}
             >
-              II
+              <Text
+                style={[
+                  styles.stanceBtnText,
+                  currentStanceIdx === 1 && { color: "#fff" },
+                ]}
+              >
+                II
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* DETALHES DA POSTURA ATIVA */}
+          <View
+            style={[
+              styles.stanceCard,
+              isNeutral
+                ? styles.stanceNeutralBg
+                : currentStanceIdx === 0
+                ? styles.stanceOneBg
+                : styles.stanceTwoBg,
+            ]}
+          >
+            <Text style={styles.activeStanceName}>
+              {isNeutral ? "Postura Neutra" : activeStance?.name}
             </Text>
-          </TouchableOpacity>
-        </View>
 
-        {/* DETALHES DA POSTURA ATIVA */}
-        <View
-          style={[
-            styles.stanceCard,
-            isNeutral
-              ? styles.stanceNeutralBg
-              : currentStanceIdx === 0
-              ? styles.stanceOneBg
-              : styles.stanceTwoBg,
-          ]}
-        >
-          <Text style={styles.activeStanceName}>
-            {isNeutral ? "Postura Neutra" : activeStance?.name}
-          </Text>
+            <View style={styles.divider} />
 
-          <View style={styles.divider} />
-
-          {isNeutral ? (
-            <Text style={styles.neutralText}>
-              Você não está focado em nenhuma técnica específica.
-            </Text>
-          ) : (
-            <View style={styles.stanceDetails}>
-              <InfoRow
-                label="Benefício"
-                text={activeStance?.benefit || ""}
-                color={colors.success}
-                styles={styles}
-              />
-              <InfoRow
-                label="Restrição"
-                text={activeStance?.restriction || ""}
-                color={colors.error}
-                styles={styles}
-              />
-              <InfoRow
-                label="Manobra"
-                text={activeStance?.maneuver || ""}
-                color={colors.focus}
-                styles={styles}
-              />
-              {activeStance?.recovery && (
+            {isNeutral ? (
+              <Text style={styles.neutralText}>
+                Você não está focado em nenhuma técnica específica.
+              </Text>
+            ) : (
+              <View style={styles.stanceDetails}>
                 <InfoRow
-                  label="Recuperação"
-                  text={activeStance?.recovery}
-                  color={colors.primary}
+                  label="Benefício"
+                  text={activeStance?.benefit || ""}
+                  color={colors.success}
                   styles={styles}
                 />
-              )}
-            </View>
-          )}
+                <InfoRow
+                  label="Restrição"
+                  text={activeStance?.restriction || ""}
+                  color={colors.error}
+                  styles={styles}
+                />
+                <InfoRow
+                  label="Manobra"
+                  text={activeStance?.maneuver || ""}
+                  color={colors.focus}
+                  styles={styles}
+                />
+                {activeStance?.recovery && (
+                  <InfoRow
+                    label="Recuperação"
+                    text={activeStance?.recovery}
+                    color={colors.primary}
+                    styles={styles}
+                  />
+                )}
+              </View>
+            )}
+          </View>
         </View>
-      </View>
 
-      <Text style={styles.sectionHeader}>Habilidades</Text>
+        {/* --- RASTREADOR DE AÇÕES (ACTIONS TRACKER) --- */}
+        <View style={styles.combatSection}>
+          <Text style={[styles.sectionTitle, { marginBottom: 8 }]}>
+            Turno & Ações
+          </Text>
+
+          <View style={styles.actionsRow}>
+            {/* Ação Padrão */}
+            <TouchableOpacity
+              style={[
+                styles.actionBtn,
+                turnActions.standard
+                  ? { backgroundColor: colors.primary } // Azul
+                  : { backgroundColor: colors.inputBg, opacity: 0.4 },
+              ]}
+              onPress={() => toggleAction("standard")}
+            >
+              <MaterialCommunityIcons
+                name="sword-cross"
+                size={18}
+                color={turnActions.standard ? "#fff" : colors.textSecondary}
+              />
+              <Text
+                style={[
+                  styles.actionBtnText,
+                  {
+                    color: turnActions.standard ? "#fff" : colors.textSecondary,
+                  },
+                ]}
+              >
+                Padrão
+              </Text>
+            </TouchableOpacity>
+
+            {/* Ação Bônus */}
+            <TouchableOpacity
+              style={[
+                styles.actionBtn,
+                turnActions.bonus
+                  ? { backgroundColor: "#fb8c00" } // Laranja
+                  : { backgroundColor: colors.inputBg, opacity: 0.4 },
+              ]}
+              onPress={() => toggleAction("bonus")}
+            >
+              <MaterialCommunityIcons
+                name="star-four-points"
+                size={18}
+                color={turnActions.bonus ? "#fff" : colors.textSecondary}
+              />
+              <Text
+                style={[
+                  styles.actionBtnText,
+                  {
+                    color: turnActions.bonus ? "#fff" : colors.textSecondary,
+                  },
+                ]}
+              >
+                Bônus
+              </Text>
+            </TouchableOpacity>
+
+            {/* Reação */}
+            <TouchableOpacity
+              style={[
+                styles.actionBtn,
+                turnActions.reaction
+                  ? { backgroundColor: "#8e24aa" } // Roxo
+                  : { backgroundColor: colors.inputBg, opacity: 0.4 },
+              ]}
+              onPress={() => toggleAction("reaction")}
+            >
+              <MaterialCommunityIcons
+                name="shield-alert"
+                size={18}
+                color={turnActions.reaction ? "#fff" : colors.textSecondary}
+              />
+              <Text
+                style={[
+                  styles.actionBtnText,
+                  {
+                    color: turnActions.reaction ? "#fff" : colors.textSecondary,
+                  },
+                ]}
+              >
+                Reação
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          <TouchableOpacity style={styles.endTurnBtn} onPress={endTurn}>
+            <Text style={styles.endTurnText}>ENCERRAR TURNO ↻</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* <Text style={styles.sectionHeader}>Habilidades</Text> */}
+
+        {/* <Text style={styles.subHeader}>Nível 1</Text>
 
       <FlatList
-        data={character.skills}
+        data={skillsLevel1}
         keyExtractor={(item) => item.id}
         renderItem={renderSkill}
         contentContainerStyle={styles.listContent}
       />
+
+      <Text style={styles.subHeader}>Nível 2</Text>
+
+      <FlatList
+        data={skillsLevel2}
+        keyExtractor={(item) => item.id}
+        renderItem={renderSkill}
+        contentContainerStyle={styles.listContent}
+      /> */}
+        {/* 1. Lógica de Filtro (Pode ficar antes do return ou aqui mesmo) */}
+        {(() => {
+          const level1Skills = character.skills.filter(
+            (s) => (s.level || 1) === 1
+          );
+
+          // Nível 2 sempre terá a chave, pois são novos.
+          const level2Skills = character.skills.filter((s) => s.level === 2);
+
+          // Verifica se o personagem tem nível suficiente para ver a seção 2
+          const showLevel2 =
+            (character.level || 1) >= 2 && level2Skills.length > 0;
+
+          return (
+            <View style={styles.section}>
+              <Text style={styles.sectionHeader}>Habilidades</Text>
+
+              {/* --- ADICIONADO: ScrollView Interno --- */}
+              {/* --- SEÇÃO NÍVEL 1 --- */}
+              <Text style={styles.subHeader}>Nível 1</Text>
+              <View style={styles.listContent}>
+                {level1Skills.length > 0 ? (
+                  level1Skills.map((item) => (
+                    <React.Fragment key={item.id}>
+                      {renderSkill({ item })}
+                    </React.Fragment>
+                  ))
+                ) : (
+                  <Text
+                    style={{ color: colors.textSecondary, fontStyle: "italic" }}
+                  >
+                    Nenhuma habilidade.
+                  </Text>
+                )}
+              </View>
+
+              {/* --- SEÇÃO NÍVEL 2 (Condicional) --- */}
+              {showLevel2 && (
+                <>
+                  <Text style={[styles.subHeader, { marginTop: 16 }]}>
+                    Nível 2
+                  </Text>
+                  <View style={styles.listContent}>
+                    {level2Skills.map((item) => (
+                      <React.Fragment key={item.id}>
+                        {renderSkill({ item })}
+                      </React.Fragment>
+                    ))}
+                  </View>
+                </>
+              )}
+
+              {/* Um espaçamento extra no final do scroll interno */}
+              <View style={{ height: 20 }} />
+            </View>
+          );
+        })()}
+      </ScrollView>
     </View>
   );
 }
@@ -278,68 +575,6 @@ const InfoRow = ({ label, text, color, styles }: any) => (
     <Text style={styles.infoText}>{text}</Text>
   </View>
 );
-
-// Componente SkillCard (Recebe styles/colors agora)
-const SkillCard = ({ skill, styles, colors, updateStat, character }: any) => {
-  const [expanded, setExpanded] = useState(false);
-  const hasEnoughFocus = character.stats.focus.current >= skill.cost;
-  const { showAlert } = useAlert();
-
-  const handleUseSkill = () => {
-    if (!hasEnoughFocus) {
-      showAlert("Foco Insuficiente", "Sem foco para usar esta habilidade.");
-      return;
-    }
-    updateStat("focus", -skill.cost);
-  };
-
-  return (
-    <TouchableOpacity
-      style={styles.skillCard}
-      onPress={() => setExpanded(!expanded)}
-      activeOpacity={0.8}
-    >
-      <View style={styles.skillHeader}>
-        <View>
-          <Text style={styles.skillName}>{skill.name}</Text>
-          <Text style={styles.skillType}>{skill.actionType}</Text>
-        </View>
-        <View
-          style={[
-            styles.costBadge,
-            !hasEnoughFocus && styles.costBadgeDisabled,
-          ]}
-        >
-          <Text
-            style={[
-              styles.costText,
-              !hasEnoughFocus && styles.costTextDisabled,
-            ]}
-          >
-            {skill.cost} Foco
-          </Text>
-        </View>
-      </View>
-      {expanded && (
-        <View style={styles.skillBody}>
-          <Text style={styles.description}>{skill.description}</Text>
-          <TouchableOpacity
-            style={[
-              styles.useButton,
-              !hasEnoughFocus && styles.useButtonDisabled,
-            ]}
-            onPress={handleUseSkill}
-            disabled={!hasEnoughFocus}
-          >
-            <Text style={styles.useButtonText}>
-              {hasEnoughFocus ? "USAR HABILIDADE" : "FOCO INSUFICIENTE"}
-            </Text>
-          </TouchableOpacity>
-        </View>
-      )}
-    </TouchableOpacity>
-  );
-};
 
 // --- GERADOR DE ESTILOS DINÂMICO ---
 const getStyles = (colors: ThemeColors) =>
@@ -532,4 +767,70 @@ const getStyles = (colors: ThemeColors) =>
     },
     useButtonDisabled: { backgroundColor: colors.border },
     useButtonText: { color: "#fff", fontWeight: "bold", fontSize: 14 },
+    subHeader: {
+      fontSize: 14,
+      fontWeight: "bold",
+      color: colors.primary, // Ou uma cor de destaque
+      marginBottom: 8,
+      marginLeft: 16,
+      textTransform: "uppercase",
+      letterSpacing: 1,
+    },
+    section: {
+      // backgroundColor: colors.surface,
+      borderRadius: 12,
+      // padding: 16,
+      marginBottom: 24, // Espaço entre uma seção e outra
+      // borderWidth: 1,
+      borderColor: colors.border,
+      // Sombra suave para destacar do fundo
+      elevation: 2, // Android
+      shadowColor: "#000", // iOS
+      shadowOffset: { width: 0, height: 2 }, // iOS
+      shadowOpacity: 0.1, // iOS
+      shadowRadius: 4, // iOS
+    },
+    // RASTREADOR DE AÇÕES (Combat Section)
+    combatSection: { marginHorizontal: 16, marginTop: 12, marginBottom: 20 },
+    sectionTitle: { fontSize: 18, fontWeight: "bold", color: colors.text },
+
+    actionsRow: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      gap: 8,
+      marginBottom: 12,
+    },
+    actionBtn: {
+      flex: 1,
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+      paddingVertical: 12,
+      borderRadius: 8,
+      gap: 4,
+      elevation: 2,
+    },
+    actionBtnText: {
+      fontWeight: "bold",
+      fontSize: 11,
+      textTransform: "uppercase",
+    },
+
+    endTurnBtn: {
+      backgroundColor: colors.surface,
+      borderWidth: 1,
+      borderColor: colors.primary,
+      borderRadius: 8,
+      paddingVertical: 12,
+      alignItems: "center",
+      justifyContent: "center",
+      borderStyle: "dashed",
+    },
+    endTurnText: {
+      color: colors.primary,
+      fontWeight: "bold",
+      fontSize: 14,
+      textTransform: "uppercase",
+      letterSpacing: 1,
+    },
   });

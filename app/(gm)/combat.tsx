@@ -13,7 +13,7 @@ import {
 import { useAlert } from "@/context/AlertContext";
 import { useCampaign } from "@/context/CampaignContext";
 import { useTheme } from "@/context/ThemeContext";
-import { Combatant, NpcSkill } from "@/types/rpg";
+import { Combatant, Skill } from "@/types/rpg";
 
 // Função auxiliar para mod
 const getMod = (val: number) => Math.floor((val - 10) / 2);
@@ -21,38 +21,92 @@ const formatMod = (val: number) => {
   const mod = getMod(val);
   return mod >= 0 ? `+${mod}` : `${mod}`;
 };
+const getActionKey = (
+  actionString: string
+): "standard" | "bonus" | "reaction" | null => {
+  if (!actionString) return null;
+  const lower = actionString.toLowerCase();
+  if (lower.includes("bônus") || lower.includes("bonus")) return "bonus";
+  if (lower.includes("reação") || lower.includes("reacao")) return "reaction";
+  return "standard";
+};
 
 const CombatantCard = ({ item }: { item: Combatant }) => {
   const [expanded, setExpanded] = useState(false);
-  const { removeCombatant, updateCombatant, sortCombat } = useCampaign();
+  const { removeCombatant, updateCombatant, sortCombat } = useCampaign(); // Adicione endTurnCombatant se tiver criado
 
   const { colors } = useTheme();
   const styles = useMemo(() => getStyles(colors), [colors]);
   const { showAlert } = useAlert();
 
+  // Garante que turnActions exista (para dados antigos)
+  const actions = item.turnActions || {
+    standard: true,
+    bonus: true,
+    reaction: true,
+  };
+
   const activeStance = item.stances?.find((s) => s.id === item.activeStanceId);
   const stanceBonus = activeStance?.acBonus || 0;
   const totalAC = (item.armorClass || 10) + stanceBonus;
 
-  // 2. Lógica de Habilidade
-  const handleUseSkill = (skill: NpcSkill) => {
+  // Função para alternar ação
+  const toggleAction = (type: "standard" | "bonus" | "reaction") => {
+    const newActions = { ...actions, [type]: !actions[type] };
+    updateCombatant(item.id, "turnActions", newActions);
+  };
+
+  const handleUseSkill = (skill: Skill) => {
+    // 1. Verifica Foco (MANTIDO)
     if (item.currentFocus < skill.cost) {
+      showAlert("Sem Foco", `${item.name} precisa de ${skill.cost} foco.`);
+      return;
+    }
+
+    // 2. Identifica e Verifica a Ação (AJUSTADO)
+    const actionKey = getActionKey(skill.actionType); // Usa o helper que você criou
+
+    if (actionKey && !actions[actionKey]) {
+      // Se a ação existe (não é null) E já foi gasta (false)
       showAlert(
-        "Sem Foco",
-        `${item.name} precisa de ${skill.cost} foco (Tem ${item.currentFocus}).`
+        "Ação Indisponível",
+        `${item.name} já gastou sua ${skill.actionType || "ação"} neste turno.`
       );
       return;
     }
 
-    // Atualiza o foco no contexto
+    // 3. Executa o Gasto (MANTIDO)
     updateCombatant(item.id, "currentFocus", item.currentFocus - skill.cost);
+
+    if (actionKey) {
+      // Consome a ação automaticamente
+      const newActions = { ...actions, [actionKey]: false };
+      updateCombatant(item.id, "turnActions", newActions);
+    }
 
     showAlert(
       "Habilidade Usada",
-      `${item.name} usou ${skill.name}!\n\n${
-        skill.description
-      }\n\nFoco restante: ${item.currentFocus - skill.cost}`
+      `${item.name} usou ${skill.name}!\n\n${skill.description}`
     );
+  };
+
+  const handleStanceChange = (newStanceId: string | null) => {
+    if (newStanceId !== null) {
+      if (item.activeStanceId === newStanceId) return;
+
+      if (!actions.bonus) {
+        showAlert(
+          "Ação Indisponível",
+          "Mudar de postura requer uma Ação Bônus neste turno."
+        );
+        return;
+      }
+
+      const newActions = { ...actions, bonus: false };
+      updateCombatant(item.id, "turnActions", newActions);
+    }
+
+    updateCombatant(item.id, "activeStanceId", newStanceId);
   };
 
   return (
@@ -160,29 +214,77 @@ const CombatantCard = ({ item }: { item: Combatant }) => {
           </TouchableOpacity>
         </View>
       </TouchableOpacity>
-      {/* <--- MUDANÇA CRUCIAL: O Touchable fecha AQUI, antes do expanded */}
 
-      {/* ÁREA EXPANDIDA (Agora é irmã do cabeçalho, não filha) */}
       {expanded && (
         <View
           style={styles.detailsBody}
-          // Esses props abaixo não são mais estritamente necessários agora,
-          // mas mal não fazem.
           onStartShouldSetResponder={() => true}
           onTouchEnd={(e) => e.stopPropagation()}
         >
           <View style={styles.divider} />
 
-          {/* SELETOR DE POSTURAS */}
+          {/* --- NOVO: RASTREADOR DE AÇÕES --- */}
+          <View style={styles.actionTrackerRow}>
+            <Text style={styles.sectionHeaderSmall}>Ações:</Text>
+
+            <TouchableOpacity
+              style={[
+                styles.miniActionBtn,
+                actions.standard
+                  ? { backgroundColor: colors.primary }
+                  : { backgroundColor: colors.border },
+              ]}
+              onPress={() => toggleAction("standard")}
+            >
+              <Text style={styles.miniActionText}>Padrão</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[
+                styles.miniActionBtn,
+                actions.bonus
+                  ? { backgroundColor: "#fb8c00" }
+                  : { backgroundColor: colors.border },
+              ]}
+              onPress={() => toggleAction("bonus")}
+            >
+              <Text style={styles.miniActionText}>Bônus</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[
+                styles.miniActionBtn,
+                actions.reaction
+                  ? { backgroundColor: "#8e24aa" }
+                  : { backgroundColor: colors.border },
+              ]}
+              onPress={() => toggleAction("reaction")}
+            >
+              <Text style={styles.miniActionText}>Reação</Text>
+            </TouchableOpacity>
+
+            {/* Botão Resetar (Circular) */}
+            <TouchableOpacity
+              style={styles.resetTurnBtn}
+              onPress={() =>
+                updateCombatant(item.id, "turnActions", {
+                  standard: true,
+                  bonus: true,
+                  reaction: true,
+                })
+              }
+            >
+              <Ionicons name="refresh" size={16} color={colors.text} />
+            </TouchableOpacity>
+          </View>
+
           {item.stances && item.stances.length > 0 && (
             <View style={styles.section}>
               <Text style={styles.sectionHeader}>Postura Ativa</Text>
               <View style={styles.stanceContainer}>
-                {/* Botão Neutra */}
+                {/* Botão Neutra (Geralmente é ação livre 'soltar' a postura) */}
                 <TouchableOpacity
-                  onPress={() =>
-                    updateCombatant(item.id, "activeStanceId", null)
-                  }
+                  onPress={() => handleStanceChange(null)}
                   style={[
                     styles.stanceBtn,
                     !item.activeStanceId && styles.activeStanceBtn,
@@ -198,18 +300,21 @@ const CombatantCard = ({ item }: { item: Combatant }) => {
                   </Text>
                 </TouchableOpacity>
 
-                {/* Botões das Posturas */}
+                {/* Botões das Posturas (Custam Ação Bônus) */}
                 {item.stances.map((s) => {
                   const isActive = item.activeStanceId === s.id;
+                  // Se não tem ação bônus E não é a postura atual, fica apagado
+                  const canSwitch = actions.bonus || isActive;
+
                   return (
                     <TouchableOpacity
                       key={s.id}
-                      onPress={() =>
-                        updateCombatant(item.id, "activeStanceId", s.id)
-                      }
+                      onPress={() => handleStanceChange(s.id)}
+                      // Feedback visual: Opacidade se não puder trocar
                       style={[
                         styles.stanceBtn,
                         isActive && styles.activeStanceBtn,
+                        !canSwitch && { opacity: 0.5 },
                       ]}
                     >
                       <Text
@@ -218,18 +323,13 @@ const CombatantCard = ({ item }: { item: Combatant }) => {
                           isActive && { color: "#fff" },
                         ]}
                       >
-                        {s.name} ({s.acBonus >= 0 ? `+${s.acBonus}` : s.acBonus}
-                        )
+                        {s.name} (
+                        {(s.acBonus || 0) >= 0 ? `+${s.acBonus}` : s.acBonus})
                       </Text>
                     </TouchableOpacity>
                   );
                 })}
               </View>
-              {activeStance && (
-                <Text style={styles.detailText}>
-                  {activeStance.description}
-                </Text>
-              )}
             </View>
           )}
 
@@ -238,16 +338,37 @@ const CombatantCard = ({ item }: { item: Combatant }) => {
             <View style={styles.section}>
               <Text style={styles.sectionHeader}>Habilidades</Text>
               {item.skills.map((skill) => {
-                const canUse = item.currentFocus >= skill.cost;
+                const canUseFocus = item.currentFocus >= skill.cost;
+
+                // Verifica ação visualmente para feedback
+                const actionKey = getActionKey(skill.actionType);
+                const isActionAvailable = actionKey ? actions[actionKey] : true;
+                const canUse = canUseFocus && isActionAvailable;
+
                 return (
                   <TouchableOpacity
                     key={skill.id}
                     style={[styles.skillRow, !canUse && { opacity: 0.5 }]}
                     onPress={() => handleUseSkill(skill)}
-                    disabled={!canUse}
+                    disabled={!canUse} // Desabilita o botão se não puder usar
                   >
                     <View style={{ flex: 1 }}>
                       <Text style={styles.skillName}>{skill.name}</Text>
+                      {/* Mostra o tipo de ação se existir */}
+                      {skill.actionType && (
+                        <Text
+                          style={[
+                            styles.detailText,
+                            {
+                              color: colors.primary,
+                              fontSize: 10,
+                              fontWeight: "bold",
+                            },
+                          ]}
+                        >
+                          {skill.actionType.toUpperCase()}
+                        </Text>
+                      )}
                       <Text style={styles.detailText}>{skill.description}</Text>
                     </View>
                     <View style={styles.skillCost}>
@@ -311,8 +432,8 @@ const CombatantCard = ({ item }: { item: Combatant }) => {
                   <Text style={styles.attrLabel}>
                     {key.toUpperCase().slice(0, 3)}
                   </Text>
-                  <Text style={styles.attrVal}>{val}</Text>
-                  <Text style={styles.attrMod}>{formatMod(val)}</Text>
+                  <Text style={styles.attrVal}>{val.value}</Text>
+                  <Text style={styles.attrMod}>{formatMod(val.value)}</Text>
                 </View>
               ))}
             </View>
@@ -699,5 +820,40 @@ const getStyles = (colors: any) =>
       padding: 12,
       borderRadius: 8,
       alignItems: "center",
+    },
+    actionTrackerRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 8,
+      marginBottom: 10,
+      paddingHorizontal: 4,
+    },
+    sectionHeaderSmall: {
+      fontSize: 12,
+      fontWeight: "bold",
+      color: colors.textSecondary,
+      textTransform: "uppercase",
+      marginRight: 4,
+    },
+    miniActionBtn: {
+      paddingVertical: 4,
+      paddingHorizontal: 8,
+      borderRadius: 4,
+      minWidth: 50,
+      alignItems: "center",
+    },
+    miniActionText: {
+      fontSize: 10,
+      fontWeight: "bold",
+      color: "#fff",
+      textTransform: "uppercase",
+    },
+    resetTurnBtn: {
+      marginLeft: "auto", // Empurra para a direita
+      padding: 4,
+      backgroundColor: colors.inputBg,
+      borderRadius: 12,
+      borderWidth: 1,
+      borderColor: colors.border,
     },
   });

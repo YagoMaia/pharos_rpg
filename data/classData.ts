@@ -1,6 +1,6 @@
 // src/data/classData.ts
 import { CharacterClass, Skill, Stance } from "../types/rpg";
-import { MARTIAL_SKILLS, DEXTERITY_SKILLS, ORATORY_SKILLS } from "./skillsData";
+import { DEXTERITY_SKILLS, MARTIAL_SKILLS, ORATORY_SKILLS } from "./skillsData";
 
 // Define a estrutura dos dados padrão de uma classe
 interface ClassDefaultData {
@@ -20,6 +20,7 @@ export const CLASS_DATA: Record<CharacterClass, ClassDefaultData> = {
           'Deslocamento reduzido à metade. Não pode usar ação "Correr".',
         maneuver:
           "Gaste 2 Focos para reduzir (1d10 + CON) de dano de um ataque contra você.",
+        acBonus: 1,
       },
       {
         id: "gue_ofensiva",
@@ -28,6 +29,7 @@ export const CLASS_DATA: Record<CharacterClass, ClassDefaultData> = {
         restriction: '-2 na CA. Não pode usar ação "Esquivar".',
         maneuver: "Gaste 2 Focos para ganhar Vantagem em um ataque.",
         recovery: "Ao reduzir inimigo a 0 PV, recupera 1d4 de Foco.",
+        acBonus: -2,
       },
     ],
     skills: MARTIAL_SKILLS,
@@ -167,6 +169,7 @@ export const CLASS_DATA: Record<CharacterClass, ClassDefaultData> = {
         maneuver:
           "Reação ao ser atingido (Gaste 1 Foco): Reduz dano em 1d8+DES. Se zerar, faz Ataque de Oportunidade.",
         recovery: "3 turnos sem ser atingido? Recupere 1d4 de Foco.",
+        acBonus: 2,
       },
       {
         id: "cor_explosao",
@@ -177,6 +180,7 @@ export const CLASS_DATA: Record<CharacterClass, ClassDefaultData> = {
           "-2 na CA. Inimigos têm Vantagem em Oportunidade contra você.",
         maneuver:
           "Gaste 4 Focos ao acertar: Dano máximo + 1 dado extra. Arma trava e precisa de limpeza (2 Ações).",
+        acBonus: -2,
       },
     ],
     skills: DEXTERITY_SKILLS,

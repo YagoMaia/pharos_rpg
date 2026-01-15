@@ -60,15 +60,29 @@ const INITIAL_CHARACTER: Character = {
       stats: "1 + FOR",
       defense: 0,
       description: "Punhos.",
+      weight: 0,
     },
-    rangedWeapon: { name: "Nenhuma", stats: "-", defense: 0, description: "" },
+    rangedWeapon: {
+      name: "Nenhuma",
+      stats: "-",
+      defense: 0,
+      description: "",
+      weight: 0,
+    },
     armor: {
       name: "Roupas Comuns",
       stats: "",
       defense: 0,
       description: "Sem proteção.",
+      weight: 1,
+    }, // Exemplo: Roupa pesa 1
+    shield: {
+      name: "Nenhum",
+      stats: "",
+      defense: 0,
+      description: "",
+      weight: 0,
     },
-    shield: { name: "Nenhum", stats: "", defense: 0, description: "" },
   },
 
   backpack: [],
@@ -76,15 +90,21 @@ const INITIAL_CHARACTER: Character = {
   silver: 0, // Geralmente começa com 0 e ganha pela Herança (Origem)
   backstory: "",
   trainedSkills: [],
+
+  turnActions: {
+    standard: true,
+    bonus: true,
+    reaction: true,
+  },
 };
 
 interface CharacterContextType {
   character: Character;
-  isLoading: boolean; // Novo estado para controlar o carregamento
+  isLoading: boolean;
   updateStat: (stat: "hp" | "focus", value: number) => void;
-  setStanceIndex: (index: number) => void; // <--- ADICIONE ISSO
-  updateImage: (base64Image: string) => void; // <--- Nova função
-  resetCharacter: () => void; // Função para resetar os dados
+  setStanceIndex: (index: number) => void;
+  updateImage: (base64Image: string) => void;
+  resetCharacter: () => void;
   updateMaxStat: (stat: "hp" | "focus", newMax: number) => void;
   updateAttribute: (attr: AttributeName, newValue: number) => void;
   updateNameAndClass: (name: string, className?: CharacterClass) => void;
@@ -94,21 +114,33 @@ interface CharacterContextType {
   ) => void;
   updateAncestry: (ancestryId: string) => void;
   updateOrigin: (originId: string) => void;
-  updateSilver: (value: number) => void; // Define o valor exato
-  performShortRest: () => void; // <--- Novo
-  performLongRest: () => void; // <--- Novo
+  updateSilver: (value: number) => void;
+  performShortRest: () => void;
+  performLongRest: () => void;
   updateBackstory: (text: string) => void;
   toggleTrainedSkill: (skillName: string) => void;
-  addItem: (name: string, type: ItemType, quantity: number) => void;
+  addItem: (
+    name: string,
+    type: ItemType,
+    quantity: number,
+    weight: number
+  ) => void;
   removeItem: (itemId: string) => void;
   updateItemQuantity: (itemId: string, change: number) => void;
   addSpell: (spell: Spell) => void;
   removeSpell: (spellId: string) => void;
-  updateDeathSave: (type: "success" | "failure", value: number) => void; // <--- NOVA FUNÇÃO
-  updateLevel: (newLevel: number) => void; // <--- NOVA FUNÇÃO
-  updateCurrentStat: (stat: "hp" | "focus", newValue: number) => void; // <--- NOVA
-  updateItem: (itemId: string, data: Partial<Item>) => void; // <--- Adicione isso
-  importCharacter: (data: any) => void; // <--- NOVA FUNÇÃO
+  updateDeathSave: (type: "success" | "failure", value: number) => void;
+  updateLevel: (newLevel: number) => void;
+  updateCurrentStat: (stat: "hp" | "focus", newValue: number) => void;
+  updateItem: (itemId: string, data: Partial<Item>) => void;
+  importCharacter: (data: any) => void;
+  getLoadMetrics: () => {
+    currentLoad: number;
+    maxLoad: number;
+    isOverloaded: boolean;
+  };
+  toggleAction: (type: "standard" | "bonus" | "reaction") => void;
+  endTurn: () => void;
 }
 
 const CharacterContext = createContext<CharacterContextType | undefined>(
@@ -399,12 +431,18 @@ export const CharacterProvider = ({ children }: { children: ReactNode }) => {
   };
 
   // 1. Adicionar novo item
-  const addItem = (name: string, type: ItemType, quantity: number) => {
+  const addItem = (
+    name: string,
+    type: ItemType,
+    quantity: number,
+    weight: number
+  ) => {
     const newItem: Item = {
       id: Date.now().toString(), // Gera um ID único simples
       name,
       type,
       quantity,
+      weight,
       // isKeyItem: type === "key", // Mantendo compatibilidade legado se necessário
     };
 
@@ -458,7 +496,43 @@ export const CharacterProvider = ({ children }: { children: ReactNode }) => {
 
   const updateLevel = (newLevel: number) => {
     const validLevel = Math.max(1, Math.min(newLevel, 20));
-    setCharacter((prev) => ({ ...prev, level: validLevel }));
+
+    setCharacter((prev) => {
+      let updatedSkills = prev.skills;
+
+      // 1. Verifica se o personagem tem classe
+      if (prev.class && CLASS_DATA[prev.class]) {
+        // Pega TODAS as skills possíveis da classe (do arquivo de dados)
+        const allClassSkills = CLASS_DATA[prev.class].skills;
+
+        // 2. Filtra skills que:
+        // A) São do nível novo (ou menor)
+        // B) O personagem AINDA NÃO TEM na ficha
+        const newSkillsToAdd = allClassSkills.filter(
+          (refSkill) =>
+            (refSkill.level || 1) <= validLevel && // Disponível no nível atual ou inferior
+            !prev.skills.some((s) => s.id === refSkill.id) // Evita duplicatas (já aprendida)
+        );
+
+        // 3. Se tiver novidade, adiciona à lista
+        if (newSkillsToAdd.length > 0) {
+          // Mantém as antigas e adiciona as novas no final
+          updatedSkills = [...prev.skills, ...newSkillsToAdd];
+
+          // Opcional: Avisar no console
+          console.log(
+            `Subiu para nível ${validLevel}. Novas skills:`,
+            newSkillsToAdd.map((s) => s.name)
+          );
+        }
+      }
+
+      return {
+        ...prev,
+        level: validLevel,
+        skills: updatedSkills, // Salva a lista atualizada
+      };
+    });
   };
 
   const updateCurrentStat = (stat: "hp" | "focus", newValue: number) => {
@@ -541,6 +615,67 @@ export const CharacterProvider = ({ children }: { children: ReactNode }) => {
     });
   };
 
+  const getLoadMetrics = () => {
+    // A. Calcula peso da Mochila (Peso * Quantidade)
+    const backpackWeight = character.backpack.reduce((total, item) => {
+      return total + (item.weight || 0) * item.quantity;
+    }, 0);
+
+    // B. Calcula peso do Equipamento (Arma, Armadura, etc que estão equipados)
+    const equipmentWeight = Object.values(character.equipment).reduce(
+      (total, item) => {
+        return total + (item.weight || 0);
+      },
+      0
+    );
+
+    const currentLoad = parseFloat(
+      (backpackWeight + equipmentWeight).toFixed(1)
+    ); // Arredonda para 1 casa decimal
+
+    // C. Calcula Carga Máxima (5x Força)
+    const strength = character.attributes["Força"]?.value || 0;
+    const maxLoad = strength * 5;
+
+    return {
+      currentLoad,
+      maxLoad,
+      isOverloaded: currentLoad > maxLoad,
+    };
+  };
+
+  const toggleAction = (type: "standard" | "bonus" | "reaction") => {
+    setCharacter((prev) => {
+      // 1. CRIA A REDE DE SEGURANÇA
+      // Se prev.turnActions não existir, usa um objeto padrão "tudo disponível"
+      const currentActions = prev.turnActions || {
+        standard: true,
+        bonus: true,
+        reaction: true,
+      };
+
+      return {
+        ...prev,
+        turnActions: {
+          ...currentActions, // Espalha o atual (ou o padrão criado agora)
+          [type]: !currentActions[type], // Inverte o valor com segurança
+        },
+      };
+    });
+  };
+
+  // Função para encerrar o turno (Reseta tudo para true)
+  const endTurn = () => {
+    setCharacter((prev) => ({
+      ...prev,
+      turnActions: {
+        standard: true,
+        bonus: true,
+        reaction: true,
+      },
+    }));
+  };
+
   return (
     <CharacterContext.Provider
       value={{
@@ -550,15 +685,15 @@ export const CharacterProvider = ({ children }: { children: ReactNode }) => {
         updateImage,
         setStanceIndex,
         resetCharacter,
-        updateMaxStat, // <--- Expondo
-        updateAttribute, // <--- Expondo
-        updateNameAndClass, // <--- Expondo
+        updateMaxStat,
+        updateAttribute,
+        updateNameAndClass,
         updateEquipment,
         updateAncestry,
         updateOrigin,
         updateSilver,
-        performShortRest, // <--- Expondo
-        performLongRest, // <--- Expondo
+        performShortRest,
+        performLongRest,
         updateBackstory,
         toggleTrainedSkill,
         addItem,
@@ -571,6 +706,9 @@ export const CharacterProvider = ({ children }: { children: ReactNode }) => {
         updateCurrentStat,
         updateItem,
         importCharacter,
+        getLoadMetrics,
+        toggleAction,
+        endTurn,
       }}
     >
       {children}

@@ -49,6 +49,7 @@ export interface Skill {
   cost: number;
   actionType: ActionType;
   description: string;
+  level: number;
 }
 
 export interface Stance {
@@ -58,11 +59,9 @@ export interface Stance {
   restriction: string; // Restrição
   maneuver: string; // Manobra de Postura
   recovery?: string; // Recuperação (Opcional)
+  acBonus?: number;
 }
 
-// src/types/rpg.ts
-
-// Adicione este tipo
 export type ItemType = "consumable" | "equipment" | "key";
 
 export interface Item {
@@ -70,7 +69,16 @@ export interface Item {
   name: string;
   description?: string;
   quantity: number;
-  type: ItemType; // Substitui ou complementa o isKeyItem
+  type: ItemType;
+  weight: number;
+}
+
+export interface EquipmentItem {
+  name: string;
+  stats: string;
+  defense?: number;
+  description?: string;
+  weight: number;
 }
 
 export interface Spell {
@@ -82,64 +90,31 @@ export interface Spell {
   effect: string;
 }
 
-export interface EquipmentItem {
+interface Ancestry {
+  id: string;
   name: string;
-  stats: string; // Usado para Armas (ex: "1d6")
-  defense?: number; // Usado para Armadura/Escudo (ex: 2)
-  description?: string; // Descrição opcional
+  traitName: string;
+  traitDescription: string;
 }
-export const ALL_SKILLS = [
-  "Atletismo",
-  "Acrobacia",
-  "Furtividade",
-  "Ladinagem",
-  "Pilotagem",
-  "Arcanismo",
-  "Engenharia",
-  "História",
-  "Investigação",
-  "Natureza",
-  "Navegação",
-  "Ocultismo",
-  "Religião",
-  "Adestrar Animais",
-  "Intuição",
-  "Medicina",
-  "Percepção",
-  "Sobrevivência",
-  "Atuação",
-  "Enganação",
-  "Etiqueta",
-  "Intimidação",
-  "Manha",
-  "Persuasão",
-  "Concentração",
-  "Ofício",
-];
+
+interface Origin {
+  id: string;
+  name: string;
+  culturalTrait: string;
+  heritage: string;
+  languages: string[];
+}
 
 export interface Character {
   name: string;
   level: number;
   image?: string;
 
-  // ADICIONE '?' PARA TORNAR OPCIONAL
   class?: CharacterClass;
 
-  // AGORA PODE SER UNDEFINED
-  ancestry?: {
-    id: string;
-    name: string;
-    traitName: string;
-    traitDescription: string;
-  };
+  ancestry?: Ancestry;
 
-  culturalOrigin?: {
-    id: string;
-    name: string;
-    culturalTrait: string;
-    heritage: string;
-    languages: string[];
-  };
+  culturalOrigin?: Origin;
 
   stats: {
     hp: { current: number; max: number };
@@ -148,15 +123,12 @@ export interface Character {
 
   attributes: Record<AttributeName, Attribute>;
 
-  // MUDE DE [Stance, Stance] PARA Stance[] (Array flexível)
   stances: Stance[];
 
-  // PERMITE -1 PARA POSTURA NEUTRA
   currentStanceIndex: number;
 
   skills: Skill[];
 
-  // EQUIPAMENTO PRECISA EXISTIR, MAS PODE ESTAR "VAZIO"
   equipment: {
     meleeWeapon: EquipmentItem;
     rangedWeapon: EquipmentItem;
@@ -174,17 +146,14 @@ export interface Character {
     successes: number;
     failures: number;
   };
+
+  turnActions: {
+    standard: boolean;
+    bonus: boolean;
+    reaction: boolean;
+  };
 }
 
-// export interface NpcTemplate {
-//   id: string;
-//   name: string;
-//   maxHp: number;
-//   armorClass: number; // Útil para o mestre
-//   notes: string;
-// }
-
-// ATUALIZE O COMBATANT ASSIM:
 export interface Combatant {
   id: string;
   name: string;
@@ -196,65 +165,47 @@ export interface Combatant {
   };
   type: "player" | "npc";
 
-  // Detalhes
   armorClass: number;
   maxFocus: number;
   currentFocus: number;
-  attributes?: Attributes;
+  attributes?: Record<AttributeName, Attribute>;
   equipment?: string;
-  actions?: string; // Esse continua string (texto livre)
+  actions?: string;
 
-  // MUDANÇA AQUI: De 'string' para 'Array'
-  stances?: NpcStance[];
-  skills?: NpcSkill[];
+  stances?: Stance[];
+  skills?: Skill[];
 
-  activeStanceId?: string | null; // ID da postura ativa
-}
+  activeStanceId?: string | null;
 
-export interface Attributes {
-  str: number;
-  dex: number;
-  con: number;
-  int: number;
-  wis: number;
-  cha: number;
-}
-
-export interface NpcStance {
-  id: string;
-  name: string; // Ex: "Defensiva"
-  acBonus: number; // Ex: 2 (Isso é o que importa pro cálculo)
-  description: string;
-}
-
-export interface NpcSkill {
-  id: string;
-  name: string; // Ex: "Ataque Brutal"
-  cost: number; // Ex: 2 (Para descontar do foco)
-  description: string;
+  turnActions: {
+    standard: boolean;
+    bonus: boolean;
+    reaction: boolean;
+  };
 }
 
 export interface NpcTemplate {
   id: string;
   name: string;
-  subline: string;
 
-  // Stats
+  level: number;
+  class: CharacterClass;
+  ancestry: string;
+
   maxHp: number;
-  armorClass: number; // CA Base (sem postura)
+  hpFormula?: string;
+  armorClass: number;
+  acDetail?: string;
   maxFocus: number;
 
-  attributes: Attributes; // Reutilizando do Player (str, dex...)
+  attributes: Record<AttributeName, Attribute>;
 
-  // Agora são Arrays estruturados, não mais strings gigantes
-  stances: NpcStance[];
-  skills: NpcSkill[];
+  stances: Stance[];
+  skills: Skill[];
 
-  // Mantemos equipamentos/ações como texto pois variam muito
   equipment: string;
   actions: string;
 
-  // Iniciativa e Deslocamento
   initiativeBonus: number;
   speed: string;
 }
