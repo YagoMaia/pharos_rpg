@@ -2,6 +2,8 @@ import { useCampaign } from "@/context/CampaignContext";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useMemo, useState } from "react";
 import {
+  FlatList,
+  Modal,
   ScrollView,
   StyleSheet,
   Text,
@@ -14,6 +16,7 @@ import { useTheme } from "@/context/ThemeContext";
 import { useWebSocket } from "@/context/WebSocketContext";
 import { Combatant, ResolveActionPayload, Skill, Spell } from "@/types/rpg";
 import { AttackModal } from "./AttackModal";
+import { SpectatorCard } from "./SpectorCard";
 
 // --- HELPERS ---
 const getActionKey = (
@@ -42,13 +45,14 @@ interface Props {
 }
 
 export const ActiveTurnInterface = ({ combatant, isGm = false }: Props) => {
-  const { updateCombatant, combatants } = useCampaign();
+  const { updateCombatant, combatants, activeTurnId } = useCampaign();
   const { sendMessage } = useWebSocket();
   const { showAlert } = useAlert();
   const { colors } = useTheme();
   const styles = useMemo(() => getStyles(colors), [colors]);
 
   const [attackModalOpen, setAttackModalOpen] = useState(false);
+  const [battlefieldVisible, setBattlefieldVisible] = useState(false);
 
   // Estado para configurar o modal quando for magia
   const [spellAttackConfig, setSpellAttackConfig] = useState<{
@@ -64,8 +68,6 @@ export const ActiveTurnInterface = ({ combatant, isGm = false }: Props) => {
     bonus: true,
     reaction: true,
   };
-
-  console.log("Combatant Spells:", combatant.spells);
 
   // --- LÓGICA DE DADOS (Visual) ---
   const stances = combatant.stances || [];
@@ -318,6 +320,17 @@ export const ActiveTurnInterface = ({ combatant, isGm = false }: Props) => {
 
   return (
     <ScrollView style={{ flex: 1 }}>
+      <View style={{ paddingHorizontal: 16, marginTop: 10, marginBottom: 5 }}>
+        <TouchableOpacity
+          style={styles.battlefieldBtn}
+          onPress={() => setBattlefieldVisible(true)}
+        >
+          <MaterialCommunityIcons name="eye" size={20} color={colors.text} />
+          <Text style={[styles.battlefieldBtnText, { color: colors.text }]}>
+            VER CAMPO DE BATALHA
+          </Text>
+        </TouchableOpacity>
+      </View>
       {/* --- HUD DE COMBATE --- */}
       <View style={styles.combatHud}>
         <View style={styles.topRow}>
@@ -708,6 +721,48 @@ export const ActiveTurnInterface = ({ combatant, isGm = false }: Props) => {
         initialBonus={spellAttackConfig?.bonus}
         initialDamage={spellAttackConfig?.damage}
       />
+
+      {/* --- MODAL DO CAMPO DE BATALHA --- */}
+      <Modal
+        visible={battlefieldVisible}
+        animationType="slide"
+        presentationStyle="pageSheet" // Estilo card no iOS
+        onRequestClose={() => setBattlefieldVisible(false)}
+      >
+        <View
+          style={[
+            styles.modalContainer,
+            { backgroundColor: colors.background },
+          ]}
+        >
+          {/* Header do Modal */}
+          <View style={[styles.modalHeader, { borderColor: colors.border }]}>
+            <Text style={[styles.modalTitle, { color: colors.text }]}>
+              Situação do Combate
+            </Text>
+            <TouchableOpacity onPress={() => setBattlefieldVisible(false)}>
+              <Text style={{ color: colors.primary, fontWeight: "bold" }}>
+                Voltar para Ação
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Lista Reutilizada */}
+          <FlatList
+            data={combatants}
+            keyExtractor={(item) => item.id}
+            contentContainerStyle={{ padding: 16 }}
+            renderItem={({ item }) => (
+              <SpectatorCard
+                item={item}
+                activeTurnId={activeTurnId} // Passa o ID do turno ativo
+                colors={colors}
+                isGm={isGm} // Passa se é GM ou não
+              />
+            )}
+          />
+        </View>
+      </Modal>
     </ScrollView>
   );
 };
@@ -1053,5 +1108,32 @@ const getStyles = (colors: any) =>
       fontWeight: "900",
       fontSize: 16,
       letterSpacing: 1,
+    },
+    battlefieldBtn: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+      backgroundColor: colors.surface,
+      padding: 10,
+      borderRadius: 8,
+      borderWidth: 1,
+      borderColor: colors.border,
+      gap: 8,
+      marginBottom: 8,
+    },
+    battlefieldBtnText: {
+      fontWeight: "bold",
+      fontSize: 12,
+      textTransform: "uppercase",
+      letterSpacing: 1,
+    },
+    modalContainer: { flex: 1 },
+    modalHeader: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "center",
+      padding: 16,
+      borderBottomWidth: 1,
+      backgroundColor: colors.surface,
     },
   });

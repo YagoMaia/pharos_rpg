@@ -97,7 +97,7 @@ export const AttackModal = ({
       const bestMod = Math.max(strMod, dexMod);
 
       setAttackBonus(bestMod >= 0 ? `+${bestMod}` : `${bestMod}`);
-      setDamageFormula(`1d6+${bestMod}`);
+      setDamageFormula(`1d6+${bestMod + 2}`);
 
       if (initialBonus && initialDamage) {
         // SE VEIO DE MAGIA: Usa o que veio
@@ -108,7 +108,7 @@ export const AttackModal = ({
         const strMod = attacker.attributes["Força"]?.modifier || 0;
         const dexMod = attacker.attributes["Destreza"]?.modifier || 0;
         const bestMod = Math.max(strMod, dexMod);
-        setAttackBonus(bestMod >= 0 ? `+${bestMod}` : `${bestMod}`);
+        setAttackBonus(bestMod >= 0 ? `+${bestMod + 2}` : `${bestMod}`);
         setDamageFormula(`1d6+${bestMod}`);
       }
     }
