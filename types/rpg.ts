@@ -173,7 +173,7 @@ export interface Combatant {
   actions?: string;
 
   stances: Stance[];
-  skills?: Skill[];
+  skills: Skill[];
 
   activeStanceId?: string | null;
 

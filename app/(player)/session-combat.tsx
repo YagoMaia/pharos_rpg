@@ -13,6 +13,7 @@ import {
 } from "react-native";
 
 import { ActiveTurnInterface } from "@/components/ActiveTurnInterface";
+import { ReactionOverlay } from "@/components/ReactionOverlay";
 import { useAlert } from "@/context/AlertContext";
 import { useCampaign } from "@/context/CampaignContext";
 import { useCharacter } from "@/context/CharacterContext";
@@ -332,6 +333,16 @@ export default function SessionCombatScreen() {
             <Text style={styles.empty}>Conectado. Aguardando...</Text>
           }
         />
+      )}
+
+      {/* --- AQUI ENTRA A BARRA DE REAÇÃO --- */}
+      {/* Condições: 
+          1. Não é meu turno 
+          2. Tenho dados do personagem 
+          3. Tenho Reação disponível (validado dentro do componente, mas bom por aqui)
+      */}
+      {!isMyTurn && myCombatantData && (
+        <ReactionOverlay combatant={myCombatantData} />
       )}
     </View>
   );

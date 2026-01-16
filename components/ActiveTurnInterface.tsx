@@ -268,6 +268,18 @@ export const ActiveTurnInterface = ({ combatant, isGm = false }: Props) => {
     );
   };
 
+  const getActionColor = (type: string) => {
+    const lower = type.toLowerCase();
+
+    if (lower.includes("bônus") || lower.includes("bonus")) return "#fb8c00"; // Laranja
+    if (lower.includes("reação") || lower.includes("reaction"))
+      return "#8e24aa"; // Roxo
+    if (lower.includes("padrão") || lower.includes("standard"))
+      return colors.primary; // Azul/Cor do tema
+
+    return colors.textSecondary; // Cor padrão caso não ache
+  };
+
   return (
     <ScrollView style={{ flex: 1 }}>
       {/* --- HUD --- */}
@@ -523,7 +535,7 @@ export const ActiveTurnInterface = ({ combatant, isGm = false }: Props) => {
               );
             })}
           </View>
-          <Text style={styles.sectionHeader}>Ações</Text>
+          {/* <Text style={styles.sectionHeader}>Ações</Text> */}
 
           {/* BOTÃO GRANDE DE ATAQUE */}
           <TouchableOpacity
@@ -559,7 +571,14 @@ export const ActiveTurnInterface = ({ combatant, isGm = false }: Props) => {
               >
                 <View style={{ flex: 1 }}>
                   <Text style={styles.skillName}>{skill.name}</Text>
-                  <Text style={styles.skillType}>{skill.actionType}</Text>
+                  <Text
+                    style={[
+                      styles.skillType,
+                      { color: getActionColor(skill.actionType) },
+                    ]}
+                  >
+                    {skill.actionType}
+                  </Text>
                   <Text style={styles.detailText}>{skill.description}</Text>
                 </View>
                 <View style={styles.skillCost}>
@@ -923,6 +942,7 @@ const getStyles = (colors: any) =>
       padding: 16,
       borderRadius: 8,
       marginBottom: 12,
+      marginTop: 12,
       gap: 8,
       elevation: 3,
     },
