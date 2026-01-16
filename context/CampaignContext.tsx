@@ -38,6 +38,10 @@ interface CampaignContextType {
 
   activeTurnId: string | null; 
   setActiveTurnId: React.Dispatch<React.SetStateAction<string | null>>;
+
+  logs: string[];
+  setLogs: React.Dispatch<React.SetStateAction<string[]>>;
+  addLog: (message: string) => void;
 }
 
 const CampaignContext = createContext<CampaignContextType>(
@@ -49,6 +53,11 @@ export const CampaignProvider = ({ children }: { children: ReactNode }) => {
   const [npcLibrary, setNpcLibrary] = useState<NpcTemplate[]>([]);
   const [diceHistory, setDiceHistory] = useState<string[]>([]);
   const [activeTurnId, setActiveTurnId] = useState<string | null>(null);
+  const [logs, setLogs] = useState<string[]>([]);
+
+  const addLog = (message: string) => {
+      setLogs(prev => [...prev, message].slice(-50)); // Mantém apenas os últimos 50
+  };
 
   const populateClassData = (npc: Partial<NpcTemplate>) => {
     if (npc.class && CLASS_DATA[npc.class as CharacterClass]) {
@@ -211,6 +220,9 @@ export const CampaignProvider = ({ children }: { children: ReactNode }) => {
         endTurnCombatant,
         activeTurnId,
         setActiveTurnId,
+        logs,
+        setLogs,
+        addLog,
       }}
     >
       {children}

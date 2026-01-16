@@ -163,7 +163,7 @@ export interface Combatant {
     current: number;
     max: number;
   };
-  type: "player" | "npc";
+  type: "player" | "npc" | "gm";
 
   armorClass: number;
   maxFocus: number;

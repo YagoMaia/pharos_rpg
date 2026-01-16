@@ -9,6 +9,12 @@ interface WebSocketContextType {
   disconnect: () => void;
   joinSession: (ip: string, sessionId: string, initiative: number) => void; // Recebe o ID da sala
   sendMessage: (type: string, payload: any) => void;
+  connectToRoute: (
+    ip: string,
+    sessionId: string,
+    characterId: string,
+    initialData: Combatant | any
+  ) => void;
 }
 
 const WebSocketContext = createContext<WebSocketContextType>(
@@ -75,7 +81,7 @@ export const WebSocketProvider = ({
 
   // Pegamos os dados do Jogador e da Campanha para manipular
   const { character } = useCharacter();
-  const { setCombatants, setActiveTurnId } = useCampaign();
+  const { setCombatants, setActiveTurnId, setLogs } = useCampaign();
 
   // ENDEREÇO DO SERVIDOR (Ajuste para o IP da sua máquina se usar emulador/celular físico)
   // Ex: "ws://192.168.1.15:8080"
@@ -84,7 +90,7 @@ export const WebSocketProvider = ({
     ip: string,
     sessionId: string,
     characterId: string,
-    initialData: Combatant
+    initialData: Combatant | any
   ) => {
     if (socketRef.current) {
       // Se já tiver conectado em outra, desconecta
@@ -102,18 +108,17 @@ export const WebSocketProvider = ({
       console.log("WebSocket Conectado com Sucesso!");
       setIsConnected(true);
 
+      const eventType =
+        initialData.type === "gm" ? "GM_CONNECT" : "JOIN_SESSION";
+
       const msg = JSON.stringify({
-        type: "JOIN_SESSION",
+        type: eventType, // <--- GM_CONNECT ou JOIN_SESSION
         payload: {
           roomCode: sessionId,
-          combatant: initialData, // Envia o objeto montado
+          combatant: initialData,
         },
       });
       ws.send(msg);
-
-      // Opcional: Enviar dados iniciais do personagem assim que conectar
-      // já que a conexão URL só passa o ID.
-      // sendInitialCharacterData();
     };
 
     ws.onclose = () => {
@@ -158,6 +163,11 @@ export const WebSocketProvider = ({
         setActiveTurnId(currentId);
       }
 
+      if (data.logs && Array.isArray(data.logs)) {
+        console.log("📜 Atualizando logs...", data.logs.length);
+        setLogs(data.logs);
+      }
+
       setCombatants(sortedCombatants);
 
       return;
@@ -199,11 +209,10 @@ export const WebSocketProvider = ({
       .trim()
       .toLowerCase()
       .normalize("NFD")
-      .replace(/[\u0300-\u036f]/g, "") // Remove acentos (João -> Joao)
-      .replace(/\s+/g, "_"); // Troca espaços por _
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/\s+/g, "_");
   };
 
-  // --- IMPLEMENTAÇÃO DO PEDIDO: JOIN_SESSION ---
   const joinSession = (ip: string, sessionId: string, initiative: number) => {
     if (!character.name) {
       Alert.alert("Erro", "Crie seu personagem antes de entrar.");
@@ -221,7 +230,13 @@ export const WebSocketProvider = ({
 
   return (
     <WebSocketContext.Provider
-      value={{ isConnected, disconnect, joinSession, sendMessage }}
+      value={{
+        isConnected,
+        disconnect,
+        joinSession,
+        sendMessage,
+        connectToRoute,
+      }}
     >
       {children}
     </WebSocketContext.Provider>
