@@ -56,6 +56,8 @@ interface AttackModalProps {
     isCrit: boolean
   ) => void;
   isGm: boolean; // <--- A chave para a visibilidade
+  initialBonus?: string;
+  initialDamage?: string;
 }
 
 export const AttackModal = ({
@@ -65,6 +67,8 @@ export const AttackModal = ({
   potentialTargets,
   onConfirmAttack,
   isGm,
+  initialBonus,
+  initialDamage,
 }: AttackModalProps) => {
   const { colors } = useTheme();
   const styles = getStyles(colors);
@@ -94,8 +98,21 @@ export const AttackModal = ({
 
       setAttackBonus(bestMod >= 0 ? `+${bestMod}` : `${bestMod}`);
       setDamageFormula(`1d6+${bestMod}`);
+
+      if (initialBonus && initialDamage) {
+        // SE VEIO DE MAGIA: Usa o que veio
+        setAttackBonus(initialBonus);
+        setDamageFormula(initialDamage);
+      } else {
+        // SE É ATAQUE BÁSICO: Calcula For/Des
+        const strMod = attacker.attributes["Força"]?.modifier || 0;
+        const dexMod = attacker.attributes["Destreza"]?.modifier || 0;
+        const bestMod = Math.max(strMod, dexMod);
+        setAttackBonus(bestMod >= 0 ? `+${bestMod}` : `${bestMod}`);
+        setDamageFormula(`1d6+${bestMod}`);
+      }
     }
-  }, [visible, attacker]);
+  }, [visible, attacker, initialBonus, initialDamage]);
 
   const handleSelectTarget = (target: Combatant) => {
     setSelectedTarget(target);

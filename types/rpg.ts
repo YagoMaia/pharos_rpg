@@ -88,6 +88,12 @@ export interface Spell {
   circle: number;
   description: string;
   effect: string;
+  cost: number;
+
+  // Novos campos para automação:
+  isAttack: boolean; // Abre modal de ataque?
+  damageFormula?: string; // Ex: "2d6"
+  actionType: "standard" | "bonus" | "reaction";
 }
 
 interface Ancestry {
@@ -128,6 +134,7 @@ export interface Character {
   currentStanceIndex: number;
 
   skills: Skill[];
+  spells: Spell[];
 
   equipment: {
     meleeWeapon: EquipmentItem;
@@ -174,6 +181,7 @@ export interface Combatant {
 
   stances: Stance[];
   skills: Skill[];
+  spells: Spell[]; // <--- Nova lista dedicada
 
   activeStanceId?: string | null;
 

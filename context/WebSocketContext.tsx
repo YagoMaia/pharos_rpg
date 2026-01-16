@@ -1,7 +1,8 @@
+import { playerToCombatant } from "@/utils/rpgUtils";
 import { generateSafeId } from "@/utils/stringUtils";
 import React, { createContext, useContext, useRef, useState } from "react";
 import { Alert } from "react-native";
-import { Character, Combatant } from "../types/rpg";
+import { Combatant } from "../types/rpg";
 import { useCampaign } from "./CampaignContext";
 import { useCharacter } from "./CharacterContext";
 
@@ -24,53 +25,6 @@ const WebSocketContext = createContext<WebSocketContextType>(
 
 // --- HELPER: Converter Player em Combatant ---
 // (Isso garante que o objeto enviado seja igual ao esperado pelo servidor)
-const playerToCombatant = (
-  char: Character,
-  forcedId: string,
-  rolledInitiative: number
-): Combatant => {
-  // Calcula CA total (Base + Escudo + Des) - Simplificado
-  const dexMod = char.attributes["Destreza"].modifier || 0;
-  const armorDef = char.equipment?.armor?.defense || 0;
-  const shieldDef = char.equipment?.shield?.defense || 0;
-
-  let ac = 0;
-  if (armorDef === 0) {
-    ac = 10 + dexMod;
-  } else if (armorDef >= 16) {
-    ac = armorDef;
-  } else if (armorDef >= 13) {
-    ac = armorDef + Math.min(dexMod, 2);
-  } else {
-    ac = armorDef + dexMod;
-  }
-  ac += shieldDef;
-
-  return {
-    id: forcedId,
-    name: char.name,
-    baseName: char.name,
-    type: "player",
-    hp: { current: char.stats.hp.current, max: char.stats.hp.max },
-    initiative: rolledInitiative,
-    armorClass: ac,
-    currentFocus: char.stats.focus.current,
-    maxFocus: char.stats.focus.max,
-    attributes: char.attributes,
-    equipment: Object.values(char.equipment || {})
-      .map((e) => e.name)
-      .join(", "), // Resumo
-    actions: "", // Pode preencher com ataques básicos se quiser
-    stances: char.stances || [],
-    skills: char.skills || [],
-    activeStanceId: null, // Começa neutro
-    turnActions: char.turnActions || {
-      standard: true,
-      bonus: true,
-      reaction: true,
-    },
-  };
-};
 
 export const WebSocketProvider = ({
   children,

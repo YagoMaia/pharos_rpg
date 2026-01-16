@@ -10,10 +10,9 @@ import {
 } from "react-native";
 
 import { useAlert } from "@/context/AlertContext";
-
 import { useTheme } from "@/context/ThemeContext";
 import { useWebSocket } from "@/context/WebSocketContext";
-import { Combatant, ResolveActionPayload, Skill } from "@/types/rpg";
+import { Combatant, ResolveActionPayload, Skill, Spell } from "@/types/rpg";
 import { AttackModal } from "./AttackModal";
 
 // --- HELPERS ---
@@ -27,29 +26,48 @@ const getActionKey = (
   return "standard";
 };
 
+// Helper de Cores para as Skills
+const getActionColor = (type: string, colors: any) => {
+  const lower = (type || "").toLowerCase();
+  if (lower.includes("bônus") || lower.includes("bonus")) return "#fb8c00"; // Laranja
+  if (lower.includes("reação") || lower.includes("reaction")) return "#8e24aa"; // Roxo
+  if (lower.includes("padrão") || lower.includes("standard"))
+    return colors.primary; // Azul
+  return colors.textSecondary;
+};
+
 interface Props {
   combatant: Combatant;
   isGm?: boolean; // Flag para saber se é o mestre controlando
 }
 
 export const ActiveTurnInterface = ({ combatant, isGm = false }: Props) => {
-  const { updateCombatant, combatants } = useCampaign(); // Atualiza visualmente rápido
-  const { sendMessage } = useWebSocket(); // Envia para o servidor
+  const { updateCombatant, combatants } = useCampaign();
+  const { sendMessage } = useWebSocket();
   const { showAlert } = useAlert();
   const { colors } = useTheme();
-  const [attackModalOpen, setAttackModalOpen] = useState(false);
-
   const styles = useMemo(() => getStyles(colors), [colors]);
 
-  // Garante que actions existe
+  const [attackModalOpen, setAttackModalOpen] = useState(false);
+
+  // Estado para configurar o modal quando for magia
+  const [spellAttackConfig, setSpellAttackConfig] = useState<{
+    bonus: string;
+    damage: string;
+    name: string;
+    cost: number;
+  } | null>(null);
+
+  // Garante que actions existe com valores padrão
   const turnActions = combatant.turnActions || {
     standard: true,
     bonus: true,
     reaction: true,
   };
 
-  // --- LÓGICA DE DADOS ---
-  // Identifica o índice da postura atual para o layout de botões (0, 1, ou -1)
+  console.log("Combatant Spells:", combatant.spells);
+
+  // --- LÓGICA DE DADOS (Visual) ---
   const stances = combatant.stances || [];
   const currentStanceIdx = stances.findIndex(
     (s: any) => s.id === combatant.activeStanceId
@@ -57,11 +75,10 @@ export const ActiveTurnInterface = ({ combatant, isGm = false }: Props) => {
   const isNeutral = currentStanceIdx === -1;
   const activeStance = isNeutral ? null : stances[currentStanceIdx];
 
-  // Cálculo de CA (Base + Bonus da Postura)
-  // const stanceBonus = activeStance?.acBonus || 0;
+  // Cálculos de Status
   const stanceBonus = activeStance?.acBonus || 0;
   const totalAC = combatant.armorClass || 10;
-  // Barras
+
   const hpPercent = Math.min(
     100,
     (combatant.hp.current / combatant.hp.max) * 100
@@ -71,11 +88,69 @@ export const ActiveTurnInterface = ({ combatant, isGm = false }: Props) => {
     (combatant.currentFocus / combatant.maxFocus) * 100
   );
 
-  // --- HANDLERS INTEGRADOS ---
+  // --- HANDLER: CONJURAR MAGIA ---
+  const handleCastSpell = (spell: Spell) => {
+    // 1. Validações
+    if (combatant.currentFocus < spell.cost) {
+      showAlert("Sem Foco", "Foco insuficiente.");
+      return;
+    }
+    const actionKey = getActionKey(spell.actionType || "standard");
+    if (actionKey && !turnActions[actionKey]) {
+      showAlert("Sem Ação", "Ação indisponível.");
+      return;
+    }
 
+    // 2. MAGIA DE ATAQUE (Abre Modal)
+    if (spell.isAttack) {
+      const intMod = combatant.attributes?.["Inteligência"]?.modifier || 0;
+      const wisMod = combatant.attributes?.["Sabedoria"]?.modifier || 0;
+      const magicMod = Math.max(intMod, wisMod);
+
+      setSpellAttackConfig({
+        bonus: magicMod >= 0 ? `+${magicMod}` : `${magicMod}`,
+        damage: spell.damageFormula || "1d4",
+        name: spell.name,
+        cost: spell.cost,
+      });
+
+      setAttackModalOpen(true);
+    }
+    // 3. MAGIA DE UTILIDADE/CURA (Resolve Direto)
+    else {
+      const payload: ResolveActionPayload = {
+        attackerId: combatant.id,
+        targetId: null, // Self ou definido pelo Mestre manualmente
+        actionName: spell.name,
+        costType: actionKey || "standard",
+        focusCost: spell.cost,
+        damageAmount: 0,
+        healingAmount: 0,
+      };
+
+      sendMessage("RESOLVE_ACTION", payload);
+
+      // Consumo Local
+      updateCombatant(
+        combatant.id,
+        "currentFocus",
+        Math.max(0, combatant.currentFocus - spell.cost)
+      );
+      if (actionKey) {
+        updateCombatant(combatant.id, "turnActions", {
+          ...turnActions,
+          [actionKey]: false,
+        });
+      }
+
+      showAlert("Magia", `${spell.name} conjurada!`);
+    }
+  };
+
+  // --- HANDLER: HABILIDADE FÍSICA ---
   const handleUseSkill = (skill: Skill) => {
-    // Validações de custo (Foco e Ação)
     const actionKey = getActionKey(skill.actionType);
+
     if (combatant.currentFocus < skill.cost) {
       showAlert("Sem Foco", "Foco insuficiente.");
       return;
@@ -85,30 +160,25 @@ export const ActiveTurnInterface = ({ combatant, isGm = false }: Props) => {
       return;
     }
 
-    // Update Local (Feedback)
+    // Update Local
     updateCombatant(
       combatant.id,
       "currentFocus",
-      combatant.currentFocus - skill.cost
+      Math.max(0, combatant.currentFocus - skill.cost)
     );
     if (actionKey) {
       const newActions = { ...turnActions, [actionKey]: false };
       updateCombatant(combatant.id, "turnActions", newActions);
     }
 
-    // Monta Payload
-    // Nota: Skills podem ter lógica complexa.
-    // Se a skill causa dano direto, você precisaria de um modal similar ao de ataque.
-    // Aqui estou assumindo que é um "Uso de Skill" genérico que o Mestre aplica o efeito ou é self-buff.
+    // Payload
     const payload: ResolveActionPayload = {
       attackerId: combatant.id,
-      targetId: null, // Skill genérica geralmente não tem alvo definido no clique simples
+      targetId: null,
       actionName: skill.name,
-
       costType: actionKey || "standard",
       focusCost: skill.cost,
-
-      damageAmount: 0, // Skills complexas precisariam de input de dano
+      damageAmount: 0,
       healingAmount: 0,
     };
 
@@ -116,50 +186,25 @@ export const ActiveTurnInterface = ({ combatant, isGm = false }: Props) => {
     showAlert("Habilidade", `${skill.name} utilizada.`);
   };
 
-  const handleToggleAction = (type: "standard" | "bonus" | "reaction") => {
-    const newVal = !turnActions[type];
-    const newActions = { ...turnActions, [type]: newVal };
-
-    updateCombatant(combatant.id, "turnActions", newActions);
-
-    sendMessage("PLAYER_ACTION", {
-      character_id: combatant.id,
-      action_type: "TOGGLE_ACTION",
-      payload: { action_key: type, value: newVal },
-    });
-  };
-
+  // --- HANDLER: POSTURAS (CORRIGIDO COM BASE_AC) ---
   const handleStanceChange = (newIndex: number) => {
-    // --- PASSO 1: CALCULAR CA BASE REAL (Recálculo Seguro) ---
-    // Em vez de confiar no 'combatant.armorClass' (que pode estar sujo com bônus antigos),
-    // recalculamos quanto seria a CA "pelada" baseada na ficha.
-
-    const dexMod = combatant.attributes["Destreza"]?.modifier || 0;
-    // Tenta achar defesa de armadura/escudo nos atributos ou usa lógica padrão
-    // Se você não tiver esses campos detalhados no combatant, precisaremos confiar no valor atual
-    // Mas vamos tentar limpar o bônus atual de forma agressiva:
-
-    // Procura a postura que o sistema ACHA que está ativa
+    // Lógica Segura de CA Base (Recupera base subtraindo bônus atual)
     const currentActiveStance = combatant.stances?.find(
       (s) => s.id === combatant.activeStanceId
     );
     const currentBonusOnServer = currentActiveStance?.acBonus || 0;
 
-    // CA Base estimada = CA do Banco - Bônus da Postura Ativa no Banco
-    let baseAC = (combatant.armorClass || 10) - currentBonusOnServer;
+    // Se tiver baseArmorClass salvo no objeto, usa ele. Se não, calcula.
+    const safeBaseAC =
+      combatant.baseArmorClass ??
+      (combatant.armorClass || 10) - currentBonusOnServer;
 
-    // (Opcional: Trava de segurança para não ficar menor que 10+Des se estiver sem armadura)
-    // if (baseAC < 10 + dexMod) baseAC = 10 + dexMod;
-
-    // --- PASSO 2: CALCULAR NOVA CA ---
     let nextStanceId = null;
-    let nextAC = baseAC; // Se for neutra, volta para a base limpa
+    let nextAC = safeBaseAC;
 
-    // Cenário: Entrar em Postura
     if (newIndex !== -1) {
       const newStance = combatant.stances[newIndex];
-
-      if (combatant.activeStanceId === newStance.id) return;
+      if (combatant.activeStanceId === newStance.id) return; // Já está nela
 
       if (!turnActions.bonus) {
         showAlert("Ação Indisponível", "Entrar em postura requer Ação Bônus.");
@@ -167,29 +212,17 @@ export const ActiveTurnInterface = ({ combatant, isGm = false }: Props) => {
       }
 
       nextStanceId = newStance.id;
-      nextAC = baseAC + (newStance.acBonus || 0);
+      nextAC = safeBaseAC + (newStance.acBonus || 0);
 
       // Consome ação
       const newActions = { ...turnActions, bonus: false };
       updateCombatant(combatant.id, "turnActions", newActions);
     }
 
-    // --- LOG PARA DEBUG (Veja no console do celular) ---
-    console.log(`🛡️ Mudança de CA:
-      Atual no Banco: ${combatant.armorClass}
-      Postura Ativa Detectada: ${
-        currentActiveStance?.name || "Nenhuma"
-      } (Bônus: ${currentBonusOnServer})
-      Base Calculada: ${baseAC}
-      Nova Postura ID: ${nextStanceId}
-      Nova CA Enviada: ${nextAC}
-    `);
-
-    // 3. Atualiza Localmente
+    // Atualiza Local e Envia
     updateCombatant(combatant.id, "activeStanceId", nextStanceId);
     updateCombatant(combatant.id, "armorClass", nextAC);
 
-    // 4. Envia
     sendMessage("CHANGE_STANCE", {
       combatantId: combatant.id,
       stanceId: nextStanceId,
@@ -197,92 +230,95 @@ export const ActiveTurnInterface = ({ combatant, isGm = false }: Props) => {
     });
   };
 
+  const handleToggleAction = (type: "standard" | "bonus" | "reaction") => {
+    const newVal = !turnActions[type];
+    const newActions = { ...turnActions, [type]: newVal };
+    updateCombatant(combatant.id, "turnActions", newActions);
+    sendMessage("PLAYER_ACTION", {
+      character_id: combatant.id,
+      action_type: "TOGGLE_ACTION",
+      payload: { action_key: type, value: newVal },
+    });
+  };
+
   const handleEndTurn = () => {
     sendMessage("END_TURN", { character_id: combatant.id });
   };
 
+  const handleCloseModal = () => {
+    setAttackModalOpen(false);
+    setSpellAttackConfig(null);
+  };
+
+  // --- HANDLER: CONFIRMAR ATAQUE (MODAL) ---
   const handleConfirmAttack = (
     targetId: string,
     hitTotal: number,
     damageTotal: number,
     isCrit: boolean
   ) => {
-    // 1. Busca o alvo para validar a CA (Lógica no Frontend)
     const target = combatants.find((c) => c.id === targetId);
-
     if (!target) {
       showAlert("Erro", "Alvo não encontrado.");
       return;
     }
 
-    // 2. Verifica se Acertou
-    // Se for Crítico, acerta sempre. Se não, compara Totais.
     const isHit = isCrit || hitTotal >= target.armorClass;
-
-    // 3. Define o Dano Final
-    // Se errou, manda 0 de dano (o backend registra a ação, mas sem efeito na vida)
     const finalDamage = isHit ? damageTotal : 0;
 
-    // 4. Nome da Ação para o Log
-    let actionName = "Ataque Básico";
+    // Detecta se foi Magia ou Ataque Físico
+    const isSpell = !!spellAttackConfig;
+    let actionName = isSpell ? spellAttackConfig.name : "Ataque Básico";
     if (isCrit) actionName += " (Crítico!)";
     else if (!isHit) actionName += " (Errou)";
 
-    // 5. Monta o Payload EXATO do Python
+    const focusCost = isSpell ? spellAttackConfig.cost : 0;
+
     const payload: ResolveActionPayload = {
       attackerId: combatant.id,
       targetId: targetId,
       actionName: actionName,
-
-      // Custos (Ataque básico geralmente é Ação Padrão e 0 Foco)
       costType: "standard",
-      focusCost: 0,
-
-      // Efeitos
+      focusCost: focusCost,
       damageAmount: finalDamage,
       healingAmount: 0,
     };
 
-    // 6. Envia para o servidor
-    // O Backend recebe, subtrai o HP se damage > 0 e gera o log
     sendMessage("RESOLVE_ACTION", payload);
 
-    // 7. Consome a Ação Padrão visualmente (Feedback Imediato)
+    // Consome Ação Padrão (Visual)
     if (turnActions.standard) {
-      const newActions = { ...turnActions, standard: false };
-      updateCombatant(combatant.id, "turnActions", newActions);
-
-      // Avisa server que gastou a ação (se o RESOLVE_ACTION já não fizer isso no seu back)
-      // Se o seu RESOLVE_ACTION no python já consome a ação baseado no costType,
-      // essa linha abaixo NÃO é necessária.
-      // sendMessage("PLAYER_ACTION", { ... });
+      updateCombatant(combatant.id, "turnActions", {
+        ...turnActions,
+        standard: false,
+      });
     }
 
+    // Consome Foco da Magia (Visual)
+    if (focusCost > 0) {
+      updateCombatant(
+        combatant.id,
+        "currentFocus",
+        Math.max(0, combatant.currentFocus - focusCost)
+      );
+    }
+
+    setSpellAttackConfig(null);
+
+    // Névoa de Guerra no Feedback
     showAlert(
       isHit ? "Sucesso" : "Errou",
       isHit
         ? `Causou ${finalDamage} de dano!`
         : isGm
-        ? `Não superou a CA ${target.armorClass}.` // Mestre vê o número
-        : `O ataque não superou a defesa do alvo.` // Jogador vê mensagem vaga
+        ? `Não superou a CA ${target.armorClass}.`
+        : `O ataque não superou a defesa do alvo.`
     );
-  };
-
-  const getActionColor = (type: string) => {
-    const lower = type.toLowerCase();
-
-    if (lower.includes("bônus") || lower.includes("bonus")) return "#fb8c00"; // Laranja
-    if (lower.includes("reação") || lower.includes("reaction"))
-      return "#8e24aa"; // Roxo
-    if (lower.includes("padrão") || lower.includes("standard"))
-      return colors.primary; // Azul/Cor do tema
-
-    return colors.textSecondary; // Cor padrão caso não ache
   };
 
   return (
     <ScrollView style={{ flex: 1 }}>
-      {/* --- HUD --- */}
+      {/* --- HUD DE COMBATE --- */}
       <View style={styles.combatHud}>
         <View style={styles.topRow}>
           {/* VIDA */}
@@ -386,7 +422,6 @@ export const ActiveTurnInterface = ({ combatant, isGm = false }: Props) => {
         <View style={styles.stanceSelectorContainer}>
           <Text style={styles.sectionLabel}>Postura Atual</Text>
           <View style={styles.stanceToggleGroup}>
-            {/* Neutra */}
             <TouchableOpacity
               style={[
                 styles.stanceBtn,
@@ -404,7 +439,6 @@ export const ActiveTurnInterface = ({ combatant, isGm = false }: Props) => {
               </Text>
             </TouchableOpacity>
 
-            {/* Postura 1 */}
             <TouchableOpacity
               style={[
                 styles.stanceBtn,
@@ -425,7 +459,6 @@ export const ActiveTurnInterface = ({ combatant, isGm = false }: Props) => {
               </Text>
             </TouchableOpacity>
 
-            {/* Postura 2 */}
             <TouchableOpacity
               style={[
                 styles.stanceBtn,
@@ -447,7 +480,6 @@ export const ActiveTurnInterface = ({ combatant, isGm = false }: Props) => {
             </TouchableOpacity>
           </View>
 
-          {/* Detalhes da Postura */}
           <View
             style={[
               styles.stanceCard,
@@ -535,9 +567,7 @@ export const ActiveTurnInterface = ({ combatant, isGm = false }: Props) => {
               );
             })}
           </View>
-          {/* <Text style={styles.sectionHeader}>Ações</Text> */}
 
-          {/* BOTÃO GRANDE DE ATAQUE */}
           <TouchableOpacity
             style={[
               styles.mainAttackBtn,
@@ -553,7 +583,78 @@ export const ActiveTurnInterface = ({ combatant, isGm = false }: Props) => {
           </TouchableOpacity>
         </View>
 
-        {/* --- HABILIDADES --- */}
+        {/* --- SEÇÃO GRIMÓRIO --- */}
+        {combatant.spells && combatant.spells.length > 0 && (
+          <View style={styles.combatSection}>
+            <View
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                gap: 8,
+                marginBottom: 10,
+              }}
+            >
+              <MaterialCommunityIcons
+                name="auto-fix"
+                size={20}
+                color="#b39ddb"
+              />
+              <Text
+                style={[
+                  styles.sectionHeader,
+                  { marginBottom: 0, color: "#b39ddb" },
+                ]}
+              >
+                Grimório
+              </Text>
+            </View>
+
+            {combatant.spells.map((spell) => {
+              const actionKey = getActionKey(spell.actionType || "standard");
+              const hasAction = actionKey ? turnActions[actionKey] : true;
+              const hasFocus = combatant.currentFocus >= spell.cost;
+              const canCast = hasAction && hasFocus;
+
+              return (
+                <TouchableOpacity
+                  key={spell.id}
+                  style={[
+                    styles.skillRow,
+                    { borderColor: "#b39ddb" },
+                    !canCast && { opacity: 0.5, borderColor: colors.border },
+                  ]}
+                  disabled={!canCast}
+                  onPress={() => handleCastSpell(spell)}
+                >
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.skillName, { color: "#b39ddb" }]}>
+                      {spell.name}
+                    </Text>
+                    <Text style={styles.detailText}>{spell.description}</Text>
+                    {spell.isAttack && (
+                      <Text
+                        style={{
+                          fontSize: 10,
+                          color: colors.error,
+                          fontWeight: "bold",
+                        }}
+                      >
+                        ATAQUE ({spell.damageFormula})
+                      </Text>
+                    )}
+                  </View>
+                  <View style={styles.skillCost}>
+                    <Text style={{ fontWeight: "bold", color: colors.text }}>
+                      {spell.cost} Foco
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        )}
+
+        {/* --- HABILIDADES FÍSICAS --- */}
         <View style={styles.combatSection}>
           <Text style={styles.sectionHeader}>Habilidades</Text>
           {combatant.skills?.map((skill: any) => {
@@ -574,7 +675,7 @@ export const ActiveTurnInterface = ({ combatant, isGm = false }: Props) => {
                   <Text
                     style={[
                       styles.skillType,
-                      { color: getActionColor(skill.actionType) },
+                      { color: getActionColor(skill.actionType, colors) },
                     ]}
                   >
                     {skill.actionType}
@@ -599,11 +700,13 @@ export const ActiveTurnInterface = ({ combatant, isGm = false }: Props) => {
 
       <AttackModal
         visible={attackModalOpen}
-        onClose={() => setAttackModalOpen(false)}
+        onClose={handleCloseModal}
         attacker={combatant}
         potentialTargets={combatants}
         onConfirmAttack={handleConfirmAttack}
         isGm={isGm}
+        initialBonus={spellAttackConfig?.bonus}
+        initialDamage={spellAttackConfig?.damage}
       />
     </ScrollView>
   );
@@ -615,7 +718,6 @@ const InfoRow = ({ label, text, color, styles }: any) => (
     <Text style={styles.infoText}>{text}</Text>
   </View>
 );
-
 const getStyles = (colors: any) =>
   StyleSheet.create({
     container: { flex: 1, backgroundColor: colors.background },
