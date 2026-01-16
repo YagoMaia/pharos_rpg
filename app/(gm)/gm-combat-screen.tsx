@@ -1,7 +1,6 @@
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
-  Alert,
   FlatList,
   KeyboardAvoidingView,
   Modal,
@@ -14,6 +13,7 @@ import {
 } from "react-native";
 
 // import { CombatLog } from "@/components/CombatLog";
+import { ActiveTurnInterface } from "@/components/ActiveTurnInterface";
 import { useAlert } from "@/context/AlertContext";
 import { useCampaign } from "@/context/CampaignContext";
 import { useTheme } from "@/context/ThemeContext";
@@ -175,13 +175,11 @@ const GMCombatantCard = ({
 
 // --- TELA PRINCIPAL DO MESTRE ---
 export default function GMCombatScreen() {
-  const { combatants, activeTurnId, logs, addCombatant } = useCampaign();
+  const { combatants, activeTurnId, logs } = useCampaign();
   const { colors } = useTheme();
   const styles = useMemo(() => getStyles(colors), [colors]);
   const { showAlert } = useAlert();
 
-  // WebSocket (Usamos connectToRoute diretamente para conectar como "GM")
-  // ATENÇÃO: O WebSocketContext precisa expor 'connectToRoute' ou você pode adaptar o 'joinSession'
   const { isConnected, sendMessage, connectToRoute, disconnect } =
     useWebSocket();
 
@@ -238,12 +236,12 @@ export default function GMCombatScreen() {
   };
 
   const handleRemoveCombatant = (id: string) => {
-    Alert.alert("Remover", "Tem certeza?", [
+    showAlert("Remover", "Tem certeza?", [
       { text: "Cancelar" },
       {
         text: "Remover",
         style: "destructive",
-        onPress: () => sendMessage("GM_REMOVE_COMBATANT", { targetId: id }),
+        onPress: () => sendMessage("GM_REMOVE_COMBATANT", { combatantId: id }),
       },
     ]);
   };
@@ -264,6 +262,11 @@ export default function GMCombatScreen() {
     setNpcInit("");
     setNpcHp("10");
   };
+
+  const activeCombatant = combatants.find((c) => c.id === activeTurnId);
+
+  // Se existe alguém agindo E esse alguém é um NPC, o Mestre assume o controle
+  const isNpcTurn = activeCombatant && activeCombatant.type === "npc";
 
   // 1. TELA DE LOGIN DO MESTRE
   if (!isConnected) {
@@ -339,33 +342,60 @@ export default function GMCombatScreen() {
       {/* Logs em tempo real */}
       <CombatLog logs={logs} colors={colors} styles={styles} />
 
-      {/* Lista de Combatentes */}
-      <FlatList
-        data={combatants}
-        keyExtractor={(item) => item.id}
-        contentContainerStyle={{ padding: 16, paddingBottom: 100 }}
-        renderItem={({ item }) => (
-          <GMCombatantCard
-            item={item}
-            isActive={item.id === activeTurnId}
-            colors={colors}
-            styles={styles}
-            onUpdate={handleUpdateStat}
-            onRemove={handleRemoveCombatant}
-          />
-        )}
-        ListEmptyComponent={
-          <Text style={styles.empty}>Nenhum combatente na sessão.</Text>
-        }
-      />
+      {/* --- ÁREA DINÂMICA --- */}
 
-      {/* FAB para Adicionar NPC */}
-      <TouchableOpacity
-        style={styles.fab}
-        onPress={() => setShowNpcModal(true)}
-      >
-        <Ionicons name="add" size={30} color="#fff" />
-      </TouchableOpacity>
+      {isNpcTurn ? (
+        // MODO: VEZ DO NPC (Interface de Ação)
+        <View
+          style={{ flex: 1, borderTopWidth: 1, borderColor: colors.primary }}
+        >
+          <View
+            style={{
+              padding: 8,
+              backgroundColor: colors.primary + "20",
+              alignItems: "center",
+            }}
+          >
+            <Text style={{ color: colors.primary, fontWeight: "bold" }}>
+              🎮 CONTROLANDO: {activeCombatant.name}
+            </Text>
+          </View>
+          <ActiveTurnInterface
+            combatant={activeCombatant}
+            isGm={true} // Habilita permissões extras se precisar
+          />
+        </View>
+      ) : (
+        // MODO: VEZ DO PLAYER (Lista de Monitoramento)
+        <FlatList
+          data={combatants}
+          keyExtractor={(item) => item.id}
+          contentContainerStyle={{ padding: 16, paddingBottom: 100 }}
+          renderItem={({ item }) => (
+            <GMCombatantCard
+              item={item}
+              isActive={item.id === activeTurnId}
+              colors={colors}
+              styles={styles}
+              onUpdate={handleUpdateStat}
+              onRemove={handleRemoveCombatant}
+            />
+          )}
+          ListEmptyComponent={
+            <Text style={styles.empty}>Nenhum combatente.</Text>
+          }
+        />
+      )}
+
+      {/* FAB para Adicionar NPC (Só mostra na lista, pra não poluir a tela de ação) */}
+      {!isNpcTurn && (
+        <TouchableOpacity
+          style={styles.fab}
+          onPress={() => setShowNpcModal(true)}
+        >
+          <Ionicons name="add" size={30} color="#fff" />
+        </TouchableOpacity>
+      )}
 
       {/* Modal ADD NPC */}
       <Modal

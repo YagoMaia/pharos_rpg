@@ -157,7 +157,7 @@ export interface Character {
 export interface Combatant {
   id: string;
   name: string;
-  baseName: string;
+  baseName?: string;
   initiative: number;
   hp: {
     current: number;

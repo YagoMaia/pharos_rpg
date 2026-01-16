@@ -5,7 +5,6 @@ import {
   KeyboardAvoidingView,
   Modal,
   Platform,
-  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -13,12 +12,13 @@ import {
   View,
 } from "react-native";
 
+import { ActiveTurnInterface } from "@/components/ActiveTurnInterface";
 import { useAlert } from "@/context/AlertContext";
 import { useCampaign } from "@/context/CampaignContext";
 import { useCharacter } from "@/context/CharacterContext";
 import { useTheme } from "@/context/ThemeContext";
 import { useWebSocket } from "@/context/WebSocketContext";
-import { Combatant, Skill } from "@/types/rpg";
+import { generateSafeId } from "@/utils/stringUtils";
 
 // --- HELPERS ---
 const getActionKey = (
@@ -95,300 +95,7 @@ const SpectatorCard = ({ item, isCurrentTurn, colors, styles }: any) => {
   );
 };
 
-interface ActiveTurnProps {
-  combatant: Combatant;
-  styles: any;
-  colors: any;
-}
-
 // --- COMPONENTE: INTERFACE ATIVA (Sua Vez) ---
-const ActiveTurnInterface = ({
-  combatant,
-  styles,
-  colors,
-}: ActiveTurnProps) => {
-  const { updateCombatant } = useCampaign();
-  const { sendMessage } = useWebSocket();
-  const { showAlert } = useAlert();
-
-  const actions = combatant.turnActions || {
-    standard: true,
-    bonus: true,
-    reaction: true,
-  };
-
-  // Cálculos
-  const activeStance = combatant.stances?.find(
-    (s: any) => s.id === combatant.activeStanceId
-  );
-  const stanceBonus = activeStance?.acBonus || 0;
-  const totalAC = (combatant.armorClass || 10) + stanceBonus;
-
-  const hpPercent = Math.min(
-    100,
-    (combatant.hp.current / combatant.hp.max) * 100
-  );
-  const focusPercent = Math.min(
-    100,
-    (combatant.currentFocus / combatant.maxFocus) * 100
-  );
-
-  // --- HANDLERS ---
-  const handleUseSkill = (skill: Skill) => {
-    if (combatant.currentFocus < skill.cost) {
-      showAlert("Sem Foco", "Foco insuficiente.");
-      return;
-    }
-    const actionKey = getActionKey(skill.actionType);
-    if (actionKey && !actions[actionKey]) {
-      showAlert(
-        "Ação Indisponível",
-        `Você já gastou sua ${skill.actionType || "ação"}.`
-      );
-      return;
-    }
-
-    // Update Local
-    updateCombatant(
-      combatant.id,
-      "currentFocus",
-      combatant.currentFocus - skill.cost
-    );
-    let newActions = { ...actions };
-    if (actionKey) {
-      newActions[actionKey] = false;
-      updateCombatant(combatant.id, "turnActions", newActions);
-    }
-
-    // Send to Server
-    // sendMessage("RESOLVE_ACTION", {
-    //   characterId: combatant.id,
-    //   action_type: "USE_SKILL",
-    //   payload: {
-    //     skill_name: skill.name,
-    //     cost: skill.cost,
-    //     action_key: actionKey,
-    //   },
-    // });
-    sendMessage("RESOLVE_ACTION", {
-      combatantId: combatant.id,
-      skillId: skill.id,
-    });
-
-    showAlert("Sucesso", `Usou ${skill.name}`);
-  };
-
-  const handleToggleAction = (type: "standard" | "bonus" | "reaction") => {
-    const newVal = !actions[type];
-    const newActions = { ...actions, [type]: newVal };
-    updateCombatant(combatant.id, "turnActions", newActions);
-
-    sendMessage("PLAYER_ACTION", {
-      character_id: combatant.id,
-      action_type: "TOGGLE_ACTION",
-      payload: { action_key: type, value: newVal },
-    });
-  };
-
-  const handleEndTurn = () => {
-    sendMessage("END_TURN", { character_id: combatant.id });
-  };
-
-  return (
-    <ScrollView style={{ flex: 1 }}>
-      {/* --- HUD DE COMBATE (LAYOUT NOVO) --- */}
-      <View style={styles.combatHud}>
-        {/* LINHA DE CIMA: VIDA (Esq) + CA (Dir) */}
-        <View style={styles.topRow}>
-          {/* Vida */}
-          <View style={styles.healthContainer}>
-            <View style={styles.resourceHeader}>
-              <View style={styles.labelGroup}>
-                <Ionicons
-                  name="heart"
-                  size={14}
-                  color={colors.hp || "#ef5350"}
-                />
-                <Text style={styles.hudLabel}>VIDA</Text>
-              </View>
-              <Text style={styles.resourceValue}>
-                <Text
-                  style={[
-                    styles.resourceCurrent,
-                    { color: colors.hp || "#ef5350" },
-                  ]}
-                >
-                  {combatant.hp.current}
-                </Text>
-                <Text style={styles.resourceMax}>/{combatant.hp.max}</Text>
-              </Text>
-            </View>
-            <View style={styles.barBackground}>
-              <View
-                style={[
-                  styles.barFill,
-                  {
-                    width: `${hpPercent}%`,
-                    backgroundColor: colors.hp || "#ef5350",
-                  },
-                ]}
-              />
-            </View>
-          </View>
-
-          {/* Separador */}
-          <View style={styles.verticalSeparator} />
-
-          {/* Defesa */}
-          <View style={styles.acContainer}>
-            <View style={styles.labelGroup}>
-              <MaterialCommunityIcons
-                name="shield"
-                size={14}
-                color={colors.textSecondary}
-              />
-              <Text style={styles.hudLabel}>DEFESA</Text>
-            </View>
-            <View style={styles.acValueContainer}>
-              <Text style={styles.acTotal}>{totalAC}</Text>
-              {stanceBonus !== 0 && (
-                <View
-                  style={[
-                    styles.modBadge,
-                    {
-                      borderColor:
-                        stanceBonus > 0 ? colors.success : colors.error,
-                    },
-                  ]}
-                >
-                  <Ionicons
-                    name={stanceBonus > 0 ? "arrow-up" : "arrow-down"}
-                    size={10}
-                    color={stanceBonus > 0 ? colors.success : colors.error}
-                  />
-                </View>
-              )}
-            </View>
-          </View>
-        </View>
-
-        {/* LINHA DE BAIXO: FOCO */}
-        <View style={styles.bottomRow}>
-          <View style={styles.resourceHeader}>
-            <View style={styles.labelGroup}>
-              <Ionicons name="flash" size={14} color={colors.focus} />
-              <Text style={styles.hudLabel}>FOCO</Text>
-            </View>
-            <Text style={styles.resourceValue}>
-              <Text style={[styles.resourceCurrent, { color: colors.focus }]}>
-                {combatant.currentFocus}
-              </Text>
-              <Text style={styles.resourceMax}>/{combatant.maxFocus}</Text>
-            </Text>
-          </View>
-          <View style={styles.barBackground}>
-            <View
-              style={[
-                styles.barFill,
-                { width: `${focusPercent}%`, backgroundColor: colors.focus },
-              ]}
-            />
-          </View>
-        </View>
-      </View>
-
-      {/* --- RASTREADOR DE AÇÕES --- */}
-      <View style={styles.section}>
-        <Text style={styles.sectionHeader}>Ações do Turno</Text>
-        <View style={styles.actionsRow}>
-          {["standard", "bonus", "reaction"].map((type) => {
-            const key = type as "standard" | "bonus" | "reaction";
-            const isActive = actions[key];
-            const color =
-              key === "standard"
-                ? colors.primary
-                : key === "bonus"
-                ? "#fb8c00"
-                : "#8e24aa";
-
-            return (
-              <TouchableOpacity
-                key={key}
-                style={[
-                  styles.actionBtn,
-                  {
-                    backgroundColor: isActive ? color : colors.inputBg,
-                    opacity: isActive ? 1 : 0.5,
-                  },
-                ]}
-                onPress={() => handleToggleAction(key)}
-              >
-                <Text style={styles.actionBtnText}>
-                  {key === "standard"
-                    ? "Padrão"
-                    : key === "bonus"
-                    ? "Bônus"
-                    : "Reação"}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
-        </View>
-      </View>
-
-      {/* --- LISTA DE HABILIDADES --- */}
-      <View style={styles.section}>
-        <Text style={styles.sectionHeader}>Habilidades</Text>
-        {combatant.skills?.map((skill: any) => {
-          const actionKey = getActionKey(skill.actionType || skill.action);
-          const isAvailable = actionKey ? actions[actionKey] : true;
-          const hasFocus = combatant.currentFocus >= skill.cost;
-          const canUse = isAvailable && hasFocus;
-
-          return (
-            <TouchableOpacity
-              key={skill.id}
-              style={[styles.skillRow, !canUse && { opacity: 0.5 }]}
-              disabled={!canUse}
-              onPress={() => handleUseSkill(skill)}
-            >
-              <View style={{ flex: 1 }}>
-                <Text style={styles.skillName}>{skill.name}</Text>
-                {skill.actionType && (
-                  <Text
-                    style={[
-                      styles.detailText,
-                      {
-                        color: colors.primary,
-                        fontSize: 10,
-                        fontWeight: "bold",
-                      },
-                    ]}
-                  >
-                    {skill.actionType.toUpperCase()}
-                  </Text>
-                )}
-                <Text style={styles.detailText}>{skill.description}</Text>
-              </View>
-              <View style={styles.skillCost}>
-                <Text style={{ fontWeight: "bold", color: colors.text }}>
-                  {skill.cost} Foco
-                </Text>
-              </View>
-            </TouchableOpacity>
-          );
-        })}
-      </View>
-
-      {/* --- BOTÃO ENCERRAR --- */}
-      <TouchableOpacity style={styles.endTurnBtnBig} onPress={handleEndTurn}>
-        <Text style={styles.endTurnText}>ENCERRAR MEU TURNO</Text>
-      </TouchableOpacity>
-
-      <View style={{ height: 40 }} />
-    </ScrollView>
-  );
-};
 
 // --- TELA PRINCIPAL ---
 export default function SessionCombatScreen() {
@@ -405,6 +112,8 @@ export default function SessionCombatScreen() {
   const [showInitModal, setShowInitModal] = useState(false);
   const [isRolling, setIsRolling] = useState(false);
 
+  const mySafeId = generateSafeId(character.name);
+
   // Verifica quem está agindo
   const currentActor = combatants.find((c) => c.id === activeTurnId);
 
@@ -414,7 +123,7 @@ export default function SessionCombatScreen() {
   // Pega os dados sincronizados do servidor
   const myCombatantData = combatants.find((c) => c.name === character.name) || {
     ...character,
-    id: character.name, // Fallback ID temporário
+    id: generateSafeId(character.name), // Fallback ID temporário
     hp: character.stats.hp,
     currentFocus: character.stats.focus.current,
     maxFocus: character.stats.focus.max,
@@ -430,6 +139,39 @@ export default function SessionCombatScreen() {
     // Reseta o valor e abre o modal
     setInitValue("");
     setShowInitModal(true);
+  };
+
+  // --- FUNÇÕES DE CONEXÃO ---
+
+  // 1. Tentar Entrar (Verifica se já existe localmente)
+  const handleAttemptJoin = () => {
+    if (!ipAddress || !sessionCode) {
+      showAlert("Atenção", "Preencha IP e Código da Sala.");
+      return;
+    }
+
+    // [INTELIGÊNCIA] Verifica se já estou na lista de combatentes (Reconexão Rápida)
+    // Isso acontece se a internet caiu mas o app não fechou
+    const alreadyInCombat = combatants.find((c) => c.id === mySafeId);
+
+    if (alreadyInCombat) {
+      // Pula o modal e usa a iniciativa que já está salva
+      joinSession(ipAddress, sessionCode, alreadyInCombat.initiative);
+    } else {
+      // Se não estou na lista local, abre modal para rolar
+      setInitValue("");
+      setShowInitModal(true);
+    }
+  };
+
+  // 2. Reconexão Forçada (Para quando o App reiniciou)
+  const handleForceReconnect = () => {
+    if (!ipAddress || !sessionCode) {
+      showAlert("Atenção", "Preencha IP e Código da Sala.");
+      return;
+    }
+    // Envia -1 (ou outro código) para o servidor saber que deve manter a iniciativa
+    joinSession(ipAddress, sessionCode, -1);
   };
 
   const rollInitiative = () => {
@@ -458,8 +200,6 @@ export default function SessionCombatScreen() {
     joinSession(ipAddress, sessionCode, finalInit);
   };
 
-  // 1. TELA DE CONFIGURAÇÃO
-  // 1. TELA DE CONFIGURAÇÃO (Se desconectado)
   if (!isConnected) {
     return (
       <KeyboardAvoidingView
@@ -469,7 +209,7 @@ export default function SessionCombatScreen() {
         <View style={styles.configCard}>
           <View style={{ alignItems: "center", marginBottom: 20 }}>
             <Ionicons name="wifi" size={40} color={colors.primary} />
-            <Text style={styles.configTitle}>Conectar à Sessão</Text>
+            <Text style={styles.configTitle}>Conectar à Sessão </Text>
             <Text style={{ color: colors.textSecondary, textAlign: "center" }}>
               Insira o IP do Host e o código da sala.
             </Text>
@@ -499,8 +239,23 @@ export default function SessionCombatScreen() {
             onPress={openInitModal} // <--- Abre o modal em vez de conectar direto
             style={styles.connectBtn}
           >
-            <Text style={styles.connectBtnText}>PRÓXIMO</Text>
+            <Text style={styles.connectBtnText}>PRÓXIMO </Text>
             <Ionicons name="arrow-forward" size={18} color="#fff" />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            onPress={handleForceReconnect}
+            style={{ marginTop: 20, alignSelf: "center", flex: 1, alignItems: "center", justifyContent: "center" }}
+          >
+            <Text
+              style={{
+                color: colors.primary,
+                fontWeight: "bold",
+                textDecorationLine: "underline",
+              }}
+            >
+              Já estou no combate (Reconectar)
+            </Text>
           </TouchableOpacity>
         </View>
 
@@ -579,7 +334,7 @@ export default function SessionCombatScreen() {
                   onPress={confirmJoin}
                 >
                   <Text style={{ color: "#fff", fontWeight: "bold" }}>
-                    ENTRAR NO COMBATE
+                    ENTRAR NO COMBATE.
                   </Text>
                 </TouchableOpacity>
               </View>
@@ -620,11 +375,7 @@ export default function SessionCombatScreen() {
       </View>
 
       {isMyTurn ? (
-        <ActiveTurnInterface
-          combatant={myCombatantData}
-          styles={styles}
-          colors={colors}
-        />
+        <ActiveTurnInterface combatant={myCombatantData} />
       ) : (
         <FlatList
           data={combatants}
@@ -758,6 +509,8 @@ const getStyles = (colors: any) =>
       borderRadius: 8,
       alignItems: "center",
       marginTop: 8,
+      flexDirection: "row",
+      justifyContent: "center",
     },
     connectBtnText: { color: "#fff", fontWeight: "bold", fontSize: 16 },
 
@@ -839,9 +592,8 @@ const getStyles = (colors: any) =>
       backgroundColor: colors.inputBg,
       alignItems: "center",
       justifyContent: "center",
-      marginRight: 8,
     },
-    initText: { fontWeight: "bold", color: colors.text },
+    initText: { fontWeight: "bold", color: colors.text, alignSelf: "center" },
     spectatorName: { fontWeight: "bold", fontSize: 16, color: colors.text },
     spectatorStatus: {
       fontSize: 10,

@@ -3,6 +3,7 @@ import { Alert } from "react-native";
 import { Character, Combatant } from "../types/rpg";
 import { useCampaign } from "./CampaignContext";
 import { useCharacter } from "./CharacterContext";
+import { generateSafeId } from "@/utils/stringUtils";
 
 interface WebSocketContextType {
   isConnected: boolean;
@@ -51,7 +52,7 @@ const playerToCombatant = (
     baseName: char.name,
     type: "player",
     hp: { current: char.stats.hp.current, max: char.stats.hp.max },
-    initiative: rolledInitiative, // Será rolada depois ou enviada se já tiver
+    initiative: rolledInitiative,
     armorClass: ac,
     currentFocus: char.stats.focus.current,
     maxFocus: char.stats.focus.max,
@@ -204,14 +205,7 @@ export const WebSocketProvider = ({
     }
   };
 
-  const generateSafeId = (name: string) => {
-    return name
-      .trim()
-      .toLowerCase()
-      .normalize("NFD")
-      .replace(/[\u0300-\u036f]/g, "")
-      .replace(/\s+/g, "_");
-  };
+
 
   const joinSession = (ip: string, sessionId: string, initiative: number) => {
     if (!character.name) {
