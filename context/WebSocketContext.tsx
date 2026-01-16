@@ -1,9 +1,9 @@
+import { generateSafeId } from "@/utils/stringUtils";
 import React, { createContext, useContext, useRef, useState } from "react";
 import { Alert } from "react-native";
 import { Character, Combatant } from "../types/rpg";
 import { useCampaign } from "./CampaignContext";
 import { useCharacter } from "./CharacterContext";
-import { generateSafeId } from "@/utils/stringUtils";
 
 interface WebSocketContextType {
   isConnected: boolean;
@@ -99,7 +99,7 @@ export const WebSocketProvider = ({
     }
 
     // Monta a URL: ws://IP:8000/ws/SESSAO_123/CHAR_456
-    const wsUrl = `ws://${ip}:8000/ws/${sessionId}/${characterId}`;
+    const wsUrl = `wss://${ip}/ws/${sessionId}/${characterId}`;
     console.log("Conectando em:", wsUrl);
 
     const ws = new WebSocket(wsUrl);
@@ -204,8 +204,6 @@ export const WebSocketProvider = ({
       console.warn("Tentou enviar mensagem sem conexão.");
     }
   };
-
-
 
   const joinSession = (ip: string, sessionId: string, initiative: number) => {
     if (!character.name) {

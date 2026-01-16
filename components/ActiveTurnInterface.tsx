@@ -1,6 +1,6 @@
 import { useCampaign } from "@/context/CampaignContext";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
-import React, { useMemo } from "react";
+import { useMemo, useState } from "react";
 import {
   ScrollView,
   StyleSheet,
@@ -13,7 +13,8 @@ import { useAlert } from "@/context/AlertContext";
 
 import { useTheme } from "@/context/ThemeContext";
 import { useWebSocket } from "@/context/WebSocketContext";
-import { Combatant, Skill } from "@/types/rpg";
+import { Combatant, ResolveActionPayload, Skill } from "@/types/rpg";
+import { AttackModal } from "./AttackModal";
 
 // --- HELPERS ---
 const getActionKey = (
@@ -32,10 +33,11 @@ interface Props {
 }
 
 export const ActiveTurnInterface = ({ combatant, isGm = false }: Props) => {
-  const { updateCombatant } = useCampaign(); // Atualiza visualmente rápido
+  const { updateCombatant, combatants } = useCampaign(); // Atualiza visualmente rápido
   const { sendMessage } = useWebSocket(); // Envia para o servidor
   const { showAlert } = useAlert();
   const { colors } = useTheme();
+  const [attackModalOpen, setAttackModalOpen] = useState(false);
 
   const styles = useMemo(() => getStyles(colors), [colors]);
 
@@ -72,38 +74,46 @@ export const ActiveTurnInterface = ({ combatant, isGm = false }: Props) => {
   // --- HANDLERS INTEGRADOS ---
 
   const handleUseSkill = (skill: Skill) => {
+    // Validações de custo (Foco e Ação)
+    const actionKey = getActionKey(skill.actionType);
     if (combatant.currentFocus < skill.cost) {
       showAlert("Sem Foco", "Foco insuficiente.");
       return;
     }
-    const actionKey = getActionKey(skill.actionType);
     if (actionKey && !turnActions[actionKey]) {
-      showAlert(
-        "Ação Indisponível",
-        `Você já gastou sua ${skill.actionType || "ação"}.`
-      );
+      showAlert("Sem Ação", "Ação indisponível.");
       return;
     }
 
-    // 1. Update Local (Otimista)
+    // Update Local (Feedback)
     updateCombatant(
       combatant.id,
       "currentFocus",
       combatant.currentFocus - skill.cost
     );
-    let newActions = { ...turnActions };
     if (actionKey) {
-      newActions[actionKey] = false;
+      const newActions = { ...turnActions, [actionKey]: false };
       updateCombatant(combatant.id, "turnActions", newActions);
     }
 
-    // 2. Enviar para WebSocket
-    sendMessage("RESOLVE_ACTION", {
-      combatantId: combatant.id,
-      skillId: skill.id,
-    });
+    // Monta Payload
+    // Nota: Skills podem ter lógica complexa.
+    // Se a skill causa dano direto, você precisaria de um modal similar ao de ataque.
+    // Aqui estou assumindo que é um "Uso de Skill" genérico que o Mestre aplica o efeito ou é self-buff.
+    const payload: ResolveActionPayload = {
+      attackerId: combatant.id,
+      targetId: null, // Skill genérica geralmente não tem alvo definido no clique simples
+      actionName: skill.name,
 
-    showAlert("Sucesso", `Usou ${skill.name}`);
+      costType: actionKey || "standard",
+      focusCost: skill.cost,
+
+      damageAmount: 0, // Skills complexas precisariam de input de dano
+      healingAmount: 0,
+    };
+
+    sendMessage("RESOLVE_ACTION", payload);
+    showAlert("Habilidade", `${skill.name} utilizada.`);
   };
 
   const handleToggleAction = (type: "standard" | "bonus" | "reaction") => {
@@ -189,6 +199,73 @@ export const ActiveTurnInterface = ({ combatant, isGm = false }: Props) => {
 
   const handleEndTurn = () => {
     sendMessage("END_TURN", { character_id: combatant.id });
+  };
+
+  const handleConfirmAttack = (
+    targetId: string,
+    hitTotal: number,
+    damageTotal: number,
+    isCrit: boolean
+  ) => {
+    // 1. Busca o alvo para validar a CA (Lógica no Frontend)
+    const target = combatants.find((c) => c.id === targetId);
+
+    if (!target) {
+      showAlert("Erro", "Alvo não encontrado.");
+      return;
+    }
+
+    // 2. Verifica se Acertou
+    // Se for Crítico, acerta sempre. Se não, compara Totais.
+    const isHit = isCrit || hitTotal >= target.armorClass;
+
+    // 3. Define o Dano Final
+    // Se errou, manda 0 de dano (o backend registra a ação, mas sem efeito na vida)
+    const finalDamage = isHit ? damageTotal : 0;
+
+    // 4. Nome da Ação para o Log
+    let actionName = "Ataque Básico";
+    if (isCrit) actionName += " (Crítico!)";
+    else if (!isHit) actionName += " (Errou)";
+
+    // 5. Monta o Payload EXATO do Python
+    const payload: ResolveActionPayload = {
+      attackerId: combatant.id,
+      targetId: targetId,
+      actionName: actionName,
+
+      // Custos (Ataque básico geralmente é Ação Padrão e 0 Foco)
+      costType: "standard",
+      focusCost: 0,
+
+      // Efeitos
+      damageAmount: finalDamage,
+      healingAmount: 0,
+    };
+
+    // 6. Envia para o servidor
+    // O Backend recebe, subtrai o HP se damage > 0 e gera o log
+    sendMessage("RESOLVE_ACTION", payload);
+
+    // 7. Consome a Ação Padrão visualmente (Feedback Imediato)
+    if (turnActions.standard) {
+      const newActions = { ...turnActions, standard: false };
+      updateCombatant(combatant.id, "turnActions", newActions);
+
+      // Avisa server que gastou a ação (se o RESOLVE_ACTION já não fizer isso no seu back)
+      // Se o seu RESOLVE_ACTION no python já consome a ação baseado no costType,
+      // essa linha abaixo NÃO é necessária.
+      // sendMessage("PLAYER_ACTION", { ... });
+    }
+
+    showAlert(
+      isHit ? "Sucesso" : "Errou",
+      isHit
+        ? `Causou ${finalDamage} de dano!`
+        : isGm
+        ? `Não superou a CA ${target.armorClass}.` // Mestre vê o número
+        : `O ataque não superou a defesa do alvo.` // Jogador vê mensagem vaga
+    );
   };
 
   return (
@@ -446,6 +523,22 @@ export const ActiveTurnInterface = ({ combatant, isGm = false }: Props) => {
               );
             })}
           </View>
+          <Text style={styles.sectionHeader}>Ações</Text>
+
+          {/* BOTÃO GRANDE DE ATAQUE */}
+          <TouchableOpacity
+            style={[
+              styles.mainAttackBtn,
+              !turnActions.standard && { opacity: 0.5 },
+            ]}
+            onPress={() => {
+              if (turnActions.standard) setAttackModalOpen(true);
+              else showAlert("Sem Ação", "Você já usou sua ação padrão.");
+            }}
+          >
+            <MaterialCommunityIcons name="sword" size={24} color="#fff" />
+            <Text style={styles.mainAttackText}>REALIZAR ATAQUE</Text>
+          </TouchableOpacity>
         </View>
 
         {/* --- HABILIDADES --- */}
@@ -484,6 +577,15 @@ export const ActiveTurnInterface = ({ combatant, isGm = false }: Props) => {
         </TouchableOpacity>
       </View>
       <View style={{ height: 40 }} />
+
+      <AttackModal
+        visible={attackModalOpen}
+        onClose={() => setAttackModalOpen(false)}
+        attacker={combatant}
+        potentialTargets={combatants}
+        onConfirmAttack={handleConfirmAttack}
+        isGm={isGm}
+      />
     </ScrollView>
   );
 };
@@ -812,5 +914,22 @@ const getStyles = (colors: any) =>
       borderRadius: 8,
       alignItems: "center",
       justifyContent: "center",
+    },
+    mainAttackBtn: {
+      backgroundColor: "#d32f2f", // Vermelho sangue
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+      padding: 16,
+      borderRadius: 8,
+      marginBottom: 12,
+      gap: 8,
+      elevation: 3,
+    },
+    mainAttackText: {
+      color: "#fff",
+      fontWeight: "900",
+      fontSize: 16,
+      letterSpacing: 1,
     },
   });

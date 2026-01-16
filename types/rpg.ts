@@ -168,11 +168,11 @@ export interface Combatant {
   armorClass: number;
   maxFocus: number;
   currentFocus: number;
-  attributes?: Record<AttributeName, Attribute>;
+  attributes: Record<AttributeName, Attribute>;
   equipment?: string;
   actions?: string;
 
-  stances?: Stance[];
+  stances: Stance[];
   skills?: Skill[];
 
   activeStanceId?: string | null;
@@ -223,3 +223,19 @@ export type WebSocketEvent =
       payload: { combatantId: string; stanceId: string; newAC: number };
     }
   | { type: "NEXT_TURN"; payload: { currentInitiative: number } };
+
+export type ActionCostType = "standard" | "bonus" | "reaction" | "free";
+
+export interface ResolveActionPayload {
+  attackerId: string;
+  targetId?: string | null;
+  actionName: string;
+
+  // Custos
+  costType: ActionCostType;
+  focusCost: number;
+
+  // Efeitos
+  damageAmount: number;
+  healingAmount: number;
+}
