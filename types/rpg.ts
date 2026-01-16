@@ -88,6 +88,12 @@ export interface Spell {
   circle: number;
   description: string;
   effect: string;
+  cost: number;
+
+  // Novos campos para automação:
+  isAttack: boolean; // Abre modal de ataque?
+  damageFormula?: string; // Ex: "2d6"
+  actionType: "standard" | "bonus" | "reaction";
 }
 
 interface Ancestry {
@@ -128,6 +134,7 @@ export interface Character {
   currentStanceIndex: number;
 
   skills: Skill[];
+  spells: Spell[];
 
   equipment: {
     meleeWeapon: EquipmentItem;
@@ -157,23 +164,24 @@ export interface Character {
 export interface Combatant {
   id: string;
   name: string;
-  baseName: string;
+  baseName?: string;
   initiative: number;
   hp: {
     current: number;
     max: number;
   };
-  type: "player" | "npc";
+  type: "player" | "npc" | "gm";
 
   armorClass: number;
   maxFocus: number;
   currentFocus: number;
-  attributes?: Record<AttributeName, Attribute>;
+  attributes: Record<AttributeName, Attribute>;
   equipment?: string;
   actions?: string;
 
-  stances?: Stance[];
-  skills?: Skill[];
+  stances: Stance[];
+  skills: Skill[];
+  spells: Spell[]; // <--- Nova lista dedicada
 
   activeStanceId?: string | null;
 
@@ -223,3 +231,19 @@ export type WebSocketEvent =
       payload: { combatantId: string; stanceId: string; newAC: number };
     }
   | { type: "NEXT_TURN"; payload: { currentInitiative: number } };
+
+export type ActionCostType = "standard" | "bonus" | "reaction" | "free";
+
+export interface ResolveActionPayload {
+  attackerId: string;
+  targetId?: string | null;
+  actionName: string;
+
+  // Custos
+  costType: ActionCostType;
+  focusCost: number;
+
+  // Efeitos
+  damageAmount: number;
+  healingAmount: number;
+}

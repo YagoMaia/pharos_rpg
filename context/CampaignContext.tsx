@@ -19,7 +19,8 @@ interface CampaignContextType {
       | "initiative"
       | "currentFocus"
       | "activeStanceId"
-      | "turnActions",
+      | "turnActions"
+      | "armorClass",
     value: any
   ) => void;
   sortCombat: () => void;
@@ -33,6 +34,15 @@ interface CampaignContextType {
   diceHistory: string[];
   addDiceRoll: (roll: string) => void;
   endTurnCombatant: (id: string) => void;
+
+  setCombatants: React.Dispatch<React.SetStateAction<Combatant[]>>;
+
+  activeTurnId: string | null;
+  setActiveTurnId: React.Dispatch<React.SetStateAction<string | null>>;
+
+  logs: string[];
+  setLogs: React.Dispatch<React.SetStateAction<string[]>>;
+  addLog: (message: string) => void;
 }
 
 const CampaignContext = createContext<CampaignContextType>(
@@ -43,28 +53,23 @@ export const CampaignProvider = ({ children }: { children: ReactNode }) => {
   const [combatants, setCombatants] = useState<Combatant[]>([]);
   const [npcLibrary, setNpcLibrary] = useState<NpcTemplate[]>([]);
   const [diceHistory, setDiceHistory] = useState<string[]>([]);
+  const [activeTurnId, setActiveTurnId] = useState<string | null>(null);
+  const [logs, setLogs] = useState<string[]>([]);
 
-  // --- HELPER: Preencher Skills/Stances por Classe ---
+  const addLog = (message: string) => {
+    setLogs((prev) => [...prev, message].slice(-50)); // Mantém apenas os últimos 50
+  };
+
   const populateClassData = (npc: Partial<NpcTemplate>) => {
-    // Se tiver classe definida, puxa os dados
     if (npc.class && CLASS_DATA[npc.class as CharacterClass]) {
       const classInfo = CLASS_DATA[npc.class as CharacterClass];
       const npcLevel = npc.level || 1;
 
-      // 1. Filtra Skills por Nível
       const autoSkills = classInfo.skills.filter(
         (s) => (s.level || 1) <= npcLevel
       );
-
-      // 2. Pega Posturas
       const autoStances = classInfo.stances;
 
-      // Retorna o objeto mesclado (prioriza o que já existia manualmente se quiser,
-      // ou sobrescreve. Aqui estamos mesclando para garantir que tenha as da classe)
-
-      // Nota: Se quiser que seja ESTRITAMENTE igual ao player (automático),
-      // substitua as arrays. Se quiser permitir customização do Mestre + Classe, use spread.
-      // Abaixo: Substituição Automática (comportamento Player)
       return {
         ...npc,
         skills: autoSkills,
@@ -134,6 +139,10 @@ export const CampaignProvider = ({ children }: { children: ReactNode }) => {
         if (field === "turnActions") {
           return { ...c, turnActions: value };
         }
+        if (field === "armorClass") {
+          return { ...c, armorClass: value };
+        }
+
         return c;
       })
     );
@@ -201,6 +210,7 @@ export const CampaignProvider = ({ children }: { children: ReactNode }) => {
     <CampaignContext.Provider
       value={{
         combatants,
+        setCombatants,
         addCombatant,
         removeCombatant,
         updateCombatant,
@@ -213,6 +223,11 @@ export const CampaignProvider = ({ children }: { children: ReactNode }) => {
         addDiceRoll,
         updateNpcInLibrary,
         endTurnCombatant,
+        activeTurnId,
+        setActiveTurnId,
+        logs,
+        setLogs,
+        addLog,
       }}
     >
       {children}

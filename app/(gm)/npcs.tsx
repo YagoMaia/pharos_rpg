@@ -12,15 +12,18 @@ import {
 } from "react-native";
 
 import { useAlert } from "@/context/AlertContext";
+import { useCampaign } from "@/context/CampaignContext";
+import { useTheme } from "@/context/ThemeContext";
+import { useWebSocket } from "@/context/WebSocketContext";
 import { CLASS_DATA } from "@/data/classData";
 import { ANCESTRIES } from "@/data/origins";
-import { useCampaign } from "../../context/CampaignContext";
-import { useTheme } from "../../context/ThemeContext";
+import { generateSafeId } from "@/utils/stringUtils";
 import {
   ALL_CLASSES,
   Attribute,
   AttributeName,
   CharacterClass,
+  Combatant,
   NpcTemplate,
   Skill,
   Stance,
@@ -73,6 +76,7 @@ export default function NpcScreen() {
 
   const { colors } = useTheme();
   const { showAlert } = useAlert();
+  const { sendMessage, isConnected } = useWebSocket();
   const styles = useMemo(() => getStyles(colors), [colors]);
 
   const [modalVisible, setModalVisible] = useState(false);
@@ -268,23 +272,59 @@ export default function NpcScreen() {
     if (!selectedNpc) return;
     const qty = parseInt(quantity) || 1;
 
-    for (let i = 0; i < qty; i++) {
-      const init =
-        Math.floor(Math.random() * 20) + 1 + selectedNpc.initiativeBonus;
+    // Cenário 1: Mestre conectado ao Servidor (Envia via WebSocket)
+    if (isConnected) {
+      for (let i = 0; i < qty; i++) {
+        const init =
+          Math.floor(Math.random() * 20) + 1 + selectedNpc.initiativeBonus;
 
-      // Passamos TUDO do NPC template como detalhes
-      addCombatant(selectedNpc.name, selectedNpc.maxHp, init, "npc", {
-        armorClass: selectedNpc.armorClass,
-        maxFocus: selectedNpc.maxFocus,
-        attributes: selectedNpc.attributes,
-        equipment: selectedNpc.equipment,
-        actions: selectedNpc.actions,
-        stances: selectedNpc.stances,
-        skills: selectedNpc.skills,
-      });
+        // Monta o Payload completo que o Server espera
+        // O tipo "GM_ADD_NPC" deve ser tratado no Backend para criar um Combatant completo
+        const npcPayload = {
+          id: generateSafeId(selectedNpc.name + `#${i}`),
+          name: selectedNpc.name + `#${i}`,
+          hp: { current: selectedNpc.maxHp, max: selectedNpc.maxHp }, // Envia o valor máximo, o server cria {current, max}
+          initiative: init,
+          type: "npc",
+
+          // Dados detalhados para a ficha
+          armorClass: selectedNpc.armorClass,
+          maxFocus: selectedNpc.maxFocus,
+          currentFocus: selectedNpc.maxFocus,
+          attributes: selectedNpc.attributes,
+          equipment: selectedNpc.equipment,
+          actions: selectedNpc.actions,
+          stances: selectedNpc.stances,
+          skills: selectedNpc.skills,
+
+          // Campos de controle
+          turnActions: { standard: true, bonus: true, reaction: true },
+        } as Combatant;
+
+        sendMessage("GM_ADD_NPC", npcPayload);
+      }
+      showAlert("Enviado", `${qty}x ${selectedNpc.name} enviados ao servidor.`);
     }
+
+    // Cenário 2: Mestre Offline (Usa o Contexto Local)
+    else {
+      for (let i = 0; i < qty; i++) {
+        const init =
+          Math.floor(Math.random() * 20) + 1 + selectedNpc.initiativeBonus;
+        addCombatant(selectedNpc.name, selectedNpc.maxHp, init, "npc", {
+          armorClass: selectedNpc.armorClass,
+          maxFocus: selectedNpc.maxFocus,
+          attributes: selectedNpc.attributes,
+          equipment: selectedNpc.equipment,
+          actions: selectedNpc.actions,
+          stances: selectedNpc.stances,
+          skills: selectedNpc.skills,
+        });
+      }
+      showAlert("Local", `${qty}x ${selectedNpc.name} adicionados (Offline).`);
+    }
+
     setQtyModalVisible(false);
-    showAlert("Sucesso", `${qty}x ${selectedNpc.name} enviados.`);
   };
 
   // --- CARD DO NPC ---

@@ -42,7 +42,7 @@ export const AlertProvider = ({ children }: { children: ReactNode }) => {
   ) => {
     // Se não passar botões, cria um "OK" padrão
     const finalButtons =
-      buttons.length > 0 ? buttons : [{ text: "OK", style: "default" }];
+      buttons.length > 0 ? buttons : [{ text: "OK ", style: "default" }];
 
     setConfig({ title, message, buttons: finalButtons as AlertButton[] });
     setVisible(true);

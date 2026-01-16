@@ -3,6 +3,7 @@ import { AlertProvider } from "@/context/AlertContext";
 import { CampaignProvider } from "@/context/CampaignContext"; // <--- Novo
 import { CharacterProvider } from "@/context/CharacterContext";
 import { ThemeProvider } from "@/context/ThemeContext";
+import { WebSocketProvider } from "@/context/WebSocketContext";
 import { Stack } from "expo-router";
 
 export default function RootLayout() {
@@ -11,11 +12,13 @@ export default function RootLayout() {
       <AlertProvider>
         <CharacterProvider>
           <CampaignProvider>
-            <Stack screenOptions={{ headerShown: false }}>
-              <Stack.Screen name="index" />
-              <Stack.Screen name="(player)" />
-              <Stack.Screen name="(gm)" />
-            </Stack>
+            <WebSocketProvider>
+              <Stack screenOptions={{ headerShown: false }}>
+                <Stack.Screen name="index" />
+                <Stack.Screen name="(player)" />
+                <Stack.Screen name="(gm)" />
+              </Stack>
+            </WebSocketProvider>
           </CampaignProvider>
         </CharacterProvider>
       </AlertProvider>

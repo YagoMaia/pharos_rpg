@@ -1,7 +1,7 @@
+import { useTheme } from "@/context/ThemeContext";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { Tabs } from "expo-router";
 import { TouchableOpacity } from "react-native";
-import { useTheme } from "@/context/ThemeContext";
 
 export default function GMLayout() {
   const { colors, isDark, toggleTheme } = useTheme();
@@ -62,6 +62,15 @@ export default function GMLayout() {
               size={24}
               color={color}
             />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="gm-combat-screen"
+        options={{
+          title: "Turnos",
+          tabBarIcon: ({ color }) => (
+            <MaterialCommunityIcons name="dice-d20" size={24} color={color} />
           ),
         }}
       />

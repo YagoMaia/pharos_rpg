@@ -137,6 +137,7 @@ export default function CombatScreen() {
 
   const activeStance = isNeutral ? null : character.stances[currentStanceIdx];
   const focus = character.stats.focus;
+  const health = character.stats.hp;
 
   // --- CÁLCULO DINÂMICO DA CA ---
   const armorClassInfo = useMemo(() => {
@@ -202,71 +203,122 @@ export default function CombatScreen() {
   return (
     <View style={styles.container}>
       {/* HUD DE COMBATE */}
+
+      {/* HUD DE COMBATE REORGANIZADO */}
       <View style={styles.combatHud}>
-        <View style={styles.focusContainer}>
-          <View style={styles.focusHeader}>
+        {/* LINHA DE CIMA: VIDA (Esquerda) e CA (Direita) */}
+        <View style={styles.topRow}>
+          {/* Container de Vida (Flex maior para a barra) */}
+          <View style={styles.healthContainer}>
+            <View style={styles.resourceHeader}>
+              <View style={styles.labelGroup}>
+                <Ionicons
+                  name="heart"
+                  size={14}
+                  color={colors.hp || "#ef5350"}
+                />
+                <Text style={styles.hudLabel}>VIDA</Text>
+              </View>
+              <Text style={styles.resourceValue}>
+                <Text
+                  style={[
+                    styles.resourceCurrent,
+                    { color: colors.hp || "#ef5350" },
+                  ]}
+                >
+                  {health.current}
+                </Text>
+                <Text style={styles.resourceMax}>/{health.max}</Text>
+              </Text>
+            </View>
+            <View style={styles.barBackground}>
+              <View
+                style={[
+                  styles.barFill,
+                  {
+                    width: `${Math.min(
+                      100,
+                      (health.current / health.max) * 100
+                    )}%`,
+                    backgroundColor: colors.hp || "#ef5350",
+                  },
+                ]}
+              />
+            </View>
+          </View>
+
+          {/* Divisor Vertical Pequeno */}
+          <View style={styles.verticalSeparator} />
+
+          {/* Container de Defesa (Fixo) */}
+          <View style={styles.acContainer}>
+            <View style={styles.labelGroup}>
+              <MaterialCommunityIcons
+                name="shield"
+                size={14}
+                color={colors.textSecondary}
+              />
+              <Text style={styles.hudLabel}>DEFESA</Text>
+            </View>
+            <View style={styles.acValueContainer}>
+              <Text style={styles.acTotal}>{armorClassInfo.total}</Text>
+              {armorClassInfo.stanceMod !== 0 && (
+                <View
+                  style={[
+                    styles.modBadge,
+                    {
+                      backgroundColor:
+                        armorClassInfo.stanceMod > 0
+                          ? colors.success + "20"
+                          : colors.error + "20",
+                      borderColor:
+                        armorClassInfo.stanceMod > 0
+                          ? colors.success
+                          : colors.error,
+                    },
+                  ]}
+                >
+                  <Ionicons
+                    name={
+                      armorClassInfo.stanceMod > 0 ? "arrow-up" : "arrow-down"
+                    }
+                    size={10}
+                    color={
+                      armorClassInfo.stanceMod > 0
+                        ? colors.success
+                        : colors.error
+                    }
+                  />
+                </View>
+              )}
+            </View>
+          </View>
+        </View>
+
+        {/* LINHA DE BAIXO: FOCO (Largura Total) */}
+        <View style={styles.bottomRow}>
+          <View style={styles.resourceHeader}>
             <View style={styles.labelGroup}>
               <Ionicons name="flash" size={14} color={colors.focus} />
               <Text style={styles.hudLabel}>FOCO</Text>
             </View>
-            <Text style={styles.focusValue}>
-              <Text style={styles.focusCurrent}>{focus.current}</Text>
-              <Text style={styles.focusMax}>/{focus.max}</Text>
+            <Text style={styles.resourceValue}>
+              <Text style={[styles.resourceCurrent, { color: colors.focus }]}>
+                {focus.current}
+              </Text>
+              <Text style={styles.resourceMax}>/{focus.max}</Text>
             </Text>
           </View>
-          <View style={styles.focusBarBg}>
+          <View style={styles.barBackground}>
             <View
               style={[
-                styles.focusBarFill,
+                styles.barFill,
                 {
-                  width: `${(focus.current / focus.max) * 100}%`,
+                  width: `${Math.min(100, (focus.current / focus.max) * 100)}%`,
                   backgroundColor: colors.focus,
                 },
               ]}
             />
-          </View>
-        </View>
-
-        <View style={styles.verticalDivider} />
-
-        <View style={styles.acContainer}>
-          <View style={styles.labelGroup}>
-            <MaterialCommunityIcons
-              name="shield"
-              size={14}
-              color={colors.textSecondary}
-            />
-            <Text style={styles.hudLabel}>DEFESA</Text>
-          </View>
-          <View style={styles.acValueContainer}>
-            <Text style={styles.acTotal}>{armorClassInfo.total}</Text>
-            {armorClassInfo.stanceMod !== 0 && (
-              <View
-                style={[
-                  styles.modBadge,
-                  {
-                    backgroundColor:
-                      armorClassInfo.stanceMod > 0
-                        ? colors.success + "20"
-                        : colors.error + "20",
-                    borderColor:
-                      armorClassInfo.stanceMod > 0
-                        ? colors.success
-                        : colors.error,
-                  },
-                ]}
-              >
-                <Ionicons
-                  name={
-                    armorClassInfo.stanceMod > 0 ? "arrow-up" : "arrow-down"
-                  }
-                  size={10}
-                  color={
-                    armorClassInfo.stanceMod > 0 ? colors.success : colors.error
-                  }
-                />
-              </View>
-            )}
           </View>
         </View>
       </View>
@@ -487,26 +539,6 @@ export default function CombatScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* <Text style={styles.sectionHeader}>Habilidades</Text> */}
-
-        {/* <Text style={styles.subHeader}>Nível 1</Text>
-
-      <FlatList
-        data={skillsLevel1}
-        keyExtractor={(item) => item.id}
-        renderItem={renderSkill}
-        contentContainerStyle={styles.listContent}
-      />
-
-      <Text style={styles.subHeader}>Nível 2</Text>
-
-      <FlatList
-        data={skillsLevel2}
-        keyExtractor={(item) => item.id}
-        renderItem={renderSkill}
-        contentContainerStyle={styles.listContent}
-      /> */}
-        {/* 1. Lógica de Filtro (Pode ficar antes do return ou aqui mesmo) */}
         {(() => {
           const level1Skills = character.skills.filter(
             (s) => (s.level || 1) === 1
@@ -581,18 +613,6 @@ const getStyles = (colors: ThemeColors) =>
   StyleSheet.create({
     container: { flex: 1, backgroundColor: colors.background },
 
-    // HUD
-    combatHud: {
-      backgroundColor: colors.surface,
-      flexDirection: "row",
-      alignItems: "center",
-      paddingVertical: 12,
-      paddingHorizontal: 16,
-      elevation: 3,
-      marginBottom: 16,
-      borderBottomWidth: 1,
-      borderBottomColor: colors.border,
-    },
     focusContainer: { flex: 2, marginRight: 16 },
     focusHeader: {
       flexDirection: "row",
@@ -600,8 +620,7 @@ const getStyles = (colors: ThemeColors) =>
       alignItems: "center",
       marginBottom: 6,
     },
-    labelGroup: { flexDirection: "row", alignItems: "center", gap: 6 },
-    hudLabel: { fontSize: 10, fontWeight: "bold", color: colors.textSecondary },
+
     focusValue: { fontSize: 12, color: colors.textSecondary },
     focusCurrent: { fontSize: 18, fontWeight: "bold", color: colors.text },
     focusMax: { fontSize: 14, color: colors.textSecondary },
@@ -611,23 +630,24 @@ const getStyles = (colors: ThemeColors) =>
       borderRadius: 4,
       overflow: "hidden",
     },
-    focusBarFill: { height: "100%", borderRadius: 4 }, // Cor vem inline
+    focusBarFill: { height: "100%", borderRadius: 4 },
+
+    healthValue: { fontSize: 12, color: colors.textSecondary },
+    healthCurrent: { fontSize: 18, fontWeight: "bold", color: colors.text },
+    healthMax: { fontSize: 14, color: colors.textSecondary },
+    healthBarBg: {
+      height: 8,
+      backgroundColor: colors.border,
+      borderRadius: 4,
+      overflow: "hidden",
+    },
+    healthBarFill: { height: "100%", borderRadius: 4 },
+
     verticalDivider: {
       width: 1,
       height: "80%",
       backgroundColor: colors.border,
       marginHorizontal: 8,
-    },
-    acContainer: { flex: 1, alignItems: "center" },
-    acValueContainer: { flexDirection: "row", alignItems: "center", gap: 6 },
-    acTotal: { fontSize: 32, fontWeight: "bold", color: colors.text },
-    modBadge: {
-      width: 20,
-      height: 20,
-      borderRadius: 10,
-      justifyContent: "center",
-      alignItems: "center",
-      borderWidth: 1,
     },
 
     // SELETOR DE POSTURA
@@ -832,5 +852,111 @@ const getStyles = (colors: ThemeColors) =>
       fontSize: 14,
       textTransform: "uppercase",
       letterSpacing: 1,
+    },
+
+    combatHud: {
+      backgroundColor: colors.surface,
+      paddingVertical: 12,
+      paddingHorizontal: 16,
+      elevation: 4, // Sombra Android
+      shadowColor: "#000", // Sombra iOS
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.1,
+      shadowRadius: 4,
+      marginBottom: 16,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border,
+      gap: 12, // Espaço entre a linha de cima e a de baixo
+    },
+
+    // LINHA SUPERIOR (Vida + CA)
+    topRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+    },
+    healthContainer: {
+      flex: 1, // Ocupa o espaço que sobrar
+      marginRight: 16,
+    },
+    verticalSeparator: {
+      width: 1,
+      height: 40,
+      backgroundColor: colors.border,
+      marginRight: 16,
+    },
+    acContainer: {
+      alignItems: "center",
+      justifyContent: "center",
+      minWidth: 60,
+    },
+
+    // LINHA INFERIOR (Foco)
+    bottomRow: {
+      width: "100%",
+    },
+
+    // ESTILOS DE RECURSO (Compartilhados para Vida e Foco)
+    resourceHeader: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "flex-end",
+      marginBottom: 6,
+    },
+    labelGroup: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 6,
+    },
+    hudLabel: {
+      fontSize: 11,
+      fontWeight: "bold",
+      color: colors.textSecondary,
+      letterSpacing: 0.5,
+    },
+    resourceValue: {
+      fontSize: 12,
+      color: colors.textSecondary,
+    },
+    resourceCurrent: {
+      fontSize: 16,
+      fontWeight: "900",
+    },
+    resourceMax: {
+      fontSize: 12,
+      fontWeight: "600",
+      opacity: 0.7,
+    },
+    barBackground: {
+      height: 10, // Barra um pouco mais grossa
+      backgroundColor: colors.inputBg, // Cor de fundo da barra (cinza/escuro)
+      borderRadius: 5,
+      overflow: "hidden",
+    },
+    barFill: {
+      height: "100%",
+      borderRadius: 5,
+    },
+
+    // CA ESPECÍFICOS
+    acValueContainer: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 4,
+      marginTop: 2,
+    },
+    acTotal: {
+      fontSize: 28,
+      fontWeight: "bold",
+      color: colors.text,
+      includeFontPadding: false, // Remove padding extra no Android
+    },
+    modBadge: {
+      width: 18,
+      height: 18,
+      borderRadius: 9,
+      justifyContent: "center",
+      alignItems: "center",
+      borderWidth: 1,
     },
   });
