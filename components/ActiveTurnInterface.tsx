@@ -32,26 +32,34 @@ interface Props {
 }
 
 export const ActiveTurnInterface = ({ combatant, isGm = false }: Props) => {
-  const { updateCombatant } = useCampaign();
-  const { sendMessage } = useWebSocket();
+  const { updateCombatant } = useCampaign(); // Atualiza visualmente rápido
+  const { sendMessage } = useWebSocket(); // Envia para o servidor
   const { showAlert } = useAlert();
   const { colors } = useTheme();
 
-  const actions = combatant.turnActions || {
+  const styles = useMemo(() => getStyles(colors), [colors]);
+
+  // Garante que actions existe
+  const turnActions = combatant.turnActions || {
     standard: true,
     bonus: true,
     reaction: true,
   };
 
-  const styles = useMemo(() => getStyles(colors), [colors]);
-
-  // Cálculos
-  const activeStance = combatant.stances?.find(
+  // --- LÓGICA DE DADOS ---
+  // Identifica o índice da postura atual para o layout de botões (0, 1, ou -1)
+  const stances = combatant.stances || [];
+  const currentStanceIdx = stances.findIndex(
     (s: any) => s.id === combatant.activeStanceId
   );
-  const stanceBonus = activeStance?.acBonus || 0;
-  const totalAC = (combatant.armorClass || 10) + stanceBonus;
+  const isNeutral = currentStanceIdx === -1;
+  const activeStance = isNeutral ? null : stances[currentStanceIdx];
 
+  // Cálculo de CA (Base + Bonus da Postura)
+  // const stanceBonus = activeStance?.acBonus || 0;
+  const stanceBonus = activeStance?.acBonus || 0;
+  const totalAC = combatant.armorClass || 10;
+  // Barras
   const hpPercent = Math.min(
     100,
     (combatant.hp.current / combatant.hp.max) * 100
@@ -61,14 +69,15 @@ export const ActiveTurnInterface = ({ combatant, isGm = false }: Props) => {
     (combatant.currentFocus / combatant.maxFocus) * 100
   );
 
-  // --- HANDLERS ---
+  // --- HANDLERS INTEGRADOS ---
+
   const handleUseSkill = (skill: Skill) => {
     if (combatant.currentFocus < skill.cost) {
       showAlert("Sem Foco", "Foco insuficiente.");
       return;
     }
     const actionKey = getActionKey(skill.actionType);
-    if (actionKey && !actions[actionKey]) {
+    if (actionKey && !turnActions[actionKey]) {
       showAlert(
         "Ação Indisponível",
         `Você já gastou sua ${skill.actionType || "ação"}.`
@@ -76,28 +85,19 @@ export const ActiveTurnInterface = ({ combatant, isGm = false }: Props) => {
       return;
     }
 
-    // Update Local
+    // 1. Update Local (Otimista)
     updateCombatant(
       combatant.id,
       "currentFocus",
       combatant.currentFocus - skill.cost
     );
-    let newActions = { ...actions };
+    let newActions = { ...turnActions };
     if (actionKey) {
       newActions[actionKey] = false;
       updateCombatant(combatant.id, "turnActions", newActions);
     }
 
-    // Send to Server
-    // sendMessage("RESOLVE_ACTION", {
-    //   characterId: combatant.id,
-    //   action_type: "USE_SKILL",
-    //   payload: {
-    //     skill_name: skill.name,
-    //     cost: skill.cost,
-    //     action_key: actionKey,
-    //   },
-    // });
+    // 2. Enviar para WebSocket
     sendMessage("RESOLVE_ACTION", {
       combatantId: combatant.id,
       skillId: skill.id,
@@ -107,8 +107,9 @@ export const ActiveTurnInterface = ({ combatant, isGm = false }: Props) => {
   };
 
   const handleToggleAction = (type: "standard" | "bonus" | "reaction") => {
-    const newVal = !actions[type];
-    const newActions = { ...actions, [type]: newVal };
+    const newVal = !turnActions[type];
+    const newActions = { ...turnActions, [type]: newVal };
+
     updateCombatant(combatant.id, "turnActions", newActions);
 
     sendMessage("PLAYER_ACTION", {
@@ -118,17 +119,84 @@ export const ActiveTurnInterface = ({ combatant, isGm = false }: Props) => {
     });
   };
 
+  const handleStanceChange = (newIndex: number) => {
+    // --- PASSO 1: CALCULAR CA BASE REAL (Recálculo Seguro) ---
+    // Em vez de confiar no 'combatant.armorClass' (que pode estar sujo com bônus antigos),
+    // recalculamos quanto seria a CA "pelada" baseada na ficha.
+
+    const dexMod = combatant.attributes["Destreza"]?.modifier || 0;
+    // Tenta achar defesa de armadura/escudo nos atributos ou usa lógica padrão
+    // Se você não tiver esses campos detalhados no combatant, precisaremos confiar no valor atual
+    // Mas vamos tentar limpar o bônus atual de forma agressiva:
+
+    // Procura a postura que o sistema ACHA que está ativa
+    const currentActiveStance = combatant.stances?.find(
+      (s) => s.id === combatant.activeStanceId
+    );
+    const currentBonusOnServer = currentActiveStance?.acBonus || 0;
+
+    // CA Base estimada = CA do Banco - Bônus da Postura Ativa no Banco
+    let baseAC = (combatant.armorClass || 10) - currentBonusOnServer;
+
+    // (Opcional: Trava de segurança para não ficar menor que 10+Des se estiver sem armadura)
+    // if (baseAC < 10 + dexMod) baseAC = 10 + dexMod;
+
+    // --- PASSO 2: CALCULAR NOVA CA ---
+    let nextStanceId = null;
+    let nextAC = baseAC; // Se for neutra, volta para a base limpa
+
+    // Cenário: Entrar em Postura
+    if (newIndex !== -1) {
+      const newStance = combatant.stances[newIndex];
+
+      if (combatant.activeStanceId === newStance.id) return;
+
+      if (!turnActions.bonus) {
+        showAlert("Ação Indisponível", "Entrar em postura requer Ação Bônus.");
+        return;
+      }
+
+      nextStanceId = newStance.id;
+      nextAC = baseAC + (newStance.acBonus || 0);
+
+      // Consome ação
+      const newActions = { ...turnActions, bonus: false };
+      updateCombatant(combatant.id, "turnActions", newActions);
+    }
+
+    // --- LOG PARA DEBUG (Veja no console do celular) ---
+    console.log(`🛡️ Mudança de CA:
+      Atual no Banco: ${combatant.armorClass}
+      Postura Ativa Detectada: ${
+        currentActiveStance?.name || "Nenhuma"
+      } (Bônus: ${currentBonusOnServer})
+      Base Calculada: ${baseAC}
+      Nova Postura ID: ${nextStanceId}
+      Nova CA Enviada: ${nextAC}
+    `);
+
+    // 3. Atualiza Localmente
+    updateCombatant(combatant.id, "activeStanceId", nextStanceId);
+    updateCombatant(combatant.id, "armorClass", nextAC);
+
+    // 4. Envia
+    sendMessage("CHANGE_STANCE", {
+      combatantId: combatant.id,
+      stanceId: nextStanceId,
+      newAC: nextAC,
+    });
+  };
+
   const handleEndTurn = () => {
     sendMessage("END_TURN", { character_id: combatant.id });
   };
 
   return (
     <ScrollView style={{ flex: 1 }}>
-      {/* --- HUD DE COMBATE (LAYOUT NOVO) --- */}
+      {/* --- HUD --- */}
       <View style={styles.combatHud}>
-        {/* LINHA DE CIMA: VIDA (Esq) + CA (Dir) */}
         <View style={styles.topRow}>
-          {/* Vida */}
+          {/* VIDA */}
           <View style={styles.healthContainer}>
             <View style={styles.resourceHeader}>
               <View style={styles.labelGroup}>
@@ -164,10 +232,9 @@ export const ActiveTurnInterface = ({ combatant, isGm = false }: Props) => {
             </View>
           </View>
 
-          {/* Separador */}
           <View style={styles.verticalSeparator} />
 
-          {/* Defesa */}
+          {/* CA */}
           <View style={styles.acContainer}>
             <View style={styles.labelGroup}>
               <MaterialCommunityIcons
@@ -200,7 +267,7 @@ export const ActiveTurnInterface = ({ combatant, isGm = false }: Props) => {
           </View>
         </View>
 
-        {/* LINHA DE BAIXO: FOCO */}
+        {/* FOCO */}
         <View style={styles.bottomRow}>
           <View style={styles.resourceHeader}>
             <View style={styles.labelGroup}>
@@ -225,106 +292,214 @@ export const ActiveTurnInterface = ({ combatant, isGm = false }: Props) => {
         </View>
       </View>
 
-      {/* --- RASTREADOR DE AÇÕES --- */}
-      <View style={styles.section}>
-        <Text style={styles.sectionHeader}>Ações do Turno</Text>
-        <View style={styles.actionsRow}>
-          {["standard", "bonus", "reaction"].map((type) => {
-            const key = type as "standard" | "bonus" | "reaction";
-            const isActive = actions[key];
-            const color =
-              key === "standard"
-                ? colors.primary
-                : key === "bonus"
-                ? "#fb8c00"
-                : "#8e24aa";
+      <View style={{ paddingHorizontal: 16 }}>
+        {/* --- SELETOR DE POSTURA --- */}
+        <View style={styles.stanceSelectorContainer}>
+          <Text style={styles.sectionLabel}>Postura Atual</Text>
+          <View style={styles.stanceToggleGroup}>
+            {/* Neutra */}
+            <TouchableOpacity
+              style={[
+                styles.stanceBtn,
+                isNeutral && styles.stanceBtnNeutralActive,
+              ]}
+              onPress={() => handleStanceChange(-1)}
+            >
+              <Text
+                style={[
+                  styles.stanceBtnText,
+                  isNeutral && styles.stanceBtnTextActive,
+                ]}
+              >
+                Neutra
+              </Text>
+            </TouchableOpacity>
+
+            {/* Postura 1 */}
+            <TouchableOpacity
+              style={[
+                styles.stanceBtn,
+                currentStanceIdx === 0 && styles.stanceBtnP1Active,
+                currentStanceIdx !== 0 &&
+                  !turnActions.bonus && { opacity: 0.5 },
+              ]}
+              onPress={() => handleStanceChange(0)}
+              disabled={currentStanceIdx !== 0 && !turnActions.bonus}
+            >
+              <Text
+                style={[
+                  styles.stanceBtnText,
+                  currentStanceIdx === 0 && { color: "#fff" },
+                ]}
+              >
+                I
+              </Text>
+            </TouchableOpacity>
+
+            {/* Postura 2 */}
+            <TouchableOpacity
+              style={[
+                styles.stanceBtn,
+                currentStanceIdx === 1 && styles.stanceBtnP2Active,
+                currentStanceIdx !== 1 &&
+                  !turnActions.bonus && { opacity: 0.5 },
+              ]}
+              onPress={() => handleStanceChange(1)}
+              disabled={currentStanceIdx !== 1 && !turnActions.bonus}
+            >
+              <Text
+                style={[
+                  styles.stanceBtnText,
+                  currentStanceIdx === 1 && { color: "#fff" },
+                ]}
+              >
+                II
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Detalhes da Postura */}
+          <View
+            style={[
+              styles.stanceCard,
+              isNeutral
+                ? styles.stanceNeutralBg
+                : currentStanceIdx === 0
+                ? styles.stanceOneBg
+                : styles.stanceTwoBg,
+            ]}
+          >
+            <Text style={styles.activeStanceName}>
+              {isNeutral ? "Postura Neutra" : activeStance?.name}
+            </Text>
+            <View style={styles.divider} />
+            {isNeutral ? (
+              <Text style={styles.neutralText}>
+                Você não está focado em nenhuma técnica específica.
+              </Text>
+            ) : (
+              <View style={styles.stanceDetails}>
+                <InfoRow
+                  label="Benefício"
+                  text={activeStance?.benefit}
+                  color={colors.success}
+                  styles={styles}
+                />
+                <InfoRow
+                  label="Restrição"
+                  text={activeStance?.restriction}
+                  color={colors.error}
+                  styles={styles}
+                />
+                <InfoRow
+                  label="Manobra"
+                  text={activeStance?.maneuver}
+                  color={colors.focus}
+                  styles={styles}
+                />
+                {activeStance?.recovery && (
+                  <InfoRow
+                    label="Recuperação"
+                    text={activeStance.recovery}
+                    color={colors.primary}
+                    styles={styles}
+                  />
+                )}
+              </View>
+            )}
+          </View>
+        </View>
+
+        {/* --- RASTREADOR DE AÇÕES --- */}
+        <View style={styles.combatSection}>
+          <Text style={styles.sectionHeader}>Ações</Text>
+          <View style={styles.actionsRow}>
+            {["standard", "bonus", "reaction"].map((type) => {
+              const key = type as "standard" | "bonus" | "reaction";
+              const isActive = turnActions[key];
+              const color =
+                key === "standard"
+                  ? colors.primary
+                  : key === "bonus"
+                  ? "#fb8c00"
+                  : "#8e24aa";
+              return (
+                <TouchableOpacity
+                  key={key}
+                  style={[
+                    styles.actionBtn,
+                    {
+                      backgroundColor: isActive ? color : colors.inputBg,
+                      opacity: isActive ? 1 : 0.5,
+                    },
+                  ]}
+                  onPress={() => handleToggleAction(key)}
+                >
+                  <Text style={styles.actionBtnText}>
+                    {key === "standard"
+                      ? "Padrão"
+                      : key === "bonus"
+                      ? "Bônus"
+                      : "Reação"}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        </View>
+
+        {/* --- HABILIDADES --- */}
+        <View style={styles.combatSection}>
+          <Text style={styles.sectionHeader}>Habilidades</Text>
+          {combatant.skills?.map((skill: any) => {
+            const actionKey = getActionKey(skill.actionType || skill.action);
+            const isAvailable = actionKey ? turnActions[actionKey] : true;
+            const hasFocus = combatant.currentFocus >= skill.cost;
+            const canUse = isAvailable && hasFocus;
 
             return (
               <TouchableOpacity
-                key={key}
-                style={[
-                  styles.actionBtn,
-                  {
-                    backgroundColor: isActive ? color : colors.inputBg,
-                    opacity: isActive ? 1 : 0.5,
-                  },
-                ]}
-                onPress={() => handleToggleAction(key)}
+                key={skill.id || Math.random()}
+                style={[styles.skillRow, !canUse && { opacity: 0.5 }]}
+                disabled={!canUse}
+                onPress={() => handleUseSkill(skill)}
               >
-                <Text style={styles.actionBtnText}>
-                  {key === "standard"
-                    ? "Padrão"
-                    : key === "bonus"
-                    ? "Bônus"
-                    : "Reação"}
-                </Text>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.skillName}>{skill.name}</Text>
+                  <Text style={styles.skillType}>{skill.actionType}</Text>
+                  <Text style={styles.detailText}>{skill.description}</Text>
+                </View>
+                <View style={styles.skillCost}>
+                  <Text style={{ fontWeight: "bold", color: colors.text }}>
+                    {skill.cost} Foco
+                  </Text>
+                </View>
               </TouchableOpacity>
             );
           })}
         </View>
+
+        <TouchableOpacity style={styles.endTurnBtnBig} onPress={handleEndTurn}>
+          <Text style={styles.endTurnText}>ENCERRAR MEU TURNO</Text>
+        </TouchableOpacity>
       </View>
-
-      {/* --- LISTA DE HABILIDADES --- */}
-      <View style={styles.section}>
-        <Text style={styles.sectionHeader}>Habilidades</Text>
-        {combatant.skills?.map((skill: any) => {
-          const actionKey = getActionKey(skill.actionType || skill.action);
-          const isAvailable = actionKey ? actions[actionKey] : true;
-          const hasFocus = combatant.currentFocus >= skill.cost;
-          const canUse = isAvailable && hasFocus;
-
-          return (
-            <TouchableOpacity
-              key={skill.id}
-              style={[styles.skillRow, !canUse && { opacity: 0.5 }]}
-              disabled={!canUse}
-              onPress={() => handleUseSkill(skill)}
-            >
-              <View style={{ flex: 1 }}>
-                <Text style={styles.skillName}>{skill.name}</Text>
-                {skill.actionType && (
-                  <Text
-                    style={[
-                      styles.detailText,
-                      {
-                        color: colors.primary,
-                        fontSize: 10,
-                        fontWeight: "bold",
-                        marginTop: 5,
-                        // padding: 5,
-                      },
-                    ]}
-                  >
-                    {skill.actionType.toUpperCase()}
-                  </Text>
-                )}
-                <Text style={styles.detailText}>{skill.description}</Text>
-              </View>
-              <View style={styles.skillCost}>
-                <Text style={{ fontWeight: "bold", color: colors.text }}>
-                  {skill.cost} Foco
-                </Text>
-              </View>
-            </TouchableOpacity>
-          );
-        })}
-      </View>
-
-      {/* --- BOTÃO ENCERRAR --- */}
-      <TouchableOpacity style={styles.endTurnBtnBig} onPress={handleEndTurn}>
-        <Text style={styles.endTurnText}>ENCERRAR MEU TURNO</Text>
-      </TouchableOpacity>
-
       <View style={{ height: 40 }} />
     </ScrollView>
   );
 };
 
+const InfoRow = ({ label, text, color, styles }: any) => (
+  <View style={styles.infoRow}>
+    <Text style={[styles.infoLabel, { color }]}>{label}:</Text>
+    <Text style={styles.infoText}>{text}</Text>
+  </View>
+);
+
 const getStyles = (colors: any) =>
   StyleSheet.create({
     container: { flex: 1, backgroundColor: colors.background },
 
-    // --- HUD ATIVO (NOVO LAYOUT) ---
+    // HUD ATIVO
     combatHud: {
       backgroundColor: colors.surface,
       paddingVertical: 12,
@@ -348,7 +523,6 @@ const getStyles = (colors: any) =>
     },
     acContainer: { alignItems: "center", minWidth: 60 },
     bottomRow: { width: "100%" },
-
     resourceHeader: {
       flexDirection: "row",
       justifyContent: "space-between",
@@ -360,7 +534,6 @@ const getStyles = (colors: any) =>
     resourceValue: { fontSize: 12, color: colors.textSecondary },
     resourceCurrent: { fontSize: 16, fontWeight: "900" },
     resourceMax: { fontSize: 12, fontWeight: "600", opacity: 0.7 },
-
     barBackground: {
       height: 10,
       backgroundColor: colors.inputBg,
@@ -368,19 +541,13 @@ const getStyles = (colors: any) =>
       overflow: "hidden",
     },
     barFill: { height: "100%", borderRadius: 5 },
-
     acValueContainer: {
       flexDirection: "row",
       alignItems: "center",
       gap: 4,
       marginTop: 2,
     },
-    acTotal: {
-      fontSize: 28,
-      fontWeight: "bold",
-      color: colors.text,
-      includeFontPadding: false,
-    },
+    acTotal: { fontSize: 28, fontWeight: "bold", color: colors.text },
     modBadge: {
       width: 18,
       height: 18,
@@ -390,7 +557,177 @@ const getStyles = (colors: any) =>
       borderWidth: 1,
     },
 
-    // --- CONFIG ---
+    // STANCE & SECTIONS
+    stanceSelectorContainer: { marginBottom: 16 },
+    sectionLabel: {
+      fontSize: 12,
+      color: colors.textSecondary,
+      fontWeight: "bold",
+      textTransform: "uppercase",
+      marginBottom: 8,
+    },
+    stanceToggleGroup: {
+      flexDirection: "row",
+      backgroundColor: colors.inputBg,
+      borderRadius: 8,
+      padding: 2,
+      marginBottom: 8,
+    },
+    stanceBtn: {
+      flex: 1,
+      paddingVertical: 8,
+      alignItems: "center",
+      borderRadius: 6,
+    },
+    stanceBtnText: { fontWeight: "600", color: colors.textSecondary },
+    stanceBtnNeutralActive: { backgroundColor: colors.surface, elevation: 2 },
+    stanceBtnP1Active: { backgroundColor: "#1976d2", elevation: 2 },
+    stanceBtnP2Active: { backgroundColor: "#f57c00", elevation: 2 },
+    stanceBtnTextActive: { color: colors.text },
+    stanceCard: {
+      borderRadius: 12,
+      padding: 16,
+      elevation: 2,
+      minHeight: 120,
+      backgroundColor: colors.surface,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    stanceNeutralBg: {
+      borderLeftWidth: 5,
+      borderLeftColor: colors.textSecondary,
+    },
+    stanceOneBg: { borderLeftWidth: 5, borderLeftColor: "#1976d2" },
+    stanceTwoBg: { borderLeftWidth: 5, borderLeftColor: "#f57c00" },
+    activeStanceName: {
+      fontSize: 20,
+      fontWeight: "bold",
+      textAlign: "center",
+      color: colors.text,
+      marginBottom: 8,
+    },
+    divider: { height: 1, backgroundColor: colors.border, marginBottom: 12 },
+    neutralText: {
+      textAlign: "center",
+      color: colors.textSecondary,
+      fontStyle: "italic",
+      marginTop: 10,
+    },
+    stanceDetails: { gap: 8 },
+    infoRow: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      alignItems: "flex-start",
+    },
+    infoLabel: { fontWeight: "bold", marginRight: 6, fontSize: 14 },
+    infoText: {
+      fontSize: 14,
+      color: colors.textSecondary,
+      flex: 1,
+      lineHeight: 20,
+    },
+
+    combatSection: { marginBottom: 20 },
+    sectionHeader: {
+      fontSize: 14,
+      fontWeight: "bold",
+      color: colors.textSecondary,
+      textTransform: "uppercase",
+      marginBottom: 10,
+    },
+    actionsRow: { flexDirection: "row", gap: 10 },
+    actionBtn: { flex: 1, padding: 12, borderRadius: 8, alignItems: "center" },
+    actionBtnText: {
+      color: "#fff",
+      fontWeight: "bold",
+      fontSize: 11,
+      textTransform: "uppercase",
+    },
+    skillRow: {
+      flexDirection: "row",
+      backgroundColor: colors.surface,
+      padding: 12,
+      borderRadius: 8,
+      marginBottom: 8,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    skillName: { fontWeight: "bold", color: colors.text, fontSize: 14 },
+    skillType: { fontSize: 12, color: colors.primary, marginTop: 2 },
+    detailText: { color: colors.textSecondary, fontSize: 12 },
+    skillCost: {
+      justifyContent: "center",
+      paddingLeft: 10,
+      borderLeftWidth: 1,
+      borderColor: colors.border,
+    },
+    endTurnBtnBig: {
+      marginVertical: 16,
+      backgroundColor: colors.surface,
+      borderWidth: 2,
+      borderColor: colors.success,
+      padding: 16,
+      borderRadius: 12,
+      alignItems: "center",
+      borderStyle: "dashed",
+    },
+    endTurnText: {
+      color: colors.success,
+      fontWeight: "900",
+      fontSize: 16,
+      letterSpacing: 1,
+    },
+
+    // SPECTATOR & COMMON
+    spectatorCard: {
+      flexDirection: "row",
+      backgroundColor: colors.surface,
+      marginBottom: 10,
+      borderRadius: 8,
+      padding: 10,
+      alignItems: "center",
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    initBadge: {
+      width: 30,
+      height: 30,
+      borderRadius: 15,
+      backgroundColor: colors.inputBg,
+      alignItems: "center",
+      justifyContent: "center",
+      marginRight: 8,
+    },
+    initText: { fontWeight: "bold", color: colors.text },
+    spectatorName: { fontWeight: "bold", fontSize: 16, color: colors.text },
+    spectatorStatus: {
+      fontSize: 10,
+      color: colors.textSecondary,
+      marginTop: 2,
+      fontStyle: "italic",
+    },
+    miniBarBg: {
+      height: 6,
+      backgroundColor: colors.inputBg,
+      borderRadius: 3,
+      marginTop: 6,
+      overflow: "hidden",
+    },
+    miniBarFill: { height: "100%", borderRadius: 3 },
+    empty: { textAlign: "center", marginTop: 50, color: colors.textSecondary },
+    turnBanner: {
+      padding: 12,
+      paddingHorizontal: 16,
+      alignItems: "center",
+      borderBottomWidth: 1,
+      borderColor: colors.border,
+      flexDirection: "row",
+      justifyContent: "space-between",
+    },
+    turnBannerText: { fontWeight: "bold", fontSize: 16, color: colors.text },
+    disconnectBtn: { padding: 4 },
+
+    // CONFIG & MODALS
     configCard: {
       backgroundColor: colors.surface,
       padding: 24,
@@ -428,106 +765,11 @@ const getStyles = (colors: any) =>
       borderRadius: 8,
       alignItems: "center",
       marginTop: 8,
+      flexDirection: "row",
+      gap: 8,
+      justifyContent: "center",
     },
     connectBtnText: { color: "#fff", fontWeight: "bold", fontSize: 16 },
-
-    // --- SECTIONS & GERAL ---
-    section: { paddingHorizontal: 16, marginBottom: 20 },
-    sectionHeader: {
-      fontSize: 14,
-      fontWeight: "bold",
-      color: colors.textSecondary,
-      textTransform: "uppercase",
-      marginBottom: 10,
-    },
-    actionsRow: { flexDirection: "row", gap: 10 },
-    actionBtn: { flex: 1, padding: 12, borderRadius: 8, alignItems: "center" },
-    actionBtnText: {
-      color: "#fff",
-      fontWeight: "bold",
-      fontSize: 11,
-      textTransform: "uppercase",
-    },
-    skillRow: {
-      flexDirection: "row",
-      backgroundColor: colors.surface,
-      padding: 12,
-      borderRadius: 8,
-      marginBottom: 8,
-      borderWidth: 1,
-      borderColor: colors.border,
-    },
-    skillName: { fontWeight: "bold", color: colors.text, fontSize: 14 },
-    detailText: { color: colors.textSecondary, fontSize: 12 },
-    skillCost: {
-      justifyContent: "center",
-      paddingLeft: 10,
-      borderLeftWidth: 1,
-      borderColor: colors.border,
-    },
-    endTurnBtnBig: {
-      margin: 16,
-      backgroundColor: colors.surface,
-      borderWidth: 2,
-      borderColor: colors.success,
-      padding: 16,
-      borderRadius: 12,
-      alignItems: "center",
-      borderStyle: "dashed",
-    },
-    endTurnText: {
-      color: colors.success,
-      fontWeight: "900",
-      fontSize: 16,
-      letterSpacing: 1,
-    },
-    turnBanner: {
-      padding: 12,
-      paddingHorizontal: 16,
-      alignItems: "center",
-      borderBottomWidth: 1,
-      borderColor: colors.border,
-      flexDirection: "row",
-      justifyContent: "space-between",
-    },
-    turnBannerText: { fontWeight: "bold", fontSize: 16, color: colors.text },
-    disconnectBtn: { padding: 4 },
-    spectatorCard: {
-      flexDirection: "row",
-      backgroundColor: colors.surface,
-      marginBottom: 10,
-      borderRadius: 8,
-      padding: 10,
-      alignItems: "center",
-      borderWidth: 1,
-      borderColor: colors.border,
-    },
-    initBadge: {
-      width: 30,
-      height: 30,
-      borderRadius: 15,
-      backgroundColor: colors.inputBg,
-      alignItems: "center",
-      justifyContent: "center",
-      marginRight: 8,
-    },
-    initText: { fontWeight: "bold", color: colors.text },
-    spectatorName: { fontWeight: "bold", fontSize: 16, color: colors.text },
-    spectatorStatus: {
-      fontSize: 10,
-      color: colors.textSecondary,
-      marginTop: 2,
-      fontStyle: "italic",
-    },
-    miniBarBg: {
-      height: 6,
-      backgroundColor: colors.inputBg,
-      borderRadius: 3,
-      marginTop: 6,
-      overflow: "hidden",
-    },
-    miniBarFill: { height: "100%", borderRadius: 3 },
-    empty: { textAlign: "center", marginTop: 50, color: colors.textSecondary },
     modalOverlay: {
       flex: 1,
       backgroundColor: "rgba(0,0,0,0.6)",
@@ -564,11 +806,7 @@ const getStyles = (colors: any) =>
       gap: 10,
       marginBottom: 10,
     },
-    rollBtnText: {
-      color: "#fff",
-      fontWeight: "bold",
-      fontSize: 16,
-    },
+    rollBtnText: { color: "#fff", fontWeight: "bold", fontSize: 16 },
     modalBtn: {
       padding: 14,
       borderRadius: 8,

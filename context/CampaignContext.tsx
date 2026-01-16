@@ -19,7 +19,8 @@ interface CampaignContextType {
       | "initiative"
       | "currentFocus"
       | "activeStanceId"
-      | "turnActions",
+      | "turnActions"
+      | "armorClass",
     value: any
   ) => void;
   sortCombat: () => void;
@@ -36,7 +37,7 @@ interface CampaignContextType {
 
   setCombatants: React.Dispatch<React.SetStateAction<Combatant[]>>;
 
-  activeTurnId: string | null; 
+  activeTurnId: string | null;
   setActiveTurnId: React.Dispatch<React.SetStateAction<string | null>>;
 
   logs: string[];
@@ -56,7 +57,7 @@ export const CampaignProvider = ({ children }: { children: ReactNode }) => {
   const [logs, setLogs] = useState<string[]>([]);
 
   const addLog = (message: string) => {
-      setLogs(prev => [...prev, message].slice(-50)); // Mantém apenas os últimos 50
+    setLogs((prev) => [...prev, message].slice(-50)); // Mantém apenas os últimos 50
   };
 
   const populateClassData = (npc: Partial<NpcTemplate>) => {
@@ -138,6 +139,10 @@ export const CampaignProvider = ({ children }: { children: ReactNode }) => {
         if (field === "turnActions") {
           return { ...c, turnActions: value };
         }
+        if (field === "armorClass") {
+          return { ...c, armorClass: value };
+        }
+
         return c;
       })
     );
