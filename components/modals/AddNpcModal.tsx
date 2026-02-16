@@ -2,6 +2,7 @@ import { useTheme } from "@/context/ThemeContext";
 import { CLASS_DATA } from "@/data/classData";
 import { ANCESTRIES } from "@/data/origins";
 import {
+  ActionType,
   ALL_CLASSES,
   Attribute,
   AttributeName,
@@ -169,19 +170,53 @@ export const AddNpcModal = ({
     }
   }, [visible, initialData]);
 
-  useEffect(() => {
-    // Só roda se NÃO estiver editando (para não sobrescrever dados salvos)
-    if (!initialData && npcClass) {
-      // A. Se for Customizado (Monstro/Outros), LIMPA as listas automáticas
-      if (CUSTOM_CLASSES.includes(npcClass)) {
-        setNpcSkills([]);
+  // useEffect(() => {
+  //   // Só roda se NÃO estiver editando (para não sobrescrever dados salvos)
+  //   if (!initialData && npcClass) {
+  //     // A. Se for Customizado (Monstro/Outros), LIMPA as listas automáticas
+  //     if (CUSTOM_CLASSES.includes(npcClass)) {
+  //       setNpcSkills([]);
+  //       setNpcStances([]);
+  //       return; // PARE AQUI! Não busque no CLASS_DATA
+  //     }
+
+  //     // B. Se for Classe Padrão, carrega do arquivo
+  //     if (CLASS_DATA[npcClass as CharacterClass]) {
+  //       const data = CLASS_DATA[npcClass as CharacterClass];
+  //       const numericLevel = parseInt(level) || 1;
+
+  //       const autoSkills = data.skills.filter(
+  //         (s) => (s.level || 1) <= numericLevel,
+  //       );
+  //       const autoStances = data.stances;
+
+  //       setNpcSkills(autoSkills);
+  //       setNpcStances(autoStances);
+  //     }
+  //   }
+  // }, [npcClass, level, initialData]);
+
+  // NOVA FUNÇÃO: Lida com a troca de classe de forma manual e segura
+  // NOVA FUNÇÃO: Lida com a troca de classe de forma manual e segura
+  const handleClassChange = (cls: string) => {
+    setNpcClass(cls);
+
+    // Só altera as listas automáticas se NÃO for uma edição
+    // (Em edições, assumimos que o Mestre já customizou o que queria)
+    if (!initialData) {
+      if (CUSTOM_CLASSES.includes(cls)) {
+        // Se mudou para Monstro/Outro, REMOVE as skills que vieram de
+        // classes padrão (que não têm o prefixo "custom_"), mas MANTÉM as customizadas.
+        setNpcSkills((prev) =>
+          prev.filter((skill) => skill.id.startsWith("custom_")),
+        );
         setNpcStances([]);
-        return; // PARE AQUI! Não busque no CLASS_DATA
+        return;
       }
 
-      // B. Se for Classe Padrão, carrega do arquivo
-      if (CLASS_DATA[npcClass as CharacterClass]) {
-        const data = CLASS_DATA[npcClass as CharacterClass];
+      // Se escolheu uma classe padrão, carrega as habilidades dela
+      if (CLASS_DATA[cls as CharacterClass]) {
+        const data = CLASS_DATA[cls as CharacterClass];
         const numericLevel = parseInt(level) || 1;
 
         const autoSkills = data.skills.filter(
@@ -189,11 +224,19 @@ export const AddNpcModal = ({
         );
         const autoStances = data.stances;
 
-        setNpcSkills(autoSkills);
+        // COMBINA as habilidades da nova classe com as customizadas (caso ele já tenha criado alguma)
+        setNpcSkills((prev) => {
+          const customSkills = prev.filter((skill) =>
+            skill.id.startsWith("custom_"),
+          );
+          return [...autoSkills, ...customSkills];
+        });
+
         setNpcStances(autoStances);
       }
     }
-  }, [npcClass, level, initialData]);
+    console.log("NOVAS SKILLS: ", npcSkills);
+  };
 
   const pickImage = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -212,6 +255,7 @@ export const AddNpcModal = ({
 
   const handleSave = () => {
     const data = {
+      id: initialData?.id,
       name,
       image,
       subline,
@@ -232,6 +276,7 @@ export const AddNpcModal = ({
       skills: npcSkills,
       spells: npcSpells,
     };
+    console.log("SALVANDO NO MODAL. Skills enviadas:", data.skills); // <--- ADICIONE ISTO
     onSave(data);
     onClose();
   };
@@ -247,6 +292,10 @@ export const AddNpcModal = ({
     setNpcSpells(npcSpells.filter((s) => s.id !== spellId));
   };
 
+  const removeSkill = (skillId: string) => {
+    setNpcSkills(npcSkills.filter((s) => s.id !== skillId));
+  };
+
   const handleAttributeChange = (key: AttributeName, text: string) => {
     const newValue = parseInt(text) || 0;
     // Recalcula o modificador: (Valor - 10) / 2 arredondado para baixo
@@ -255,11 +304,67 @@ export const AddNpcModal = ({
     setAttrs((prev) => ({
       ...prev,
       [key]: {
-        ...prev[key], // Mantém o nome e outros dados se houver
+        ...prev[key],
         value: newValue,
         modifier: newModifier,
       },
     }));
+  };
+
+  const [skillModalVisible, setSkillModalVisible] = useState(false);
+
+  const [tempSkillName, setTempSkillName] = useState("");
+  const [tempSkillDesc, setTempSkillDesc] = useState("");
+  const [tempSkillCost, setTempSkillCost] = useState("0");
+  const [tempSkillAction, setTempSkillAction] = useState<ActionType>("Padrão");
+
+  // Combate
+  const [tempUsesWeapon, setTempUsesWeapon] = useState(true);
+  const [tempWeaponType, setTempWeaponType] = useState<
+    "melee" | "ranged" | "any"
+  >("melee");
+  const [tempBonusDmg, setTempBonusDmg] = useState("");
+
+  // Cura
+  const [tempIsHealing, setTempIsHealing] = useState(false);
+  const [tempHealFormula, setTempHealFormula] = useState("");
+
+  const handleAddNewSkill = () => {
+    if (!tempSkillName.trim()) {
+      // Se quiser, pode usar um showAlert aqui
+      return;
+    }
+
+    const novaSkill: Skill = {
+      id: `custom_${Date.now()}`,
+      name: tempSkillName.trim(),
+      level: 1, // Geralmente monstros não tem level de skill, deixamos 1
+      cost: parseInt(tempSkillCost) || 0,
+      actionType: tempSkillAction,
+      description: tempSkillDesc.trim() || "Ataque customizado do NPC.",
+
+      // Lógica de Dano
+      usesWeaponDamage: tempUsesWeapon,
+      weaponType: tempWeaponType,
+      bonusDamage: tempBonusDmg.trim() || undefined,
+
+      // Lógica de Cura
+      isHealing: tempIsHealing,
+      healFormula: tempHealFormula.trim() || undefined,
+    };
+
+    setNpcSkills((prev) => [...prev, novaSkill]);
+
+    // Limpar e fechar
+    setTempSkillName("");
+    setTempSkillDesc("");
+    setTempSkillCost("0");
+    setTempBonusDmg("");
+    setTempHealFormula("");
+    setTempUsesWeapon(true);
+    setTempIsHealing(false);
+
+    setSkillModalVisible(false);
   };
 
   return (
@@ -373,7 +478,7 @@ export const AddNpcModal = ({
                         isSelected && styles.chipActive,
                         isCustom && !isSelected && { borderColor: "#fb8c00" }, // Laranja sutil para monstros
                       ]}
-                      onPress={() => setNpcClass(cls)}
+                      onPress={() => handleClassChange(cls)}
                     >
                       <Text
                         style={[
@@ -527,6 +632,63 @@ export const AddNpcModal = ({
               />
 
               <View style={styles.divider} />
+
+              {/* --- NOVA SEÇÃO: HABILIDADES (SKILLS) --- */}
+              <View
+                style={{
+                  flexDirection: "row",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  marginBottom: 10,
+                }}
+              >
+                <Text style={styles.label}>Habilidades Especiais</Text>
+
+                {/* Botão de Adicionar (Para abrir seu futuro SkillSelectorModal) */}
+                <TouchableOpacity
+                  onPress={() => setSkillModalVisible(true)}
+                  style={styles.addBtnSmall}
+                >
+                  <Text style={styles.addBtnText}>+ Habilidade</Text>
+                </TouchableOpacity>
+              </View>
+
+              {/* Lista de Skills que o NPC tem */}
+              {npcSkills.length === 0 ? (
+                <Text
+                  style={{
+                    color: colors.textSecondary,
+                    fontStyle: "italic",
+                    marginBottom: 10,
+                    fontSize: 12,
+                  }}
+                >
+                  Nenhuma habilidade mecânica cadastrada.
+                </Text>
+              ) : (
+                npcSkills.map((skill) => (
+                  <View key={skill.id} style={styles.miniItem}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.miniItemTitle}>{skill.name}</Text>
+                      <Text style={styles.miniItemDesc}>
+                        Ação: {skill.actionType} • Custo: {skill.cost} Foco
+                      </Text>
+                    </View>
+
+                    {/* Botão para remover a Skill */}
+                    <TouchableOpacity onPress={() => removeSkill(skill.id)}>
+                      <Ionicons
+                        name="trash-outline"
+                        size={20}
+                        color={colors.error}
+                      />
+                    </TouchableOpacity>
+                  </View>
+                ))
+              )}
+
+              <View style={styles.divider} />
+
               {/* Lógica de Magias e Atributos mantida... */}
               <View
                 style={{
@@ -603,7 +765,289 @@ export const AddNpcModal = ({
           onClose={() => setSpellModalVisible(false)}
           onSelect={addSpell}
           learnedSpells={npcSpells}
+          character={{ class: npcClass, level: parseInt(level) || 1 } as any}
         />
+        {/* --- MODAL COMPLETO: ADICIONAR NOVA SKILL --- */}
+        <Modal visible={skillModalVisible} transparent animationType="fade">
+          <View style={styles.overlayModal}>
+            <View style={[styles.cardModal, { maxHeight: "90%" }]}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>Nova Habilidade</Text>
+                <TouchableOpacity onPress={() => setSkillModalVisible(false)}>
+                  <Ionicons
+                    name="close"
+                    size={24}
+                    color={colors.textSecondary}
+                  />
+                </TouchableOpacity>
+              </View>
+
+              <ScrollView style={{ padding: 20 }}>
+                {/* INFORMAÇÕES BÁSICAS */}
+                <Text style={styles.label}>Nome da Habilidade</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="Ex: Mordida Venenosa"
+                  placeholderTextColor={colors.textSecondary}
+                  value={tempSkillName}
+                  onChangeText={setTempSkillName}
+                />
+
+                <View style={styles.row}>
+                  <View style={{ flex: 1, marginRight: 10 }}>
+                    <Text style={styles.label}>Custo (Foco)</Text>
+                    <TextInput
+                      style={styles.input}
+                      keyboardType="numeric"
+                      placeholder="0"
+                      placeholderTextColor={colors.textSecondary}
+                      value={tempSkillCost}
+                      onChangeText={setTempSkillCost}
+                    />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.label}>Tipo de Ação</Text>
+                    <View
+                      style={[styles.input, { padding: 0, overflow: "hidden" }]}
+                    >
+                      {/* Um seletor simples improvisado usando flex row */}
+                      <ScrollView
+                        horizontal
+                        showsHorizontalScrollIndicator={false}
+                        contentContainerStyle={{
+                          alignItems: "center",
+                          paddingHorizontal: 10,
+                        }}
+                      >
+                        {(
+                          ["Padrão", "Ação Bônus", "Reação", "Livre"] as const
+                        ).map((act) => (
+                          <TouchableOpacity
+                            key={act}
+                            onPress={() => setTempSkillAction(act)}
+                            style={{
+                              paddingHorizontal: 10,
+                              paddingVertical: 6,
+                              borderRadius: 8,
+                              marginRight: 5,
+                              backgroundColor:
+                                tempSkillAction === act
+                                  ? colors.primary
+                                  : "transparent",
+                            }}
+                          >
+                            <Text
+                              style={{
+                                color:
+                                  tempSkillAction === act
+                                    ? "#fff"
+                                    : colors.textSecondary,
+                                fontWeight:
+                                  tempSkillAction === act ? "bold" : "normal",
+                                fontSize: 12,
+                              }}
+                            >
+                              {act}
+                            </Text>
+                          </TouchableOpacity>
+                        ))}
+                      </ScrollView>
+                    </View>
+                  </View>
+                </View>
+
+                {/* DESCRIÇÃO */}
+                <Text style={styles.label}>Descrição</Text>
+                <TextInput
+                  style={[styles.input, { height: 60 }]}
+                  multiline
+                  placeholder="O que essa habilidade faz..."
+                  placeholderTextColor={colors.textSecondary}
+                  value={tempSkillDesc}
+                  onChangeText={setTempSkillDesc}
+                />
+
+                <View style={styles.divider} />
+
+                {/* MECÂNICAS: DANO OU CURA */}
+                <View
+                  style={{ flexDirection: "row", gap: 10, marginBottom: 15 }}
+                >
+                  <TouchableOpacity
+                    style={[
+                      styles.chip,
+                      !tempIsHealing && styles.chipActive,
+                      { flex: 1, alignItems: "center" },
+                    ]}
+                    onPress={() => setTempIsHealing(false)}
+                  >
+                    <Text
+                      style={[
+                        styles.chipText,
+                        !tempIsHealing && styles.chipTextActive,
+                      ]}
+                    >
+                      É um Ataque
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[
+                      styles.chip,
+                      tempIsHealing && styles.chipActive,
+                      {
+                        flex: 1,
+                        alignItems: "center",
+                        backgroundColor: tempIsHealing
+                          ? colors.success
+                          : colors.inputBg,
+                        borderColor: tempIsHealing
+                          ? colors.success
+                          : colors.border,
+                      },
+                    ]}
+                    onPress={() => setTempIsHealing(true)}
+                  >
+                    <Text
+                      style={[
+                        styles.chipText,
+                        tempIsHealing && styles.chipTextActive,
+                      ]}
+                    >
+                      É uma Cura
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+
+                {tempIsHealing ? (
+                  // FORMULÁRIO DE CURA
+                  <View>
+                    <Text style={styles.label}>
+                      Fórmula de Cura (Ex: 2d8+4)
+                    </Text>
+                    <TextInput
+                      style={styles.input}
+                      placeholder="Ex: 2d8+4"
+                      placeholderTextColor={colors.textSecondary}
+                      value={tempHealFormula}
+                      onChangeText={setTempHealFormula}
+                    />
+                  </View>
+                ) : (
+                  // FORMULÁRIO DE ATAQUE
+                  <View>
+                    <View
+                      style={{
+                        flexDirection: "row",
+                        alignItems: "center",
+                        marginBottom: 10,
+                      }}
+                    >
+                      <TouchableOpacity
+                        onPress={() => setTempUsesWeapon(!tempUsesWeapon)}
+                        style={{
+                          width: 20,
+                          height: 20,
+                          borderRadius: 4,
+                          borderWidth: 2,
+                          borderColor: tempUsesWeapon
+                            ? colors.primary
+                            : colors.textSecondary,
+                          backgroundColor: tempUsesWeapon
+                            ? colors.primary
+                            : "transparent",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          marginRight: 10,
+                        }}
+                      >
+                        {tempUsesWeapon && (
+                          <Ionicons name="checkmark" size={14} color="#fff" />
+                        )}
+                      </TouchableOpacity>
+                      <Text style={{ color: colors.text, fontSize: 14 }}>
+                        Soma Dano da Arma base (1d4 desarmado)
+                      </Text>
+                    </View>
+
+                    {tempUsesWeapon && (
+                      <View
+                        style={{
+                          flexDirection: "row",
+                          gap: 10,
+                          marginBottom: 15,
+                        }}
+                      >
+                        {(["melee", "ranged", "any"] as const).map((wType) => (
+                          <TouchableOpacity
+                            key={wType}
+                            onPress={() => setTempWeaponType(wType)}
+                            style={[
+                              styles.chip,
+                              tempWeaponType === wType && styles.chipActive,
+                              { paddingVertical: 4, paddingHorizontal: 10 },
+                            ]}
+                          >
+                            <Text
+                              style={[
+                                styles.chipText,
+                                tempWeaponType === wType &&
+                                  styles.chipTextActive,
+                                { fontSize: 12 },
+                              ]}
+                            >
+                              {wType === "melee"
+                                ? "Corpo-a-Corpo"
+                                : wType === "ranged"
+                                  ? "Distância"
+                                  : "Qualquer"}
+                            </Text>
+                          </TouchableOpacity>
+                        ))}
+                      </View>
+                    )}
+
+                    <Text style={styles.label}>
+                      Dados Extras de Dano (Opcional)
+                    </Text>
+                    <TextInput
+                      style={styles.input}
+                      placeholder="Ex: 1d6 (Veneno)"
+                      placeholderTextColor={colors.textSecondary}
+                      value={tempBonusDmg}
+                      onChangeText={setTempBonusDmg}
+                    />
+                  </View>
+                )}
+
+                <View style={{ height: 20 }} />
+              </ScrollView>
+
+              {/* BOTÕES DO MODAL */}
+              <View
+                style={{
+                  flexDirection: "row",
+                  gap: 10,
+                  padding: 20,
+                  borderTopWidth: 1,
+                  borderColor: colors.border,
+                }}
+              >
+                <TouchableOpacity
+                  style={styles.cancelBtn}
+                  onPress={() => setSkillModalVisible(false)}
+                >
+                  <Text style={styles.cancelText}>Cancelar</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.saveBtn}
+                  onPress={handleAddNewSkill}
+                >
+                  <Text style={styles.saveText}>Criar Habilidade</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </Modal>
       </SafeAreaView>
     </Modal>
   );
@@ -966,5 +1410,28 @@ const getStyles = (colors: any) =>
       alignItems: "center",
       borderWidth: 2,
       borderColor: colors.surface,
+    },
+    overlayModal: {
+      flex: 1,
+      backgroundColor: "rgba(0,0,0,0.6)", // Fundo escuro transparente
+      justifyContent: "center",
+      alignItems: "center",
+      padding: 20,
+    },
+    cardModal: {
+      backgroundColor: colors.surface,
+      width: "100%",
+      borderRadius: 16,
+      // Remova o padding: 24 daqui, pois agora a ScrollView gerencia o padding interno
+      borderWidth: 1,
+      borderColor: colors.border,
+      elevation: 5,
+    },
+    saveBtn: {
+      flex: 1,
+      paddingVertical: 14,
+      borderRadius: 8,
+      backgroundColor: colors.primary,
+      alignItems: "center",
     },
   });

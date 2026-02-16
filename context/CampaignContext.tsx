@@ -299,38 +299,29 @@ export const CampaignProvider = ({ children }: { children: ReactNode }) => {
 
   // --- Lógica de Bestiário ---
 
-  const saveNpcToLibrary = (npcRaw: Omit<NpcTemplate, "id">) => {
-    // Aplica a lógica de classe antes de salvar
-    const npcWithClassData = populateClassData(npcRaw);
-
-    setNpcLibrary((prev) => [
-      ...prev,
-      { ...npcWithClassData, id: Date.now().toString() } as NpcTemplate,
-    ]);
-  };
-
   const deleteNpcFromLibrary = (id: string) => {
     setNpcLibrary((prev) => prev.filter((n) => n.id !== id));
   };
 
   const updateNpcInLibrary = (id: string, updates: Partial<NpcTemplate>) => {
-    // Se a atualização mudar classe ou nível, precisamos recalcular
-    // Mas cuidado: 'updates' pode não ter todos os campos.
-    // A melhor estratégia é pegar o antigo, aplicar o update, e repopular.
-
+    // O AddNpcModal já enviou o array de 'skills' e 'stances' prontos e fundidos.
+    // Não precisamos mais do populateClassData aqui, ele só destruiria os dados customizados.
     setNpcLibrary((prev) =>
       prev.map((npc) => {
         if (npc.id === id) {
-          const merged = { ...npc, ...updates };
-          // Se classe ou nível mudaram no update, repopula skills
-          if (updates.class || updates.level) {
-            return populateClassData(merged) as NpcTemplate;
-          }
-          return merged;
+          return { ...npc, ...updates } as NpcTemplate;
         }
         return npc;
       }),
     );
+  };
+
+  const saveNpcToLibrary = (npcRaw: Omit<NpcTemplate, "id">) => {
+    // O npcRaw já vem com as skills corretas do modal!
+    setNpcLibrary((prev) => [
+      ...prev,
+      { ...npcRaw, id: Date.now().toString() } as NpcTemplate,
+    ]);
   };
 
   const addDiceRoll = (roll: string) => {
