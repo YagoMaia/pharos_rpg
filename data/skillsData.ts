@@ -136,6 +136,17 @@ export const DEXTERITY_SKILLS: Skill[] = [
     description: "Move-se 1,5m sem provocar ataque de oportunidade.",
     level: 1,
   },
+  {
+    id: "estocada_traicoeira",
+    name: "Estocada Traiçoeira",
+    cost: 2,
+    actionType: "Padrão",
+    level: 1,
+    description:
+      "Ataque corpo a corpo com espada. Se tiver Vantagem (ou alvo Cego/Prostrado), causa +1 dado de dano da arma e alvo perde Reações até o próximo turno.",
+    usesWeaponDamage: true,
+    weaponType: "melee",
+  },
   // Nível 2
   {
     id: "movimento_dancante",

@@ -1,6 +1,6 @@
 // app/_layout.tsx
 import { AlertProvider } from "@/context/AlertContext";
-import { CampaignProvider } from "@/context/CampaignContext"; // <--- Novo
+import { CampaignProvider } from "@/context/CampaignContext"; 
 import { CharacterProvider } from "@/context/CharacterContext";
 import { ThemeProvider } from "@/context/ThemeContext";
 import { WebSocketProvider } from "@/context/WebSocketContext";

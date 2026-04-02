@@ -186,10 +186,10 @@ const getStyles = (colors: any) =>
       borderWidth: 2,
       borderColor: "transparent", // Borda invisível por padrão
       elevation: 4, // Sombra Android
-      shadowColor: "#000", // Sombra iOS
-      shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.2,
-      shadowRadius: 4,
+      boxShadowColor: "#000", // Sombra iOS
+      boxShadowOffset: { width: 0, height: 2 },
+      boxShadowOpacity: 0.2,
+      boxShadowRadius: 4,
       backgroundColor: colors.background, // Fundo para png transparente
     },
 

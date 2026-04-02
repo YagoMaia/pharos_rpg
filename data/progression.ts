@@ -139,7 +139,7 @@ export const SPECIALIZATIONS: Specialization[] = [
 
 // --- LISTA DE FAÇANHAS ---
 export const FEATS_DATA: Feat[] = [
-  // GERAIS
+  // --- GERAIS ---
   {
     id: "habilidoso",
     name: "Habilidoso",
@@ -176,7 +176,7 @@ export const FEATS_DATA: Feat[] = [
     benefit: "Gastar 3 Focos para re-rolar um d20 (1/descanso).",
   },
 
-  // MARCIAIS
+  // --- MARCIAIS ---
   {
     id: "matador_mago",
     name: "Matador de Mago",
@@ -214,7 +214,7 @@ export const FEATS_DATA: Feat[] = [
     benefit: "Ignora 'Recarga'. 1 Foco (Bônus): Destravar ou criar munição.",
   },
 
-  // SOCIAIS
+  // --- SOCIAIS ---
   {
     id: "ator",
     name: "Ator",
@@ -238,7 +238,7 @@ export const FEATS_DATA: Feat[] = [
       "Compra -20%, Venda +20%. Habilidade: Suborno automático (1/descanso).",
   },
 
-  // MÁGICOS
+  // --- MÁGICOS E MENTAIS ---
   {
     id: "poliglota",
     name: "Poliglota",
@@ -260,6 +260,15 @@ export const FEATS_DATA: Feat[] = [
     category: "Mágico",
     objective: "Estudo obsessivo ou sobreviver a dano elemental massivo.",
     benefit:
-      "Ignora Resistência ao elemento escolhido. Rola novamente dados '1' de dano.",
+      "Ignora Resistência ao elemento escolhido. Pode rolar novamente qualquer dado de dano dessa escola.",
+  },
+  {
+    id: "memoria_fotografica",
+    name: "Memória Fotográfica",
+    category: "Mágico",
+    objective:
+      "Tarefa de dedução impossível (Crítico) ou transcrever tomo antigo sem dormir.",
+    benefit:
+      "+4 Slots de Memória (Magias). Por 3 Focos (Descanso Longo): Recordar qualquer memória de 30 dias perfeitamente.",
   },
 ];

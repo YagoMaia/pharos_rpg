@@ -31,7 +31,7 @@ export default function TabLayout() {
           backgroundColor: colors.background, // Fundo do cabeçalho
           // No Android, remove a sombra "feia" padrão se quiser um visual flat:
           elevation: 0,
-          shadowOpacity: 0,
+          boxShadowOpacity: 0,
           borderBottomWidth: 1,
           borderBottomColor: colors.border,
         },

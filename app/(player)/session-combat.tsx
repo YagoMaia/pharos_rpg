@@ -18,12 +18,11 @@ import { useTheme } from "@/context/ThemeContext";
 import { useWebSocket } from "@/context/WebSocketContext";
 import { generateSafeId } from "@/utils/stringUtils";
 
-// Componentes Refatorados
-import { ActiveTurnInterface } from "@/components/session/ActiveTurnInterface"; // Sua interface de turno
+import { ActiveTurnInterface } from "@/components/session/ActiveTurnInterface";
 import { CombatNotification } from "@/components/session/CombatNotification";
-import { ConnectionForm } from "@/components/session/ConnectionForm"; // O novo componente
-import { ReactionOverlay } from "@/components/session/ReactionOverlay"; // Sua barra de reação
-import { SpectatorCard } from "@/components/session/SpectatorCard"; // O novo componente
+import { ConnectionForm } from "@/components/session/ConnectionForm"; 
+import { ReactionOverlay } from "@/components/session/ReactionOverlay";
+import { SpectatorCard } from "@/components/session/SpectatorCard";
 
 export default function SessionCombatScreen() {
   const { combatants, activeTurnId, logs, lastEvent } = useCampaign();

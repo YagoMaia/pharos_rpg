@@ -66,7 +66,6 @@ export const playerToCombatant = (
   initiativeRoll: number,
 ): Combatant => {
   // Cria um resumo do equipamento para mostrar no combate
-  console.log("AAAAAAAAAAAA: ", char.equipment.meleeWeapon);
   const meleeData = extractWeaponData(
     char.equipment.meleeWeapon,
     "Soco",
@@ -144,9 +143,89 @@ export const npcToCombatant = (
 
     turnActions: { standard: true, bonus: true, reaction: true },
     deathSaves: { successes: 0, failures: 0 },
-    weapons: {},
+    weapons: npc.weapons || {
+      melee: {
+        name: "Ataque Corpo-a-Corpo",
+        damage: "1d4",
+        attribute: "Força", // <--- Propriedade obrigatória
+        attackBonus: 0, // <--- Propriedade obrigatória
+        range: "1.5m", // <--- Propriedade obrigatória
+      },
+      ranged: {
+        name: "Ataque à Distância",
+        damage: "1d4",
+        attribute: "Destreza", // <--- Propriedade obrigatória
+        attackBonus: 0, // <--- Propriedade obrigatória
+        range: "9m", // <--- Propriedade obrigatória
+      },
+    },
 
-    equipmentSummary: npc.equipment, // Já é string no NPC
-    actionsDescription: npc.actions,
+    // actionsDescription: npc.actions,
   };
 };
+
+// Função pura para converter a ficha do Jogador para o formato do Bestiário
+export function mapPlayerToNpc(player: Character): Omit<NpcTemplate, "id"> {
+  // 1. Tratamento da Ancestralidade (Objeto -> String)
+  const ancestryName = player.ancestry?.name || "Desconhecida";
+
+  // 2. Sumarização de Equipamentos
+
+  const meleeData = extractWeaponData(
+    player.equipment.meleeWeapon,
+    "Soco",
+    "1d4", // Dano base desarmado
+  );
+
+  const rangedData = extractWeaponData(
+    player.equipment.rangedWeapon,
+    "Pedra",
+    "1d4",
+  );
+
+  // 3. Condensação de Façanhas e Especialização no campo de "Ações"
+  // const specText = player.specialization
+  //   ? `Especialização: ${player.specialization.name}`
+  //   : "";
+  // const featsText = player.feats?.length
+  //   ? `Façanhas: ${player.feats.map((f) => f.name).join(", ")}`
+  //   : "";
+
+  // 4. Cálculo base de Iniciativa e CA (Ajuste a matemática conforme o seu sistema)
+  // Assumindo que o atributo tem uma propriedade 'value' ou é um número direto.
+  const agiValue =
+    (player.attributes as any)?.agility?.value ||
+    (player.attributes as any)?.agility ||
+    0;
+
+  // Se o seu sistema usa modificador (ex: (Valor - 10) / 2), ajuste aqui:
+  const initiativeBonus = Number(agiValue);
+
+  return {
+    name: `Player ${player.name}`,
+    image: player.image || "",
+    level: player.level || 1,
+    class: player.class || "Nenhuma",
+    ancestry: ancestryName,
+
+    maxHp: player.stats?.hp?.max || 1,
+    maxFocus: player.stats?.focus?.max || 0,
+
+    // Valores padrão de combate que o Mestre precisará revisar
+    armorClass: playerArmor(player),
+    acDetail: player.equipment?.armor?.name || "Sem armadura",
+    speed: "9m",
+    initiativeBonus: initiativeBonus,
+
+    attributes: player.attributes,
+    stances: player.stances || [],
+    skills: player.skills || [],
+    spells: player.spells || [],
+
+    // actions: actionsSummary,
+    weapons: {
+      melee: meleeData,
+      ranged: rangedData,
+    },
+  };
+}

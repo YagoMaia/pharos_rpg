@@ -91,6 +91,18 @@ export const AddNpcModal = ({
   const [npcSpells, setNpcSpells] = useState<Spell[]>([]);
 
   const [spellModalVisible, setSpellModalVisible] = useState(false);
+  // --- ESTADOS: ARMAS DO NPC ---
+  const [meleeName, setMeleeName] = useState("");
+  const [meleeDamage, setMeleeDamage] = useState("");
+  const [meleeAttr, setMeleeAttr] = useState("Força"); // Novo
+  const [meleeBonus, setMeleeBonus] = useState("0"); // Novo
+  const [meleeRange, setMeleeRange] = useState("1.5m"); // Novo
+
+  const [rangedName, setRangedName] = useState("");
+  const [rangedDamage, setRangedDamage] = useState("");
+  const [rangedAttr, setRangedAttr] = useState("Destreza"); // Novo
+  const [rangedBonus, setRangedBonus] = useState("0"); // Novo
+  const [rangedRange, setRangedRange] = useState("9m"); // Novo
 
   useEffect(() => {
     // Só executa se o modal estiver visível
@@ -136,7 +148,19 @@ export const AddNpcModal = ({
         setNpcStances(initialData.stances || []);
         setNpcSkills(initialData.skills || []);
 
-        setNpcSpells(initialData.spells || []); // Carregar magias existentes (se houver na interface NpcTemplate)
+        setNpcSpells(initialData.spells || []);
+
+        setMeleeName(initialData.weapons?.melee?.name || "");
+        setMeleeDamage(initialData.weapons?.melee?.damage || "1d4");
+        setMeleeAttr(initialData.weapons?.melee?.attribute || "Força");
+        setMeleeBonus(String(initialData.weapons?.melee?.attackBonus || "0"));
+        setMeleeRange(initialData.weapons?.melee?.range || "1.5m");
+
+        setRangedName(initialData.weapons?.ranged?.name || "");
+        setRangedDamage(initialData.weapons?.ranged?.damage || "1d4");
+        setRangedAttr(initialData.weapons?.ranged?.attribute || "Destreza");
+        setRangedBonus(String(initialData.weapons?.ranged?.attackBonus || "0"));
+        setRangedRange(initialData.weapons?.ranged?.range || "9m");
       } else {
         // --- MODO CRIAÇÃO (RESET) ---
         setImage("");
@@ -166,6 +190,17 @@ export const AddNpcModal = ({
         setNpcSkills([]);
         setFormTab("general");
         setNpcSpells([]);
+        setMeleeName("");
+        setMeleeDamage("1d4");
+        setMeleeAttr("Força");
+        setMeleeBonus(String("0"));
+        setMeleeRange("1.5m");
+
+        setRangedName("");
+        setRangedDamage("1d4");
+        setRangedAttr("Destreza");
+        setRangedBonus(String("0"));
+        setRangedRange("9m");
       }
     }
   }, [visible, initialData]);
@@ -275,8 +310,24 @@ export const AddNpcModal = ({
       stances: npcStances,
       skills: npcSkills,
       spells: npcSpells,
+      // Dentro do seu objeto "data" na const handleSave
+      weapons: {
+        melee: {
+          name: meleeName || "Ataque Corpo-a-Corpo",
+          damage: meleeDamage || "1d4",
+          attribute: (meleeAttr || "Força") as AttributeName,
+          attackBonus: parseInt(meleeBonus) || 0,
+          range: meleeRange || "1.5m",
+        },
+        ranged: {
+          name: rangedName || "Ataque à Distância",
+          damage: rangedDamage || "1d4",
+          attribute: (rangedAttr || "Destreza") as AttributeName,
+          attackBonus: parseInt(rangedBonus) || 0,
+          range: rangedRange || "9m",
+        },
+      },
     };
-    console.log("SALVANDO NO MODAL. Skills enviadas:", data.skills); // <--- ADICIONE ISTO
     onSave(data);
     onClose();
   };
@@ -602,33 +653,250 @@ export const AddNpcModal = ({
           {/* ABA DETALHES */}
           {formTab === "details" && (
             <>
-              <Text style={styles.label}>Equipamento</Text>
+              {/* --- NOVA SEÇÃO DE ARMAS --- */}
+              <Text
+                style={[styles.label, { color: colors.primary, marginTop: 16 }]}
+              >
+                Armas Padrão (Usadas nas Habilidades)
+              </Text>
+
+              {/* --- CORPO A CORPO (MELEE) --- */}
+              <View
+                style={[
+                  styles.miniItem,
+                  {
+                    flexDirection: "column",
+                    alignItems: "stretch",
+                    padding: 12,
+                  },
+                ]}
+              >
+                <Text
+                  style={{
+                    color: colors.text,
+                    fontWeight: "bold",
+                    marginBottom: 8,
+                  }}
+                >
+                  Corpo-a-Corpo
+                </Text>
+
+                <View style={styles.row}>
+                  <View style={{ flex: 2, marginRight: 8 }}>
+                    <TextInput
+                      style={styles.input}
+                      value={meleeName}
+                      onChangeText={setMeleeName}
+                      placeholder="Nome (Ex: Garra)"
+                      placeholderTextColor={colors.textSecondary}
+                    />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <TextInput
+                      style={styles.input}
+                      value={meleeDamage}
+                      onChangeText={setMeleeDamage}
+                      placeholder="Dano (1d6)"
+                      placeholderTextColor={colors.textSecondary}
+                    />
+                  </View>
+                </View>
+
+                <View style={[styles.row, { marginTop: 8 }]}>
+                  <View style={{ flex: 1, marginRight: 8 }}>
+                    <TextInput
+                      style={styles.input}
+                      value={meleeBonus}
+                      onChangeText={setMeleeBonus}
+                      keyboardType="numeric"
+                      placeholder="Bônus Atq (+2)"
+                      placeholderTextColor={colors.textSecondary}
+                    />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <TextInput
+                      style={styles.input}
+                      value={meleeRange}
+                      onChangeText={setMeleeRange}
+                      placeholder="Alcance (1.5m)"
+                      placeholderTextColor={colors.textSecondary}
+                    />
+                  </View>
+                </View>
+
+                {/* --- NOVO SELETOR DE ATRIBUTO MELEE --- */}
+                <Text style={[styles.label, { marginTop: 12 }]}>
+                  Atributo Usado no Ataque
+                </Text>
+                <View
+                  style={[
+                    styles.input,
+                    { padding: 0, overflow: "hidden", height: 45 },
+                  ]}
+                >
+                  <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={{
+                      alignItems: "center",
+                      paddingHorizontal: 5,
+                    }}
+                  >
+                    {ATTRIBUTE_ORDER.map((attr) => (
+                      <TouchableOpacity
+                        key={attr}
+                        onPress={() => setMeleeAttr(attr)}
+                        style={{
+                          paddingHorizontal: 12,
+                          paddingVertical: 6,
+                          borderRadius: 8,
+                          marginRight: 5,
+                          backgroundColor:
+                            meleeAttr === attr ? colors.primary : "transparent",
+                        }}
+                      >
+                        <Text
+                          style={{
+                            color:
+                              meleeAttr === attr
+                                ? "#fff"
+                                : colors.textSecondary,
+                            fontWeight: meleeAttr === attr ? "bold" : "normal",
+                            fontSize: 12,
+                          }}
+                        >
+                          {attr.substring(0, 3).toUpperCase()}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
+                </View>
+              </View>
+
+              {/* --- À DISTÂNCIA (RANGED) --- */}
+              <View
+                style={[
+                  styles.miniItem,
+                  {
+                    flexDirection: "column",
+                    alignItems: "stretch",
+                    padding: 12,
+                  },
+                ]}
+              >
+                <Text
+                  style={{
+                    color: colors.text,
+                    fontWeight: "bold",
+                    marginBottom: 8,
+                  }}
+                >
+                  À Distância
+                </Text>
+
+                <View style={styles.row}>
+                  <View style={{ flex: 2, marginRight: 8 }}>
+                    <TextInput
+                      style={styles.input}
+                      value={rangedName}
+                      onChangeText={setRangedName}
+                      placeholder="Nome (Ex: Arco)"
+                      placeholderTextColor={colors.textSecondary}
+                    />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <TextInput
+                      style={styles.input}
+                      value={rangedDamage}
+                      onChangeText={setRangedDamage}
+                      placeholder="Dano (1d8)"
+                      placeholderTextColor={colors.textSecondary}
+                    />
+                  </View>
+                </View>
+
+                <View style={[styles.row, { marginTop: 8 }]}>
+                  <View style={{ flex: 1, marginRight: 8 }}>
+                    <TextInput
+                      style={styles.input}
+                      value={rangedBonus}
+                      onChangeText={setRangedBonus}
+                      keyboardType="numeric"
+                      placeholder="Bônus Atq (+2)"
+                      placeholderTextColor={colors.textSecondary}
+                    />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <TextInput
+                      style={styles.input}
+                      value={rangedRange}
+                      onChangeText={setRangedRange}
+                      placeholder="Alcance (9m)"
+                      placeholderTextColor={colors.textSecondary}
+                    />
+                  </View>
+                </View>
+
+                {/* --- NOVO SELETOR DE ATRIBUTO RANGED --- */}
+                <Text style={[styles.label, { marginTop: 12 }]}>
+                  Atributo Usado no Ataque
+                </Text>
+                <View
+                  style={[
+                    styles.input,
+                    { padding: 0, overflow: "hidden", height: 45 },
+                  ]}
+                >
+                  <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={{
+                      alignItems: "center",
+                      paddingHorizontal: 5,
+                    }}
+                  >
+                    {ATTRIBUTE_ORDER.map((attr) => (
+                      <TouchableOpacity
+                        key={attr}
+                        onPress={() => setRangedAttr(attr)}
+                        style={{
+                          paddingHorizontal: 12,
+                          paddingVertical: 6,
+                          borderRadius: 8,
+                          marginRight: 5,
+                          backgroundColor:
+                            rangedAttr === attr
+                              ? colors.primary
+                              : "transparent",
+                        }}
+                      >
+                        <Text
+                          style={{
+                            color:
+                              rangedAttr === attr
+                                ? "#fff"
+                                : colors.textSecondary,
+                            fontWeight: rangedAttr === attr ? "bold" : "normal",
+                            fontSize: 12,
+                          }}
+                        >
+                          {attr.substring(0, 3).toUpperCase()}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
+                </View>
+              </View>
+
+              <View style={styles.divider} />
+
+              <Text style={styles.label}>Outros Equipamentos (Inventário)</Text>
               <TextInput
                 style={styles.input}
                 value={equip}
                 onChangeText={setEquip}
+                placeholder="Poções, armaduras, moedas..."
                 placeholderTextColor={colors.textSecondary}
-              />
-
-              <Text style={styles.label}>Ações & Habilidades</Text>
-              <Text
-                style={{
-                  fontSize: 12,
-                  color: colors.textSecondary,
-                  marginBottom: 4,
-                }}
-              >
-                {CUSTOM_CLASSES.includes(npcClass || "")
-                  ? "Digite aqui os ataques, posturas e habilidades do monstro."
-                  : "Ações extras ou descrição."}
-              </Text>
-              <TextInput
-                style={[styles.input, styles.textArea]}
-                multiline
-                value={actions}
-                onChangeText={setActions}
-                placeholderTextColor={colors.textSecondary}
-                placeholder="Ex: Ataque de Garra +5 (1d6+3)..."
               />
 
               <View style={styles.divider} />

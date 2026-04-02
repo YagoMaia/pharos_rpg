@@ -38,7 +38,7 @@ export const AlertProvider = ({ children }: { children: ReactNode }) => {
   const showAlert = (
     title: string,
     message: string = "",
-    buttons: AlertButton[] = []
+    buttons: AlertButton[] = [],
   ) => {
     // Se não passar botões, cria um "OK" padrão
     const finalButtons =
@@ -159,10 +159,10 @@ const styles = StyleSheet.create({
     padding: 24,
     borderWidth: 1,
     elevation: 10,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
+    boxShadowColor: "#000",
+    boxShadowOffset: { width: 0, height: 4 },
+    boxShadowOpacity: 0.3,
+    boxShadowRadius: 4,
   },
   title: {
     fontSize: 20,

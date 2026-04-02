@@ -16,9 +16,10 @@ import { useAlert } from "@/context/AlertContext";
 import { useCampaign } from "@/context/CampaignContext";
 import { useTheme } from "@/context/ThemeContext";
 import { useWebSocket } from "@/context/WebSocketContext";
-import { NpcTemplate } from "@/types/rpg";
-import { npcToCombatant } from "@/utils/combatantFactory";
+import { Character, NpcTemplate } from "@/types/rpg";
+import { mapPlayerToNpc, npcToCombatant } from "@/utils/combatantFactory";
 import { generateSafeId } from "@/utils/stringUtils";
+import * as Clipboard from "expo-clipboard";
 
 // Componentes
 
@@ -41,6 +42,50 @@ export default function NpcScreen() {
   const [selectedNpc, setSelectedNpc] = useState<NpcTemplate | null>(null);
   const [editingNpc, setEditingNpc] = useState<NpcTemplate | null>(null);
   const [quantity, setQuantity] = useState("1");
+
+  const handleImportPlayerAsNpc = async () => {
+    try {
+      const content = await Clipboard.getStringAsync();
+
+      if (!content) {
+        showAlert("Erro", "A área de transferência está vazia.");
+        return;
+      }
+
+      const parsedData = JSON.parse(content) as Character;
+
+      if (!parsedData.name || !parsedData.stats) {
+        showAlert(
+          "Formato Inválido",
+          "O texto copiado não parece ser uma ficha de personagem válida.",
+        );
+        return;
+      }
+
+      // Converte os dados do jogador para o NpcTemplate
+      const mappedNpc = mapPlayerToNpc(parsedData);
+
+      showAlert(
+        "Importar Jogador",
+        `Deseja adicionar "${parsedData.name}" como um NPC no bestiário?`,
+        [
+          { text: "Cancelar", style: "cancel" },
+          {
+            text: "Salvar NPC",
+            onPress: () => {
+              saveNpcToLibrary(mappedNpc);
+              showAlert("Sucesso", "Personagem adicionado ao bestiário!");
+            },
+          },
+        ],
+      );
+    } catch (error) {
+      showAlert(
+        "Erro",
+        "Falha ao ler ou processar a ficha. O formato está correto?",
+      );
+    }
+  };
 
   // --- HANDLERS ---
   const handleCreate = () => {
@@ -143,6 +188,18 @@ export default function NpcScreen() {
 
   return (
     <View style={styles.container}>
+      <View style={styles.topBar}>
+        <Text style={styles.screenTitle}></Text>
+        <TouchableOpacity
+          onPress={handleImportPlayerAsNpc}
+          style={styles.iconBtn}
+        >
+          <Ionicons name="download-outline" size={24} color={colors.primary} />
+          <Text style={{ color: colors.primary, marginLeft: 4 }}>
+            Importar Player
+          </Text>
+        </TouchableOpacity>
+      </View>
       <FlatList
         data={npcLibrary}
         keyExtractor={(item) => item.id}
@@ -220,6 +277,17 @@ const getStyles = (colors: any) =>
   StyleSheet.create({
     container: { flex: 1, backgroundColor: colors.background },
     empty: { textAlign: "center", marginTop: 50, color: colors.textSecondary },
+    topBar: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "center",
+      paddingHorizontal: 16,
+      paddingVertical: 12,
+      // borderBottomWidth: 1,
+      // borderBottomColor: colors.border,
+    },
+    screenTitle: { fontSize: 20, fontWeight: "bold", color: colors.text },
+    iconBtn: { flexDirection: "row", alignItems: "center" },
 
     // Botão Flutuante (FAB)
     fab: {
@@ -233,10 +301,10 @@ const getStyles = (colors: any) =>
       alignItems: "center",
       justifyContent: "center",
       elevation: 5,
-      shadowColor: "#000",
-      shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.3,
-      shadowRadius: 3,
+      boxShadowColor: "#000",
+      boxShadowOffset: { width: 0, height: 2 },
+      boxShadowOpacity: 0.3,
+      boxShadowRadius: 3,
     },
 
     // Modal de Quantidade

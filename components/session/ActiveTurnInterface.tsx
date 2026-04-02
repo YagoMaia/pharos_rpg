@@ -70,8 +70,18 @@ export const ActiveTurnInterface = ({ combatant, isGm = false }: Props) => {
     reaction: true,
   };
 
+  const [isEndingTurn, setIsEndingTurn] = useState(false);
+
   const handleEndTurn = () => {
+    if (isEndingTurn) return;
+
+    setIsEndingTurn(true);
+
     sendMessage("END_TURN", { character_id: combatant.id });
+
+    setTimeout(() => {
+      setIsEndingTurn(false);
+    }, 2000);
   };
 
   // --- LÓGICA DE DEATH SAVES ---
@@ -615,8 +625,14 @@ export const ActiveTurnInterface = ({ combatant, isGm = false }: Props) => {
           </View>
         )}
 
-        <TouchableOpacity style={styles.endTurnBtnBig} onPress={handleEndTurn}>
-          <Text style={styles.endTurnText}>ENCERRAR MEU TURNO</Text>
+        <TouchableOpacity
+          style={[styles.endTurnBtnBig, isEndingTurn && { opacity: 0.5 }]}
+          onPress={handleEndTurn}
+          disabled={isEndingTurn}
+        >
+          <Text style={styles.endTurnText}>
+            {isEndingTurn ? "ENCERRANDO..." : "ENCERRAR MEU TURNO"}
+          </Text>
         </TouchableOpacity>
       </View>
 

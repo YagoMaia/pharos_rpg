@@ -515,9 +515,9 @@ const getStyles = (colors: any) =>
       borderWidth: 2,
       borderColor: "#B8860B", // Dourado escuro na borda para dar profundidade
       elevation: 5, // Sombra no Android
-      shadowColor: "#FFbc00", // Sombra no iOS
-      shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.5,
-      shadowRadius: 4,
+      boxShadowColor: "#FFbc00", // Sombra no iOS
+      boxShadowOffset: { width: 0, height: 2 },
+      boxShadowOpacity: 0.5,
+      boxShadowRadius: 4,
     },
   });

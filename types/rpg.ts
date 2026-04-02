@@ -286,11 +286,12 @@ export interface NpcTemplate {
   skills: Skill[];
   spells: Spell[];
 
-  equipment: string;
-  actions: string;
-
   initiativeBonus: number;
   speed: string;
+  weapons?: {
+    melee?: CombatWeaponData;
+    ranged?: CombatWeaponData;
+  };
 }
 
 // Exemplo de tipos para o futuro WebSocket

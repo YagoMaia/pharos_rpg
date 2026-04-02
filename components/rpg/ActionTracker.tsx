@@ -105,10 +105,10 @@ const getStyles = (colors: any) =>
       gap: 4,
       elevation: 2,
       // Sombra suave para iOS
-      shadowColor: "#000",
-      shadowOffset: { width: 0, height: 1 },
-      shadowOpacity: 0.2,
-      shadowRadius: 1.41,
+      boxShadowColor: "#000",
+      boxShadowOffset: { width: 0, height: 1 },
+      boxShadowOpacity: 0.2,
+      boxShadowRadius: 1.41,
     },
     actionBtnText: {
       fontWeight: "bold",
