@@ -472,10 +472,6 @@ export const ActiveTurnInterface = ({ combatant, isGm = false }: Props) => {
     if (isCrit) actionName += " (Crítico!)";
     else if (!isHit) actionName += " (Errou)";
 
-    // let actionName = isSpecialAction ? spellAttackConfig.name : "Ataque Básico";
-    // if (isCrit) actionName += " (Crítico!)";
-    // else if (!isHit) actionName += " (Errou)";
-
     const focusCost = isSpecialAction ? spellAttackConfig.cost : 0;
     let actionSpent: ActionCostType = "standard";
 
@@ -489,24 +485,33 @@ export const ActiveTurnInterface = ({ combatant, isGm = false }: Props) => {
       healingAmount: 0,
     };
 
+    // 1. Envia para o Servidor (Persistência e Broadcast para outros players)
     sendMessage("RESOLVE_ACTION", payload);
 
+    // 2. ATUALIZAÇÃO LOCAL (Optimistic UI)
+    // Atualiza Vida do Alvo
+    if (isHit && finalDamage > 0) {
+      const newHp = Math.max(0, target.hp.current - finalDamage);
+      updateCombatant(targetId, { hp: { current: newHp } }); // Merge inteligente do contexto cuida do resto
+    }
+
+    // Atualiza Ações do Atacante (Gasta a ação padrão)
     if (turnActions.standard) {
-      updateCombatant(combatant.id, "turnActions", {
-        ...turnActions,
-        standard: false,
+      updateCombatant(combatant.id, {
+        turnActions: { ...turnActions, standard: false },
       });
     }
 
+    // Atualiza Foco do Atacante
     if (focusCost > 0) {
-      updateCombatant(
-        combatant.id,
-        "focus",
-        Math.max(0, combatant.focus.current - focusCost),
-      );
+      const newFocus = Math.max(0, combatant.focus.current - focusCost);
+      updateCombatant(combatant.id, {
+        focus: { current: newFocus },
+      });
     }
 
     setSpellAttackConfig(null);
+    setAttackModalOpen(false); // Fecha o modal após confirmar
 
     showAlert(
       isHit ? "Sucesso" : "Errou",

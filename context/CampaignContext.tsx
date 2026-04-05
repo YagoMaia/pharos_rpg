@@ -3,14 +3,16 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import React, {
   createContext,
   ReactNode,
+  useCallback,
   useContext,
   useEffect,
   useState,
 } from "react";
-import { CLASS_DATA } from "../data/classData"; // <--- 1. IMPORTANTE: Importar os dados
+import { CLASS_DATA } from "../data/classData";
 import {
   CharacterClass,
   Combatant,
+  CombatantUpdate,
   GameEvent,
   NpcTemplate,
 } from "../types/rpg";
@@ -25,18 +27,7 @@ interface CampaignContextType {
     details?: Partial<Combatant>,
   ) => void;
   removeCombatant: (id: string) => void;
-  updateCombatant: (
-    id: string,
-    field:
-      | "hp"
-      | "initiative"
-      | "focus"
-      | "activeStanceId"
-      | "turnActions"
-      | "armorClass"
-      | "deathSaves",
-    value: any,
-  ) => void;
+  updateCombatant: (id: string, updates: Partial<CombatantUpdate>) => void;
   sortCombat: () => void;
   clearCombat: () => void;
 
@@ -192,98 +183,71 @@ export const CampaignProvider = ({ children }: { children: ReactNode }) => {
   ) => {
     setCombatants((prev) => {
       let newCombatant: Combatant;
-
-      if (type === "player" && details && details.stats) {
+      if (type === "player" && details?.stats) {
         newCombatant = playerToCombatant(details, init);
-      } else if (type === "npc" && details && details.maxHp) {
+      } else if (type === "npc" && details?.maxHp) {
         const count = prev.filter((c) => c.baseName === baseName).length;
         newCombatant = npcToCombatant(details, init, count + 1);
       } else {
         const maxFocusVal = details?.focus?.max || details?.maxFocus || 0;
-        const currentFocusVal = details?.focus?.current ?? maxFocusVal;
-
         newCombatant = {
           id: Date.now().toString() + Math.random(),
-          name: baseName, // Usa o nome passado no argumento
+          name: baseName,
           baseName: baseName,
           type,
           initiative: init,
-          hp: { current: hp, max: hp }, // Usa o HP passado no argumento
-          focus: { current: currentFocusVal, max: maxFocusVal },
-          armorClass: details?.armorClass || 10,
-          attributes: details?.attributes || {
-            Força: { name: "Força", value: 10, modifier: 0 },
-            Destreza: { name: "Destreza", value: 10, modifier: 0 },
-            Constituição: { name: "Constituição", value: 10, modifier: 0 },
-            Inteligência: { name: "Inteligência", value: 10, modifier: 0 },
-            Sabedoria: { name: "Sabedoria", value: 10, modifier: 0 },
-            Carisma: { name: "Carisma", value: 10, modifier: 0 },
+          hp: { current: hp, max: hp },
+          focus: {
+            current: details?.focus?.current ?? maxFocusVal,
+            max: maxFocusVal,
           },
+          armorClass: details?.armorClass || 10,
+          attributes: details?.attributes || {},
           stances: details?.stances || [],
           skills: details?.skills || [],
           spells: details?.spells || [],
           activeStanceId: null,
           turnActions: { standard: true, bonus: true, reaction: true },
           deathSaves: { successes: 0, failures: 0 },
-          equipmentSummary: details?.equipment || "",
-          actionsDescription: details?.actions || "",
-        };
+        } as Combatant;
       }
-
       return [...prev, newCombatant].sort(
         (a, b) => b.initiative - a.initiative,
       );
     });
   };
 
-  const updateCombatant = (id: string, field: string, value: any) => {
-    setCombatants((prev) =>
-      prev.map((c) => {
-        if (c.id !== id) return c;
+  const updateCombatant = useCallback(
+    (id: string, updates: Partial<Combatant>) => {
+      setCombatants((prev) =>
+        prev.map((c) => {
+          if (c.id !== id) return c;
 
-        if (field === "hp") {
-          // Se value for objeto {current, max}, usa. Se for número, atualiza só current.
-          if (typeof value === "number") {
-            return { ...c, hp: { ...c.hp, current: value } };
-          }
-          return { ...c, hp: value };
-        }
+          // Merge inteligente para sub-objetos comuns
+          const newHp = updates.hp ? { ...c.hp, ...updates.hp } : c.hp;
+          const newFocus = updates.focus
+            ? { ...c.focus, ...updates.focus }
+            : c.focus;
+          const newActions = updates.turnActions
+            ? { ...c.turnActions, ...updates.turnActions }
+            : c.turnActions;
 
-        if (field === "initiative") {
-          return { ...c, initiative: value };
-        }
-
-        if (field === "focus") {
-          if (value && typeof value === "object" && "current" in value) {
-            return { ...c, focus: value };
-          }
-          const newCurrent = Math.max(0, Math.min(Number(value), c.focus.max));
-          return { ...c, focus: { ...c.focus, current: newCurrent } };
-        }
-
-        if (field === "activeStanceId") {
-          return { ...c, activeStanceId: value };
-        }
-        if (field === "turnActions") {
-          return { ...c, turnActions: value };
-        }
-        if (field === "armorClass") {
-          return { ...c, armorClass: value };
-        }
-        if (field === "deathSaves") {
-          return { ...c, deathSaves: value };
-        }
-
-        return c;
-      }),
-    );
-  };
+          return {
+            ...c,
+            ...updates,
+            hp: newHp,
+            focus: newFocus,
+            turnActions: newActions,
+          };
+        }),
+      );
+    },
+    [],
+  );
 
   const endTurnCombatant = (id: string) => {
-    updateCombatant(id, "turnActions", {
-      standard: true,
-      bonus: true,
-      reaction: true,
+    updateCombatant(id, {
+      turnActions: { standard: true, bonus: true, reaction: true },
     });
   };
 

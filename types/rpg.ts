@@ -159,6 +159,14 @@ export interface Feat {
   prerequisite?: string;
 }
 
+export type ProficiencyLevel = 0 | 1 | 2 | 3; // 0: Nenhum, 1: Treinado, 2: Especialista, 3: Expert
+
+export interface CharacterSkill {
+  name: string;
+  attribute: AttributeName;
+  level: ProficiencyLevel; // O nível atual de treinamento
+}
+
 export interface Character {
   name: string;
   level: number;
@@ -264,6 +272,15 @@ export interface Combatant {
   equipmentSummary?: string;
   actionsDescription?: string;
 }
+
+export type CombatantUpdate = Partial<
+  Omit<Combatant, "hp" | "focus" | "turnActions" | "deathSaves">
+> & {
+  hp?: Partial<Combatant["hp"]>;
+  focus?: Partial<Combatant["focus"]>;
+  turnActions?: Partial<Combatant["turnActions"]>;
+  deathSaves?: Partial<Combatant["deathSaves"]>;
+};
 
 export interface NpcTemplate {
   id: string;

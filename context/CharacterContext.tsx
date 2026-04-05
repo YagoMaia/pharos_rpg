@@ -18,9 +18,11 @@ import {
   Item,
   ItemType,
   MAGIC_CLASSES,
+  ProficiencyLevel,
   Specialization,
   Spell,
 } from "../types/rpg";
+import { SKILL_DESCRIPTIONS } from "@/data/expertiseData";
 
 // Chave para salvar no armazenamento do celular
 const STORAGE_KEY = "@rpg_sheet_data_v2";
@@ -90,7 +92,7 @@ const INITIAL_CHARACTER: Character = {
   grimoire: [],
   silver: 0, // Geralmente começa com 0 e ganha pela Herança (Origem)
   backstory: "",
-  trainedSkills: [],
+  // expertises: Expertise[], // Lista de Perícias e níveis de treino (Perícias)
 
   turnActions: {
     standard: true,
@@ -121,7 +123,8 @@ interface CharacterContextType {
   performShortRest: () => void;
   performLongRest: () => void;
   updateBackstory: (text: string) => void;
-  toggleTrainedSkill: (skillName: string) => void;
+  // toggleTrainedSkill: (skillName: string) => void;
+  updateSkillLevel: (skillName: string, newLevel: ProficiencyLevel) => void; // ADICIONADO
   addItem: (
     name: string,
     type: ItemType,
@@ -690,6 +693,74 @@ export const CharacterProvider = ({ children }: { children: ReactNode }) => {
     // saveCharacter(updatedCharacter); // Se você usa persistência
   };
 
+  const updateSkillLevel = (skillName: string, newLevel: ProficiencyLevel) => {
+    setCharacter((prev) => {
+      if (!prev) return prev;
+
+      const skillExists = prev.skills.some((s) => s.name === skillName);
+      let updatedSkills;
+
+      if (skillExists) {
+        // Atualiza o nível da perícia existente
+        updatedSkills = prev.skills.map((s) =>
+          s.name === skillName ? { ...s, level: newLevel } : s,
+        );
+      } else {
+        // Se a perícia ainda não está na ficha, busca o atributo no banco de dados fixo
+        // Use ALL_SKILLS_DATA ou SKILL_DESCRIPTIONS dependendo de onde está seu mapeamento {name, attribute}
+        const skillInfo = SKILL_DESCRIPTIONS.find((s) => s.name === skillName);
+
+        updatedSkills = [
+          ...prev.skills,
+          {
+            name: skillName,
+            level: newLevel,
+            attribute: skillInfo?.attribute || "Força",
+          },
+        ];
+      }
+
+      return { ...prev, skills: updatedSkills };
+    });
+  };
+
+  // Dentro do seu CharacterProvider
+  // const updateSkillLevel = (skillName: string, newLevel: ProficiencyLevel) => {
+  //   setCharacter((prev) => {
+  //     if (!prev) return prev;
+
+  //     // Procuramos se a perícia já existe no array do personagem
+  //     const skillExists = prev.skills.some((s) => s.name === skillName);
+
+  //     let updatedSkills;
+
+  //     if (skillExists) {
+  //       // Se já existe, apenas atualizamos o level dela
+  //       updatedSkills = prev.skills.map((s) =>
+  //         s.name === skillName ? { ...s, level: newLevel } : s,
+  //       );
+  //     } else {
+  //       // Se não existe (caso de ficha nova), precisamos criá-la.
+  //       // É ideal buscar o atributo correto no seu mapa de expertiseData
+  //       const skillInfo = SKILL_DESCRIPTIONS.find((s) => s.name === skillName);
+
+  //       updatedSkills = [
+  //         ...prev.skills,
+  //         {
+  //           name: skillName,
+  //           level: newLevel,
+  //           attribute: skillInfo?.attribute || "Força", // Fallback seguro
+  //         },
+  //       ];
+  //     }
+
+  //     return {
+  //       ...prev,
+  //       skills: updatedSkills,
+  //     };
+  //   });
+  // };
+
   return (
     <CharacterContext.Provider
       value={{
@@ -709,7 +780,8 @@ export const CharacterProvider = ({ children }: { children: ReactNode }) => {
         performShortRest,
         performLongRest,
         updateBackstory,
-        toggleTrainedSkill,
+        // toggleTrainedSkill,
+        updateSkillLevel,
         addItem,
         removeItem,
         updateItemQuantity,

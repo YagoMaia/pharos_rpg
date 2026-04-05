@@ -30,98 +30,29 @@ export const WebSocketProvider = ({
   const socketRef = useRef<WebSocket | null>(null);
 
   const { character } = useCharacter();
-  const { setCombatants, setActiveTurnId, setLogs, setLastEvent } =
-    useCampaign();
-
-  const connectToRoute = (
-    inputIp: string,
-    sessionId: string,
-    initialData: Combatant | any,
-  ) => {
-    // 1. Limpeza de Conexão Anterior
-    if (socketRef.current) {
-      socketRef.current.close();
-      socketRef.current = null;
-    }
-
-    // 2. Tratamento da String do IP (Remove http, https, ws, wss, barras)
-    // Ex: "http://192.168.0.5/" vira "192.168.0.5"
-    let host = inputIp
-      .trim()
-      .replace(/^https?:\/\//, "")
-      .replace(/^wss?:\/\//, "")
-      .replace(/\/$/, ""); // Remove barra no final
-
-    // 3. Garante a porta 8000 se o usuário não digitou
-    // Se o user digitou "192.168.0.5:8000", mantém. Se digitou só o IP, adiciona.
-    if (!host.includes(":")) {
-      host = `${host}:8000`;
-    }
-
-    // 4. Montagem da URL Padrão (Sem SSL/WSS)
-    // Importante: Local deve ser sempre 'ws://'
-    const wsUrl = `ws://${host}/ws/${sessionId}`;
-
-    console.log("🔌 Tentando conectar em (LOCAL):", wsUrl);
-
-    try {
-      // 5. Conexão Limpa (Sem headers, sem options, sem 'as any')
-      // Isso é crucial para o Android não bloquear a conexão cleartext
-      const ws = new WebSocket(wsUrl);
-      socketRef.current = ws;
-
-      ws.onopen = () => {
-        console.log("✅ WebSocket Conectado!");
-        setIsConnected(true);
-
-        const eventType =
-          initialData.type === "gm" ? "GM_CONNECT" : "JOIN_SESSION";
-        const msg = JSON.stringify({
-          type: eventType,
-          payload: {
-            roomCode: sessionId,
-            combatant: initialData,
-          },
-        });
-        ws.send(msg);
-      };
-
-      ws.onclose = (e) => {
-        console.log(`❌ WebSocket Desconectado (Código: ${e.code})`);
-        setIsConnected(false);
-        socketRef.current = null;
-      };
-
-      ws.onerror = (e: any) => {
-        // O erro do WebSocket no React Native é meio genérico, mas ajuda saber que ocorreu
-        console.log("⚠️ Erro no WebSocket:", e.message || "Erro desconhecido");
-      };
-
-      ws.onmessage = (event) => {
-        try {
-          const message = JSON.parse(event.data);
-          handleServerMessage(message);
-        } catch (err) {
-          console.error("Erro ao ler JSON:", err);
-        }
-      };
-    } catch (error) {
-      console.error("Erro ao instanciar WebSocket:", error);
-      Alert.alert("Erro Interno", "Falha ao criar conexão.");
-    }
-  };
+  const {
+    setCombatants,
+    setActiveTurnId,
+    addLog,
+    setLogs,
+    setLastEvent,
+    updateCombatant,
+  } = useCampaign();
 
   const handleServerMessage = (data: any) => {
-    // Lógica de manipulação de mensagens (mantida igual)
     if (data.error) {
       Alert.alert("Erro do Servidor", data.error);
       return;
     }
 
+    // 1. SINCRONIZAÇÃO TOTAL (Snapshot)
+    // Se a mensagem contiver combatants e turn_order, tratamos como estado completo
     if (data.combatants && data.turn_order) {
       const sortedCombatants = data.turn_order
         .map((id: string) => data.combatants[id])
         .filter((c: any) => c !== undefined);
+
+      setCombatants(sortedCombatants);
 
       if (typeof data.turn_index === "number") {
         setActiveTurnId(data.turn_order[data.turn_index]);
@@ -131,38 +62,141 @@ export const WebSocketProvider = ({
         setLogs(data.logs);
       }
 
-      setCombatants(sortedCombatants);
-
       if (data.last_event) {
         setLastEvent(data.last_event);
       }
       return;
     }
-  };
 
-  const disconnect = () => {
-    if (socketRef.current) {
-      socketRef.current.close();
-      socketRef.current = null;
-      setIsConnected(false);
+    // 2. PROCESSAMENTO DE DELTAS (Eventos de Redução de Banda)
+    // Aqui tratamos as mensagens disparadas pelo manager.broadcast_event do Python
+    switch (data.type) {
+      case "HP_UPDATE":
+        // Simplificado: updateCombatant já cuida de preservar o HP máximo
+        updateCombatant(data.payload.combatantId, {
+          hp: { current: data.payload.newHp },
+        });
+        if (data.payload.log) addLog(data.payload.log);
+        break;
+
+      case "FOCUS_UPDATE": // NOVO: Receptor de foco
+        updateCombatant(data.payload.combatantId, {
+          focus: { current: data.payload.newFocus },
+        });
+        if (data.payload.log) addLog(data.payload.log);
+        break;
+
+      case "STANCE_UPDATE":
+        updateCombatant(data.payload.combatantId, {
+          activeStanceId: data.payload.activeStanceId,
+          armorClass: data.payload.newAC,
+          turnActions: data.payload.turnActions,
+        });
+        if (data.payload.log) addLog(data.payload.log);
+        break;
+
+      case "ACTION_RESOLVED":
+        // 1. ATUALIZA O ALVO (Dano/Cura)
+        if (data.payload.targetId && data.payload.targetHp !== undefined) {
+          updateCombatant(data.payload.targetId, {
+            hp: { current: data.payload.targetHp },
+          });
+        }
+
+        // 2. ATUALIZA O ATACANTE (Recursos gastos)
+        updateCombatant(data.payload.attackerId, {
+          turnActions: data.payload.attackerActions,
+          focus: { current: data.payload.attackerFocus },
+        });
+
+        // 3. DISPARA A NOTIFICAÇÃO (O que já funcionava)
+        setLastEvent({
+          id: Date.now(),
+          type: data.payload.type,
+          target_id: data.payload.targetId,
+          attacker_name: data.payload.attackerId,
+          skill_name: data.payload.actionName,
+          value: data.payload.value,
+        });
+
+        if (data.payload.log) addLog(data.payload.log);
+        break;
+
+      case "TURN_UPDATE":
+        setActiveTurnId(data.payload.newActiveId);
+        if (data.payload.log) addLog(data.payload.log);
     }
   };
 
+  const connectToRoute = (
+    inputIp: string,
+    sessionId: string,
+    initialData: Combatant | any,
+  ) => {
+    if (socketRef.current) {
+      socketRef.current.close();
+      socketRef.current = null;
+    }
+
+    let host = inputIp
+      .trim()
+      .replace(/^https?:\/\//, "")
+      .replace(/^wss?:\/\//, "")
+      .replace(/\/$/, "");
+
+    if (!host.includes(":")) {
+      host = `${host}:8000`;
+    }
+
+    const wsUrl = `ws://${host}/ws/${sessionId}`;
+    console.log("🔌 Conectando ao RPG Server:", wsUrl);
+
+    try {
+      const ws = new WebSocket(wsUrl);
+      socketRef.current = ws;
+
+      ws.onopen = () => {
+        setIsConnected(true);
+        const eventType =
+          initialData.type === "gm" ? "GM_CONNECT" : "JOIN_SESSION";
+        ws.send(
+          JSON.stringify({
+            type: eventType,
+            payload: { roomCode: sessionId, combatant: initialData },
+          }),
+        );
+      };
+
+      ws.onmessage = (event) => {
+        try {
+          const message = JSON.parse(event.data);
+          handleServerMessage(message);
+        } catch (err) {
+          console.error("Erro no Parse do WebSocket:", err);
+        }
+      };
+
+      ws.onclose = () => setIsConnected(false);
+      ws.onerror = (e: any) => console.log("⚠️ WebSocket Error:", e.message);
+    } catch (error) {
+      Alert.alert("Erro", "Não foi possível criar a conexão.");
+    }
+  };
+
+  const disconnect = () => {
+    socketRef.current?.close();
+    setIsConnected(false);
+  };
+
   const sendMessage = (type: string, payload: any) => {
-    if (socketRef.current && isConnected) {
-      const msg = JSON.stringify({ type, payload });
-      socketRef.current.send(msg);
+    if (socketRef.current?.readyState === WebSocket.OPEN) {
+      socketRef.current.send(JSON.stringify({ type, payload }));
     }
   };
 
   const joinSession = (ip: string, sessionId: string, initiative: number) => {
-    if (!character.name) {
-      Alert.alert("Erro", "Crie seu personagem antes de entrar.");
-      return;
-    }
+    if (!character.name) return Alert.alert("Erro", "Personagem sem nome.");
     const combatantData = playerToCombatant(character, initiative);
-
-    // Chama a função simplificada
     connectToRoute(ip, sessionId, combatantData);
   };
 
