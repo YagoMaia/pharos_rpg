@@ -46,7 +46,6 @@ export const StanceSelector = ({
         {/* Botões das Posturas */}
         {stances.map((stance, index) => {
           const isActive = currentStanceIdx === index;
-          // Regra: Pode clicar se já estiver nela (pra ver info) ou se tiver ação bônus
           const canSwitch = isActive || turnActions.bonus;
 
           return (
@@ -55,14 +54,18 @@ export const StanceSelector = ({
               style={[
                 styles.btn,
                 isActive &&
-                  (index === 0 ? styles.btnP1Active : styles.btnP2Active), // Estilos diferentes para P1/P2/P3 se quiser
+                  (index === 0 ? styles.btnP1Active : styles.btnP2Active),
                 !canSwitch && { opacity: 0.5 },
               ]}
               onPress={() => canSwitch && onStanceChange(index)}
               disabled={!canSwitch}
             >
-              <Text style={[styles.btnText, isActive && { color: "#fff" }]}>
-                {toRoman(index + 1)}
+              <Text
+                style={[styles.stanceName, isActive && styles.activeText]}
+                numberOfLines={1} // Garante que o texto não quebre a linha dentro do botão
+                adjustsFontSizeToFit // Diminui a fonte levemente se o nome for muito grande
+              >
+                {stance.name}
               </Text>
 
               {/* Ícone de Cadeado se não puder trocar */}
@@ -143,12 +146,6 @@ const InfoRow = ({ label, text, color, styles }: any) => (
   </View>
 );
 
-// Helper para converter número em Romano (I, II, III, IV)
-const toRoman = (num: number) => {
-  const map = ["", "I", "II", "III", "IV", "V"];
-  return map[num] || num;
-};
-
 const getStyles = (colors: any) =>
   StyleSheet.create({
     container: { marginBottom: 16 },
@@ -158,6 +155,11 @@ const getStyles = (colors: any) =>
       color: colors.text,
       marginBottom: 8,
       marginLeft: 4,
+    },
+    buttonContainer: {
+      flexDirection: "row",
+      flexWrap: "wrap", // Permite que os botões desçam para a linha de baixo se necessário
+      gap: 8,
     },
     toggleGroup: {
       flexDirection: "row",
@@ -230,4 +232,6 @@ const getStyles = (colors: any) =>
     infoRow: { flexDirection: "row", flexWrap: "wrap" },
     infoLabel: { fontWeight: "bold", marginRight: 6, fontSize: 13 },
     infoText: { color: colors.textSecondary, flex: 1, fontSize: 13 },
+    stanceName: { color: colors.text, fontWeight: "600", fontSize: 13 },
+    activeText: { color: "#fff" },
   });
