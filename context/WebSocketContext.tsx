@@ -1,9 +1,20 @@
 import { playerToCombatant } from "@/utils/combatantFactory";
-import React, { createContext, useContext, useRef, useState } from "react";
+import React, { createContext, useCallback, useContext, useMemo, useRef, useState } from "react";
 import { Alert } from "react-native";
-import { Combatant } from "../types/rpg";
+import { Combatant, GameEvent } from "../types/rpg";
 import { useCampaign } from "./CampaignContext";
 import { useCharacter } from "./CharacterContext";
+
+interface WebSocketMessage {
+  type: string;
+  payload?: any;
+  error?: string;
+  combatants?: Record<string, Combatant>;
+  turn_order?: string[];
+  turn_index?: number;
+  logs?: string[];
+  last_event?: GameEvent;
+}
 
 interface WebSocketContextType {
   isConnected: boolean;
@@ -17,8 +28,8 @@ interface WebSocketContextType {
   ) => void;
 }
 
-const WebSocketContext = createContext<WebSocketContextType>(
-  {} as WebSocketContextType,
+const WebSocketContext = createContext<WebSocketContextType | undefined>(
+  undefined,
 );
 
 export const WebSocketProvider = ({
@@ -39,18 +50,17 @@ export const WebSocketProvider = ({
     updateCombatant,
   } = useCampaign();
 
-  const handleServerMessage = (data: any) => {
+  const handleServerMessage = useCallback((data: WebSocketMessage) => {
     if (data.error) {
       Alert.alert("Erro do Servidor", data.error);
       return;
     }
 
     // 1. SINCRONIZAÇÃO TOTAL (Snapshot)
-    // Se a mensagem contiver combatants e turn_order, tratamos como estado completo
     if (data.combatants && data.turn_order) {
       const sortedCombatants = data.turn_order
-        .map((id: string) => data.combatants[id])
-        .filter((c: any) => c !== undefined);
+        .map((id: string) => data.combatants![id])
+        .filter((c: Combatant) => c !== undefined);
 
       setCombatants(sortedCombatants);
 
@@ -68,70 +78,72 @@ export const WebSocketProvider = ({
       return;
     }
 
-    // 2. PROCESSAMENTO DE DELTAS (Eventos de Redução de Banda)
-    // Aqui tratamos as mensagens disparadas pelo manager.broadcast_event do Python
-    switch (data.type) {
+    // 2. PROCESSAMENTO DE DELTAS
+    const { type, payload } = data;
+    if (!type || !payload) return;
+
+    switch (type) {
       case "HP_UPDATE":
-        // Simplificado: updateCombatant já cuida de preservar o HP máximo
-        updateCombatant(data.payload.combatantId, {
-          hp: { current: data.payload.newHp },
+        updateCombatant(payload.combatantId, {
+          hp: { current: payload.newHp },
         });
-        if (data.payload.log) addLog(data.payload.log);
+        if (payload.log) addLog(payload.log);
         break;
 
-      case "FOCUS_UPDATE": // NOVO: Receptor de foco
-        updateCombatant(data.payload.combatantId, {
-          focus: { current: data.payload.newFocus },
+      case "FOCUS_UPDATE":
+        updateCombatant(payload.combatantId, {
+          focus: { current: payload.newFocus },
         });
-        if (data.payload.log) addLog(data.payload.log);
+        if (payload.log) addLog(payload.log);
         break;
 
       case "STANCE_UPDATE":
-        updateCombatant(data.payload.combatantId, {
-          activeStanceId: data.payload.activeStanceId,
-          armorClass: data.payload.newAC,
-          turnActions: data.payload.turnActions,
+        updateCombatant(payload.combatantId, {
+          activeStanceId: payload.activeStanceId,
+          armorClass: payload.newAC,
+          turnActions: payload.turnActions,
         });
-        if (data.payload.log) addLog(data.payload.log);
+        if (payload.log) addLog(payload.log);
         break;
 
       case "ACTION_RESOLVED":
-        // 1. ATUALIZA O ALVO (Dano/Cura)
-        if (data.payload.targetId && data.payload.targetHp !== undefined) {
-          updateCombatant(data.payload.targetId, {
-            hp: { current: data.payload.targetHp },
+        if (payload.targetId && payload.targetHp !== undefined) {
+          updateCombatant(payload.targetId, {
+            hp: { current: payload.targetHp },
           });
         }
 
-        // 2. ATUALIZA O ATACANTE (Recursos gastos)
-        updateCombatant(data.payload.attackerId, {
-          turnActions: data.payload.attackerActions,
-          focus: { current: data.payload.attackerFocus },
+        updateCombatant(payload.attackerId, {
+          turnActions: payload.attackerActions,
+          focus: { current: payload.attackerFocus },
         });
 
-        // 3. DISPARA A NOTIFICAÇÃO (O que já funcionava)
         setLastEvent({
           id: Date.now(),
-          type: data.payload.type,
-          target_id: data.payload.targetId,
-          attacker_name: data.payload.attackerId,
-          skill_name: data.payload.actionName,
-          value: data.payload.value,
+          type: payload.type,
+          target_id: payload.targetId,
+          attacker_name: payload.attackerId,
+          skill_name: payload.actionName,
+          value: payload.value,
         });
 
-        if (data.payload.log) addLog(data.payload.log);
+        if (payload.log) addLog(payload.log);
         break;
 
       case "TURN_UPDATE":
-        setActiveTurnId(data.payload.newActiveId);
-        if (data.payload.log) addLog(data.payload.log);
+        setActiveTurnId(payload.newActiveId);
+        if (payload.log) addLog(payload.log);
+        break;
+      
+      default:
+        console.warn(`Mensagem WebSocket não tratada: ${type}`);
     }
-  };
+  }, [setCombatants, setActiveTurnId, setLogs, setLastEvent, updateCombatant, addLog]);
 
-  const connectToRoute = (
+  const connectToRoute = useCallback((
     inputIp: string,
     sessionId: string,
-    initialData: Combatant | any,
+    initialData: any,
   ) => {
     if (socketRef.current) {
       socketRef.current.close();
@@ -177,42 +189,54 @@ export const WebSocketProvider = ({
       };
 
       ws.onclose = () => setIsConnected(false);
-      ws.onerror = (e: any) => console.log("⚠️ WebSocket Error:", e.message);
+      ws.onerror = (e: any) => {
+        console.log("⚠️ WebSocket Error:", e.message);
+        setIsConnected(false);
+      };
     } catch (error) {
       Alert.alert("Erro", "Não foi possível criar a conexão.");
     }
-  };
+  }, [handleServerMessage]);
 
-  const disconnect = () => {
+  const disconnect = useCallback(() => {
     socketRef.current?.close();
+    socketRef.current = null;
     setIsConnected(false);
-  };
+  }, []);
 
-  const sendMessage = (type: string, payload: any) => {
+  const sendMessage = useCallback((type: string, payload: any) => {
     if (socketRef.current?.readyState === WebSocket.OPEN) {
       socketRef.current.send(JSON.stringify({ type, payload }));
+    } else {
+      console.warn("WebSocket não está aberto. Mensagem não enviada:", type);
     }
-  };
+  }, []);
 
-  const joinSession = (ip: string, sessionId: string, initiative: number) => {
+  const joinSession = useCallback((ip: string, sessionId: string, initiative: number) => {
     if (!character.name) return Alert.alert("Erro", "Personagem sem nome.");
     const combatantData = playerToCombatant(character, initiative);
     connectToRoute(ip, sessionId, combatantData);
-  };
+  }, [character, connectToRoute]);
+
+  const contextValue = useMemo(() => ({
+    isConnected,
+    disconnect,
+    joinSession,
+    sendMessage,
+    connectToRoute,
+  }), [isConnected, disconnect, joinSession, sendMessage, connectToRoute]);
 
   return (
-    <WebSocketContext.Provider
-      value={{
-        isConnected,
-        disconnect,
-        joinSession,
-        sendMessage,
-        connectToRoute,
-      }}
-    >
+    <WebSocketContext.Provider value={contextValue}>
       {children}
     </WebSocketContext.Provider>
   );
 };
 
-export const useWebSocket = () => useContext(WebSocketContext);
+export const useWebSocket = () => {
+  const context = useContext(WebSocketContext);
+  if (!context) {
+    throw new Error("useWebSocket must be used within a WebSocketProvider");
+  }
+  return context;
+};

@@ -6,11 +6,11 @@ import React, {
   useCallback,
   useContext,
   useEffect,
+  useMemo,
   useState,
 } from "react";
-import { CLASS_DATA } from "../data/classData";
 import {
-  CharacterClass,
+  Character,
   Combatant,
   CombatantUpdate,
   GameEvent,
@@ -20,14 +20,14 @@ import {
 interface CampaignContextType {
   combatants: Combatant[];
   addCombatant: (
-    name: string,
+    baseName: string,
     hp: number,
     init: number,
     type: "player" | "npc",
-    details?: Partial<Combatant>,
+    details?: Partial<Character> | Partial<NpcTemplate> | any,
   ) => void;
   removeCombatant: (id: string) => void;
-  updateCombatant: (id: string, updates: Partial<CombatantUpdate>) => void;
+  updateCombatant: (id: string, updates: Partial<Combatant>) => void;
   sortCombat: () => void;
   clearCombat: () => void;
 
@@ -52,8 +52,8 @@ interface CampaignContextType {
   setLastEvent: React.Dispatch<React.SetStateAction<GameEvent | null>>;
 }
 
-const CampaignContext = createContext<CampaignContextType>(
-  {} as CampaignContextType,
+const CampaignContext = createContext<CampaignContextType | undefined>(
+  undefined,
 );
 
 export const CampaignProvider = ({ children }: { children: ReactNode }) => {
@@ -63,10 +63,8 @@ export const CampaignProvider = ({ children }: { children: ReactNode }) => {
   const [activeTurnId, setActiveTurnId] = useState<string | null>(null);
   const [logs, setLogs] = useState<string[]>([]);
   const [isLoaded, setIsLoaded] = useState(false);
-
   const [lastEvent, setLastEvent] = useState<GameEvent | null>(null);
 
-  // --- 2. CARREGAR DADOS AO INICIAR ---
   useEffect(() => {
     const loadData = async () => {
       try {
@@ -77,17 +75,15 @@ export const CampaignProvider = ({ children }: { children: ReactNode }) => {
       } catch (error) {
         console.error("Erro ao carregar NPCs:", error);
       } finally {
-        setIsLoaded(true); // Marca que o carregamento terminou
+        setIsLoaded(true);
       }
     };
     loadData();
   }, []);
 
-  // --- 3. SALVAR AUTOMATICAMENTE QUANDO MUDAR ---
   useEffect(() => {
-    const saveData = async () => {
-      if (isLoaded) {
-        // Só salva se já tiver carregado os dados iniciais
+    if (isLoaded) {
+      const saveData = async () => {
         try {
           await AsyncStorage.setItem(
             "@rpg_npc_library",
@@ -96,126 +92,60 @@ export const CampaignProvider = ({ children }: { children: ReactNode }) => {
         } catch (error) {
           console.error("Erro ao salvar NPCs:", error);
         }
-      }
-    };
-    saveData();
+      };
+      saveData();
+    }
   }, [npcLibrary, isLoaded]);
 
-  const addLog = (message: string) => {
-    setLogs((prev) => [...prev, message].slice(-50)); // Mantém apenas os últimos 50
-  };
+  const addLog = useCallback((message: string) => {
+    setLogs((prev) => [...prev, message].slice(-50));
+  }, []);
 
-  const populateClassData = (npc: Partial<NpcTemplate>) => {
-    if (npc.class && CLASS_DATA[npc.class as CharacterClass]) {
-      const classInfo = CLASS_DATA[npc.class as CharacterClass];
-      const npcLevel = npc.level || 1;
-
-      const autoSkills = classInfo.skills.filter(
-        (s) => (s.level || 1) <= npcLevel,
-      );
-      const autoStances = classInfo.stances;
-
-      return {
-        ...npc,
-        skills: autoSkills,
-        stances: autoStances,
-      };
-    }
-    return npc;
-  };
-
-  // --- Lógica de Combate ---
-  // const addCombatant = (
-  //   baseName: string,
-  //   hp: number,
-  //   initiative: number,
-  //   type: "player" | "npc",
-  //   details?: Partial<Combatant> & { maxFocus?: number },
-  // ) => {
-  //   setCombatants((prev) => {
-  //     const count = prev.filter((c) => c.baseName === baseName).length;
-  //     const name = type === "npc" ? `${baseName} #${count + 1}` : baseName;
-
-  //     // DEFINIÇÃO CORRETA DO FOCO
-  //     // Tenta pegar do objeto 'focus' estruturado ou da propriedade 'maxFocus' antiga
-  //     const maxFocusVal = details?.focus?.max || details?.maxFocus || 0;
-  //     const currentFocusVal = details?.focus?.current ?? maxFocusVal;
-
-  //     const newCombatant: Combatant = {
-  //       id: Date.now().toString() + Math.random(),
-  //       name,
-  //       baseName,
-  //       initiative,
-  //       hp: { current: hp, max: hp },
-  //       // AQUI ESTAVA O ERRO: Agora usamos as variáveis calculadas acima
-  //       focus: { current: currentFocusVal, max: maxFocusVal },
-  //       type,
-  //       armorClass: details?.armorClass || 10,
-  //       attributes: details?.attributes || {
-  //         Força: { name: "Força", value: 10, modifier: 0 },
-  //         Destreza: { name: "Destreza", value: 10, modifier: 0 },
-  //         Constituição: { name: "Constituição", value: 10, modifier: 0 },
-  //         Inteligência: { name: "Inteligência", value: 10, modifier: 0 },
-  //         Sabedoria: { name: "Sabedoria", value: 10, modifier: 0 },
-  //         Carisma: { name: "Carisma", value: 10, modifier: 0 },
-  //       },
-  //       equipment: details?.equipment,
-  //       actions: details?.actions,
-  //       stances: details?.stances || [],
-  //       skills: details?.skills || [],
-  //       spells: details?.spells || [],
-  //       activeStanceId: null,
-  //       turnActions: { standard: true, bonus: true, reaction: true },
-  //       deathSaves: { successes: 0, failures: 0 }, // Inicializa death saves
-  //     };
-
-  //     return [...prev, newCombatant].sort(
-  //       (a, b) => b.initiative - a.initiative,
-  //     );
-  //   });
-  // };
-  const addCombatant = (
-    baseName: string,
-    hp: number,
-    init: number,
-    type: "player" | "npc",
-    details?: any,
-  ) => {
-    setCombatants((prev) => {
-      let newCombatant: Combatant;
-      if (type === "player" && details?.stats) {
-        newCombatant = playerToCombatant(details, init);
-      } else if (type === "npc" && details?.maxHp) {
-        const count = prev.filter((c) => c.baseName === baseName).length;
-        newCombatant = npcToCombatant(details, init, count + 1);
-      } else {
-        const maxFocusVal = details?.focus?.max || details?.maxFocus || 0;
-        newCombatant = {
-          id: Date.now().toString() + Math.random(),
-          name: baseName,
-          baseName: baseName,
-          type,
-          initiative: init,
-          hp: { current: hp, max: hp },
-          focus: {
-            current: details?.focus?.current ?? maxFocusVal,
-            max: maxFocusVal,
-          },
-          armorClass: details?.armorClass || 10,
-          attributes: details?.attributes || {},
-          stances: details?.stances || [],
-          skills: details?.skills || [],
-          spells: details?.spells || [],
-          activeStanceId: null,
-          turnActions: { standard: true, bonus: true, reaction: true },
-          deathSaves: { successes: 0, failures: 0 },
-        } as Combatant;
-      }
-      return [...prev, newCombatant].sort(
-        (a, b) => b.initiative - a.initiative,
-      );
-    });
-  };
+  const addCombatant = useCallback(
+    (
+      baseName: string,
+      hp: number,
+      init: number,
+      type: "player" | "npc",
+      details?: any,
+    ) => {
+      setCombatants((prev) => {
+        let newCombatant: Combatant;
+        if (type === "player" && details?.stats) {
+          newCombatant = playerToCombatant(details as Character, init);
+        } else if (type === "npc" && details?.maxHp) {
+          const count = prev.filter((c) => c.baseName === baseName).length;
+          newCombatant = npcToCombatant(details as NpcTemplate, init, count + 1);
+        } else {
+          const maxFocusVal = details?.focus?.max || details?.maxFocus || 0;
+          newCombatant = {
+            id: Date.now().toString() + Math.random(),
+            name: baseName,
+            baseName: baseName,
+            type,
+            initiative: init,
+            hp: { current: hp, max: hp },
+            focus: {
+              current: details?.focus?.current ?? maxFocusVal,
+              max: maxFocusVal,
+            },
+            armorClass: details?.armorClass || 10,
+            attributes: details?.attributes || {},
+            stances: details?.stances || [],
+            skills: details?.skills || [],
+            spells: details?.spells || [],
+            activeStanceId: null,
+            turnActions: { standard: true, bonus: true, reaction: true },
+            deathSaves: { successes: 0, failures: 0 },
+          } as Combatant;
+        }
+        return [...prev, newCombatant].sort(
+          (a, b) => b.initiative - a.initiative,
+        );
+      });
+    },
+    [],
+  );
 
   const updateCombatant = useCallback(
     (id: string, updates: Partial<Combatant>) => {
@@ -223,7 +153,6 @@ export const CampaignProvider = ({ children }: { children: ReactNode }) => {
         prev.map((c) => {
           if (c.id !== id) return c;
 
-          // Merge inteligente para sub-objetos comuns
           const newHp = updates.hp ? { ...c.hp, ...updates.hp } : c.hp;
           const newFocus = updates.focus
             ? { ...c.focus, ...updates.focus }
@@ -245,82 +174,109 @@ export const CampaignProvider = ({ children }: { children: ReactNode }) => {
     [],
   );
 
-  const endTurnCombatant = (id: string) => {
-    updateCombatant(id, {
-      turnActions: { standard: true, bonus: true, reaction: true },
-    });
-  };
+  const endTurnCombatant = useCallback(
+    (id: string) => {
+      updateCombatant(id, {
+        turnActions: { standard: true, bonus: true, reaction: true },
+      });
+    },
+    [updateCombatant],
+  );
 
-  const removeCombatant = (id: string) => {
+  const removeCombatant = useCallback((id: string) => {
     setCombatants((prev) => prev.filter((c) => c.id !== id));
-  };
+  }, []);
 
-  const sortCombat = () => {
-    setCombatants((prev) => prev.sort((a, b) => b.initiative - a.initiative));
-  };
+  const sortCombat = useCallback(() => {
+    setCombatants((prev) => [...prev].sort((a, b) => b.initiative - a.initiative));
+  }, []);
 
-  const clearCombat = () => setCombatants([]);
+  const clearCombat = useCallback(() => setCombatants([]), []);
 
-  // --- Lógica de Bestiário ---
-
-  const deleteNpcFromLibrary = (id: string) => {
+  const deleteNpcFromLibrary = useCallback((id: string) => {
     setNpcLibrary((prev) => prev.filter((n) => n.id !== id));
-  };
+  }, []);
 
-  const updateNpcInLibrary = (id: string, updates: Partial<NpcTemplate>) => {
-    // O AddNpcModal já enviou o array de 'skills' e 'stances' prontos e fundidos.
-    // Não precisamos mais do populateClassData aqui, ele só destruiria os dados customizados.
-    setNpcLibrary((prev) =>
-      prev.map((npc) => {
-        if (npc.id === id) {
-          return { ...npc, ...updates } as NpcTemplate;
-        }
-        return npc;
-      }),
-    );
-  };
+  const updateNpcInLibrary = useCallback(
+    (id: string, updates: Partial<NpcTemplate>) => {
+      setNpcLibrary((prev) =>
+        prev.map((npc) => {
+          if (npc.id === id) {
+            return { ...npc, ...updates } as NpcTemplate;
+          }
+          return npc;
+        }),
+      );
+    },
+    [],
+  );
 
-  const saveNpcToLibrary = (npcRaw: Omit<NpcTemplate, "id">) => {
-    // O npcRaw já vem com as skills corretas do modal!
+  const saveNpcToLibrary = useCallback((npcRaw: Omit<NpcTemplate, "id">) => {
     setNpcLibrary((prev) => [
       ...prev,
       { ...npcRaw, id: Date.now().toString() } as NpcTemplate,
     ]);
-  };
+  }, []);
 
-  const addDiceRoll = (roll: string) => {
+  const addDiceRoll = useCallback((roll: string) => {
     setDiceHistory((prev) => [roll, ...prev].slice(0, 20));
-  };
+  }, []);
+
+  const contextValue = useMemo(
+    () => ({
+      combatants,
+      setCombatants,
+      addCombatant,
+      removeCombatant,
+      updateCombatant,
+      sortCombat,
+      clearCombat,
+      npcLibrary,
+      saveNpcToLibrary,
+      deleteNpcFromLibrary,
+      diceHistory,
+      addDiceRoll,
+      updateNpcInLibrary,
+      endTurnCombatant,
+      activeTurnId,
+      setActiveTurnId,
+      logs,
+      setLogs,
+      addLog,
+      lastEvent,
+      setLastEvent,
+    }),
+    [
+      combatants,
+      addCombatant,
+      removeCombatant,
+      updateCombatant,
+      sortCombat,
+      clearCombat,
+      npcLibrary,
+      saveNpcToLibrary,
+      deleteNpcFromLibrary,
+      diceHistory,
+      addDiceRoll,
+      updateNpcInLibrary,
+      endTurnCombatant,
+      activeTurnId,
+      logs,
+      lastEvent,
+    ],
+  );
 
   return (
-    <CampaignContext.Provider
-      value={{
-        combatants,
-        setCombatants,
-        addCombatant,
-        removeCombatant,
-        updateCombatant,
-        sortCombat,
-        clearCombat,
-        npcLibrary,
-        saveNpcToLibrary,
-        deleteNpcFromLibrary,
-        diceHistory,
-        addDiceRoll,
-        updateNpcInLibrary,
-        endTurnCombatant,
-        activeTurnId,
-        setActiveTurnId,
-        logs,
-        setLogs,
-        addLog,
-        lastEvent,
-        setLastEvent,
-      }}
-    >
+    <CampaignContext.Provider value={contextValue}>
       {children}
     </CampaignContext.Provider>
   );
 };
 
-export const useCampaign = () => useContext(CampaignContext);
+export const useCampaign = () => {
+  const context = useContext(CampaignContext);
+  if (!context) {
+    throw new Error("useCampaign must be used within a CampaignProvider");
+  }
+  return context;
+};
