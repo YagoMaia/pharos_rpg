@@ -1,9 +1,9 @@
 import {
-  Character,
-  Combatant,
-  CombatWeaponData,
-  EquipmentItem,
-  NpcTemplate,
+    Character,
+    Combatant,
+    CombatWeaponData,
+    EquipmentItem,
+    NpcTemplate
 } from "@/types/rpg";
 import { generateSafeId } from "@/utils/stringUtils";
 
@@ -97,7 +97,9 @@ export const playerToCombatant = (
     activeStanceId: null, // Player começa sem postura ou usa char.currentStanceIndex se quiser persistir
 
     // Mapeamentos importantes
-    skills: char.skills,
+    // Filtra apenas skills de combate (que possuem 'id').
+    // Perícias passivas (Arcanismo, Intuição, etc.) não têm 'id' e não devem ir para o servidor.
+    skills: char.skills.filter((s) => !!s.id),
     spells: char.grimoire || [], // Mapeia Grimório para Spells
 
     // Inicializa estado de turno
@@ -229,3 +231,53 @@ export function mapPlayerToNpc(player: Character): Omit<NpcTemplate, "id"> {
     },
   };
 }
+
+// --- CONVERSOR: PET -> COMBATANT ---
+export const petToCombatant = (
+  pet: Pet,
+  ownerName: string,
+  initiativeRoll: number,
+): Combatant => {
+  const ownerId = generateSafeId(ownerName);
+
+  return {
+    id: generateSafeId(`${ownerName}_pet_${pet.name}`),
+    name: `🐾 ${pet.name}`,
+    baseName: pet.name,
+    type: "pet",
+    ownerId, // Vincula ao dono
+    image: pet.image,
+
+    hp: { current: pet.maxHp, max: pet.maxHp },
+    focus: { current: pet.maxFocus, max: pet.maxFocus },
+    armorClass: pet.armorClass,
+    initiative: initiativeRoll,
+    speed: pet.speed,
+
+    attributes: pet.attributes,
+    stances: pet.stances,
+    activeStanceId: null,
+
+    skills: pet.skills,
+    spells: pet.spells,
+
+    turnActions: { standard: true, bonus: true, reaction: true },
+    deathSaves: { successes: 0, failures: 0 },
+    weapons: pet.weapons || {
+      melee: {
+        name: "Mordida",
+        damage: "1d6",
+        attribute: "Força",
+        attackBonus: 0,
+        range: "1.5m",
+      },
+      ranged: {
+        name: "Investida",
+        damage: "1d4",
+        attribute: "Destreza",
+        attackBonus: 0,
+        range: "4.5m",
+      },
+    },
+  };
+};

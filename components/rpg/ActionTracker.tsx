@@ -19,10 +19,9 @@ export const ActionTracker = ({
   turnActions,
   onToggle,
 }: ActionTrackerProps) => {
-  const { colors } = useTheme();
-  const styles = useMemo(() => getStyles(colors), [colors]);
+  const { colors, isDark } = useTheme();
+  const styles = useMemo(() => getStyles(colors, isDark), [colors, isDark]);
 
-  // Configuração estática dos botões para manter o código limpo
   const actionsConfig: {
     type: ActionType;
     label: string;
@@ -39,13 +38,13 @@ export const ActionTracker = ({
       type: "bonus",
       label: "Bônus",
       icon: "star-four-points",
-      color: "#fb8c00", // Laranja
+      color: "#fb8c00",
     },
     {
       type: "reaction",
       label: "Reação",
       icon: "shield-alert",
-      color: "#8e24aa", // Roxo
+      color: "#8e24aa",
     },
   ];
 
@@ -60,18 +59,23 @@ export const ActionTracker = ({
             style={[
               styles.actionBtn,
               {
-                backgroundColor: isActive ? color : colors.inputBg,
-                opacity: isActive ? 1 : 0.4,
+                backgroundColor: isActive ? color : isDark ? "#2c2c2c" : "#f0f0f0",
+                borderColor: isActive ? color : colors.border,
               },
             ]}
             onPress={() => onToggle(type)}
             activeOpacity={0.7}
           >
-            <MaterialCommunityIcons
-              name={icon}
-              size={18}
-              color={isActive ? "#fff" : colors.textSecondary}
-            />
+            <View style={[
+              styles.iconCircle,
+              { backgroundColor: isActive ? "rgba(255,255,255,0.2)" : "rgba(0,0,0,0.05)" }
+            ]}>
+              <MaterialCommunityIcons
+                name={icon}
+                size={16}
+                color={isActive ? "#fff" : colors.textSecondary}
+              />
+            </View>
             <Text
               style={[
                 styles.actionBtnText,
@@ -80,6 +84,11 @@ export const ActionTracker = ({
             >
               {label}
             </Text>
+            {!isActive && (
+              <View style={styles.spentOverlay}>
+                <MaterialCommunityIcons name="close" size={12} color={colors.textSecondary} />
+              </View>
+            )}
           </TouchableOpacity>
         );
       })}
@@ -87,32 +96,53 @@ export const ActionTracker = ({
   );
 };
 
-const getStyles = (colors: any) =>
+const getStyles = (colors: any, isDark: boolean) =>
   StyleSheet.create({
     actionsRow: {
       flexDirection: "row",
       justifyContent: "space-between",
-      gap: 8,
-      marginBottom: 12,
+      gap: 10,
+      marginBottom: 16,
     },
     actionBtn: {
       flex: 1,
-      flexDirection: "row",
+      height: 72,
       alignItems: "center",
       justifyContent: "center",
-      paddingVertical: 12,
-      borderRadius: 8,
-      gap: 4,
-      elevation: 2,
-      // Sombra suave para iOS
-      boxShadowColor: "#000",
-      boxShadowOffset: { width: 0, height: 1 },
-      boxShadowOpacity: 0.2,
-      boxShadowRadius: 1.41,
+      borderRadius: 12,
+      borderWidth: 1,
+      elevation: 3,
+      shadowColor: "#000",
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.1,
+      shadowRadius: 4,
+      position: "relative",
+    },
+    iconCircle: {
+      width: 32,
+      height: 32,
+      borderRadius: 16,
+      alignItems: "center",
+      justifyContent: "center",
+      marginBottom: 4,
     },
     actionBtnText: {
-      fontWeight: "bold",
-      fontSize: 11,
+      fontWeight: "900",
+      fontSize: 10,
       textTransform: "uppercase",
+      letterSpacing: 0.5,
     },
+    spentOverlay: {
+      position: "absolute",
+      top: 4,
+      right: 4,
+      width: 16,
+      height: 16,
+      borderRadius: 8,
+      backgroundColor: isDark ? "rgba(0,0,0,0.3)" : "rgba(255,255,255,0.5)",
+      alignItems: "center",
+      justifyContent: "center",
+      borderWidth: 1,
+      borderColor: colors.border,
+    }
   });

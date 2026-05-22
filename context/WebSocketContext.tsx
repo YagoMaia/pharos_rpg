@@ -19,7 +19,7 @@ interface WebSocketMessage {
 interface WebSocketContextType {
   isConnected: boolean;
   disconnect: () => void;
-  joinSession: (ip: string, sessionId: string, initiative: number) => void;
+  joinSession: (ip: string, sessionId: string, initiative: number, petInitiative?: number) => void;
   sendMessage: (type: string, payload: any) => void;
   connectToRoute: (
     ip: string,
@@ -144,6 +144,7 @@ export const WebSocketProvider = ({
     inputIp: string,
     sessionId: string,
     initialData: any,
+    petData?: Combatant | null,
   ) => {
     if (socketRef.current) {
       socketRef.current.close();
@@ -171,10 +172,18 @@ export const WebSocketProvider = ({
         setIsConnected(true);
         const eventType =
           initialData.type === "gm" ? "GM_CONNECT" : "JOIN_SESSION";
+        
+        const payload: any = { roomCode: sessionId, combatant: initialData };
+        
+        // Se tem pet, envia junto
+        if (petData) {
+          payload.pet = petData;
+        }
+        
         ws.send(
           JSON.stringify({
             type: eventType,
-            payload: { roomCode: sessionId, combatant: initialData },
+            payload,
           }),
         );
       };
@@ -212,10 +221,18 @@ export const WebSocketProvider = ({
     }
   }, []);
 
-  const joinSession = useCallback((ip: string, sessionId: string, initiative: number) => {
+  const joinSession = useCallback((ip: string, sessionId: string, initiative: number, petInitiative?: number) => {
     if (!character.name) return Alert.alert("Erro", "Personagem sem nome.");
     const combatantData = playerToCombatant(character, initiative);
-    connectToRoute(ip, sessionId, combatantData);
+    
+    // Se o personagem tem pet, converte e envia junto
+    let petData: Combatant | null = null;
+    if (character.pet) {
+      const petInit = petInitiative ?? Math.max(0, initiative - 1); // Pet age logo após o dono por padrão
+      petData = petToCombatant(character.pet, character.name, petInit);
+    }
+    
+    connectToRoute(ip, sessionId, combatantData, petData);
   }, [character, connectToRoute]);
 
   const contextValue = useMemo(() => ({

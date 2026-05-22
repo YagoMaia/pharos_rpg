@@ -18,11 +18,10 @@ export const CombatantCard = ({ item }: { item: Combatant }) => {
   const [expanded, setExpanded] = useState(false);
   const { removeCombatant, updateCombatant, sortCombat } = useCampaign();
 
-  const { colors } = useTheme();
-  const styles = useMemo(() => getStyles(colors), [colors]);
+  const { colors, isDark } = useTheme();
+  const styles = useMemo(() => getStyles(colors, isDark), [colors, isDark]);
   const { showAlert } = useAlert();
 
-  // Garante que turnActions exista (para dados antigos)
   const actions = item.turnActions || {
     standard: true,
     bonus: true,
@@ -33,24 +32,20 @@ export const CombatantCard = ({ item }: { item: Combatant }) => {
   const stanceBonus = activeStance?.acBonus || 0;
   const totalAC = (item.armorClass || 10) + stanceBonus;
 
-  // Função para alternar ação
   const toggleAction = (type: "standard" | "bonus" | "reaction") => {
     const newActions = { ...actions, [type]: !actions[type] };
     updateCombatant(item.id, "turnActions", newActions);
   };
 
   const handleUseSkill = (skill: Skill) => {
-    // 1. Verifica Foco (MANTIDO)
     if (item.focus.current < skill.cost) {
       showAlert("Sem Foco", `${item.name} precisa de ${skill.cost} foco.`);
       return;
     }
 
-    // 2. Identifica e Verifica a Ação (AJUSTADO)
-    const actionKey = getActionKey(skill.actionType); // Usa o helper que você criou
+    const actionKey = getActionKey(skill.actionType);
 
     if (actionKey && !actions[actionKey]) {
-      // Se a ação existe (não é null) E já foi gasta (false)
       showAlert(
         "Ação Indisponível",
         `${item.name} já gastou sua ${skill.actionType || "ação"} neste turno.`,
@@ -58,11 +53,9 @@ export const CombatantCard = ({ item }: { item: Combatant }) => {
       return;
     }
 
-    // 3. Executa o Gasto (MANTIDO)
     updateCombatant(item.id, "focus", item.focus.current - skill.cost);
 
     if (actionKey) {
-      // Consome a ação automaticamente
       const newActions = { ...actions, [actionKey]: false };
       updateCombatant(item.id, "turnActions", newActions);
     }
@@ -96,16 +89,14 @@ export const CombatantCard = ({ item }: { item: Combatant }) => {
     <View
       style={[
         styles.cardContainer,
-        item.type === "player" && styles.playerBorder,
+        item.type === "player" ? styles.playerCard : styles.npcCard,
       ]}
     >
-      {/* CABEÇALHO (Sempre visível) */}
       <TouchableOpacity
         style={styles.mainRow}
         activeOpacity={0.8}
         onPress={() => setExpanded(!expanded)}
       >
-        {/* Iniciativa */}
         <View style={styles.initBox}>
           <TextInput
             style={styles.initInput}
@@ -115,247 +106,122 @@ export const CombatantCard = ({ item }: { item: Combatant }) => {
               updateCombatant(item.id, "initiative", Number(t))
             }
             onBlur={sortCombat}
+            selectTextOnFocus
           />
-          <Text style={styles.tinyLabel}>INIT</Text>
+          <Text style={styles.tinyLabel}>INI</Text>
         </View>
 
-        {/* Info Principal */}
-        <View style={{ flex: 1, marginLeft: 12 }}>
-          <Text style={styles.name}>{item.name}</Text>
-
-          <View
-            style={{
-              flexDirection: "row",
-              alignItems: "center",
-              gap: 8,
-              marginTop: 4,
-            }}
-          >
-            <Text style={styles.type}>
-              {item.type === "player" ? "JOGADOR" : "NPC"}
-            </Text>
-
-            {/* Badge de CA Dinâmica */}
-            <View
-              style={[
-                styles.miniBadge,
-                stanceBonus !== 0 && {
-                  backgroundColor:
-                    stanceBonus > 0 ? colors.primary : colors.error,
-                },
-              ]}
-            >
-              <MaterialCommunityIcons
-                name="shield"
-                size={12}
-                color={stanceBonus !== 0 ? "#fff" : colors.textSecondary}
-              />
-              <Text
-                style={[
-                  styles.miniBadgeText,
-                  stanceBonus !== 0 && { color: "#fff" },
-                ]}
-              >
-                {totalAC}
-              </Text>
+        <View style={styles.infoCol}>
+          <Text style={styles.name} numberOfLines={1}>{item.name}</Text>
+          <View style={styles.badgeRow}>
+            <View style={[styles.miniBadge, { backgroundColor: colors.primary + "15" }]}>
+              <MaterialCommunityIcons name="shield" size={10} color={colors.primary} />
+              <Text style={[styles.miniBadgeText, { color: colors.primary }]}>{totalAC}</Text>
             </View>
-
-            {/* Badge de Foco */}
             {item.focus.max > 0 && (
-              <View style={styles.miniBadge}>
-                <Ionicons name="flash" size={12} color={colors.focus} />
-                <Text style={styles.miniBadgeText}>
-                  {item.focus.current}/{item.focus.max}
-                </Text>
+              <View style={[styles.miniBadge, { backgroundColor: colors.focus + "15" }]}>
+                <Ionicons name="flash" size={10} color={colors.focus} />
+                <Text style={[styles.miniBadgeText, { color: colors.focus }]}>{item.focus.current}</Text>
               </View>
             )}
+            <Text style={styles.typeLabel}>{item.type.toUpperCase()}</Text>
           </View>
         </View>
 
-        {/* Controle de HP */}
         <View style={styles.hpCtrl}>
           <TouchableOpacity
+            style={styles.hpBtn}
             onPress={() => updateCombatant(item.id, "hp", item.hp.current - 1)}
           >
-            <Ionicons name="remove-circle" size={32} color={colors.error} />
+            <Ionicons name="remove" size={20} color={colors.error} />
           </TouchableOpacity>
-          <View style={{ alignItems: "center", minWidth: 40 }}>
-            <Text
-              style={[
-                styles.hpVal,
-                item.hp.current === 0 && { color: colors.error },
-              ]}
-            >
+          <View style={styles.hpDisplay}>
+            <Text style={[styles.hpVal, item.hp.current <= 0 && { color: colors.error }]}>
               {item.hp.current}
             </Text>
-            <Text style={styles.tinyLabel}>HP</Text>
           </View>
           <TouchableOpacity
+            style={styles.hpBtn}
             onPress={() => updateCombatant(item.id, "hp", item.hp.current + 1)}
           >
-            <Ionicons name="add-circle" size={32} color={colors.success} />
+            <Ionicons name="add" size={20} color={colors.success} />
           </TouchableOpacity>
         </View>
       </TouchableOpacity>
 
       {expanded && (
-        <View
-          style={styles.detailsBody}
-          onStartShouldSetResponder={() => true}
-          onTouchEnd={(e) => e.stopPropagation()}
-        >
-          <View style={styles.divider} />
-
-          {/* --- NOVO: RASTREADOR DE AÇÕES --- */}
+        <View style={styles.detailsBody}>
           <View style={styles.actionTrackerRow}>
-            <Text style={styles.sectionHeaderSmall}>Ações:</Text>
-
             <TouchableOpacity
-              style={[
-                styles.miniActionBtn,
-                actions.standard
-                  ? { backgroundColor: colors.primary }
-                  : { backgroundColor: colors.border },
-              ]}
+              style={[styles.miniActionBtn, actions.standard && { backgroundColor: colors.primary }]}
               onPress={() => toggleAction("standard")}
             >
-              <Text style={styles.miniActionText}>Padrão</Text>
+              <Text style={[styles.miniActionText, !actions.standard && { color: colors.textSecondary }]}>P</Text>
             </TouchableOpacity>
-
             <TouchableOpacity
-              style={[
-                styles.miniActionBtn,
-                actions.bonus
-                  ? { backgroundColor: "#fb8c00" }
-                  : { backgroundColor: colors.border },
-              ]}
+              style={[styles.miniActionBtn, actions.bonus && { backgroundColor: "#fb8c00" }]}
               onPress={() => toggleAction("bonus")}
             >
-              <Text style={styles.miniActionText}>Bônus</Text>
+              <Text style={[styles.miniActionText, !actions.bonus && { color: colors.textSecondary }]}>B</Text>
             </TouchableOpacity>
-
             <TouchableOpacity
-              style={[
-                styles.miniActionBtn,
-                actions.reaction
-                  ? { backgroundColor: "#8e24aa" }
-                  : { backgroundColor: colors.border },
-              ]}
+              style={[styles.miniActionBtn, actions.reaction && { backgroundColor: "#8e24aa" }]}
               onPress={() => toggleAction("reaction")}
             >
-              <Text style={styles.miniActionText}>Reação</Text>
+              <Text style={[styles.miniActionText, !actions.reaction && { color: colors.textSecondary }]}>R</Text>
             </TouchableOpacity>
-
-            {/* Botão Resetar (Circular) */}
+            
             <TouchableOpacity
               style={styles.resetTurnBtn}
-              onPress={() =>
-                updateCombatant(item.id, "turnActions", {
-                  standard: true,
-                  bonus: true,
-                  reaction: true,
-                })
-              }
+              onPress={() => updateCombatant(item.id, "turnActions", { standard: true, bonus: true, reaction: true })}
             >
-              <Ionicons name="refresh" size={16} color={colors.text} />
+              <Ionicons name="refresh" size={14} color={colors.textSecondary} />
             </TouchableOpacity>
           </View>
 
           {item.stances && item.stances.length > 0 && (
-            <View style={styles.section}>
-              <Text style={styles.sectionHeader}>Postura Ativa</Text>
-              <View style={styles.stanceContainer}>
-                {/* Botão Neutra (Geralmente é ação livre 'soltar' a postura) */}
+            <View style={styles.detailSection}>
+              <Text style={styles.sectionHeader}>Posturas</Text>
+              <View style={styles.chipGrid}>
                 <TouchableOpacity
                   onPress={() => handleStanceChange(null)}
-                  style={[
-                    styles.stanceBtn,
-                    !item.activeStanceId && styles.activeStanceBtn,
-                  ]}
+                  style={[styles.chip, !item.activeStanceId && styles.activeChip]}
                 >
-                  <Text
-                    style={[
-                      styles.stanceBtnText,
-                      !item.activeStanceId && { color: "#fff" },
-                    ]}
-                  >
-                    Neutra
-                  </Text>
+                  <Text style={[styles.chipText, !item.activeStanceId && styles.activeChipText]}>Neutra</Text>
                 </TouchableOpacity>
-
-                {/* Botões das Posturas (Custam Ação Bônus) */}
-                {item.stances.map((s) => {
-                  const isActive = item.activeStanceId === s.id;
-                  // Se não tem ação bônus E não é a postura atual, fica apagado
-                  const canSwitch = actions.bonus || isActive;
-
-                  return (
-                    <TouchableOpacity
-                      key={s.id}
-                      onPress={() => handleStanceChange(s.id)}
-                      // Feedback visual: Opacidade se não puder trocar
-                      style={[
-                        styles.stanceBtn,
-                        isActive && styles.activeStanceBtn,
-                        !canSwitch && { opacity: 0.5 },
-                      ]}
-                    >
-                      <Text
-                        style={[
-                          styles.stanceBtnText,
-                          isActive && { color: "#fff" },
-                        ]}
-                      >
-                        {s.name} (
-                        {(s.acBonus || 0) >= 0 ? `+${s.acBonus}` : s.acBonus})
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })}
+                {item.stances.map((s) => (
+                  <TouchableOpacity
+                    key={s.id}
+                    onPress={() => handleStanceChange(s.id)}
+                    style={[styles.chip, item.activeStanceId === s.id && styles.activeChip, !actions.bonus && item.activeStanceId !== s.id && { opacity: 0.5 }]}
+                  >
+                    <Text style={[styles.chipText, item.activeStanceId === s.id && styles.activeChipText]}>
+                      {s.name} ({s.acBonus >= 0 ? `+${s.acBonus}` : s.acBonus})
+                    </Text>
+                  </TouchableOpacity>
+                ))}
               </View>
             </View>
           )}
 
-          {/* LISTA DE HABILIDADES */}
           {item.skills && item.skills.length > 0 && (
-            <View style={styles.section}>
+            <View style={styles.detailSection}>
               <Text style={styles.sectionHeader}>Habilidades</Text>
               {item.skills.map((skill) => {
-                const canUseFocus = item.focus.current >= skill.cost;
-
-                // Verifica ação visualmente para feedback
                 const actionKey = getActionKey(skill.actionType);
-                const isActionAvailable = actionKey ? actions[actionKey] : true;
-                const canUse = canUseFocus && isActionAvailable;
-
+                const canUse = item.focus.current >= skill.cost && (!actionKey || actions[actionKey]);
                 return (
                   <TouchableOpacity
                     key={skill.id}
-                    style={[styles.skillRow, !canUse && { opacity: 0.5 }]}
+                    style={[styles.skillRow, !canUse && { opacity: 0.4 }]}
                     onPress={() => handleUseSkill(skill)}
-                    disabled={!canUse} // Desabilita o botão se não puder usar
+                    disabled={!canUse}
                   >
                     <View style={{ flex: 1 }}>
                       <Text style={styles.skillName}>{skill.name}</Text>
-                      {/* Mostra o tipo de ação se existir */}
-                      {skill.actionType && (
-                        <Text
-                          style={[
-                            styles.detailText,
-                            {
-                              color: colors.primary,
-                              fontSize: 10,
-                              fontWeight: "bold",
-                            },
-                          ]}
-                        >
-                          {skill.actionType.toUpperCase()}
-                        </Text>
-                      )}
-                      <Text style={styles.detailText}>{skill.description}</Text>
+                      <Text style={styles.skillDesc} numberOfLines={1}>{skill.description}</Text>
                     </View>
-                    <View style={styles.skillCost}>
-                      <Ionicons name="flash" size={12} color={colors.text} />
+                    <View style={styles.skillCostBadge}>
                       <Text style={styles.skillCostText}>{skill.cost}</Text>
                     </View>
                   </TouchableOpacity>
@@ -364,270 +230,72 @@ export const CombatantCard = ({ item }: { item: Combatant }) => {
             </View>
           )}
 
-          {/* Status Detalhados (Atributos e Foco Manual) */}
-          <View style={styles.statsRow}>
-            <View style={styles.statItem}>
-              <Text style={styles.statLabel}>FOCO MANUAL</Text>
-              <View
-                style={{ flexDirection: "row", alignItems: "center", gap: 5 }}
-              >
-                <TouchableOpacity
-                  onPress={() =>
-                    updateCombatant(
-                      item.id,
-                      "focus",
-                      Math.max(0, item.focus.current - 1),
-                    )
-                  }
-                >
-                  <Ionicons
-                    name="remove-circle-outline"
-                    size={20}
-                    color={colors.textSecondary}
-                  />
-                </TouchableOpacity>
-                <Text style={styles.statValue}>
-                  {item.focus.current}/{item.focus.max}
-                </Text>
-                <TouchableOpacity
-                  onPress={() =>
-                    updateCombatant(
-                      item.id,
-                      "focus",
-                      Math.min(item.focus.current, item.focus.current + 1),
-                    )
-                  }
-                >
-                  <Ionicons
-                    name="add-circle-outline"
-                    size={20}
-                    color={colors.textSecondary}
-                  />
-                </TouchableOpacity>
-              </View>
-            </View>
+          <View style={styles.footerActions}>
+            <TouchableOpacity onPress={() => removeCombatant(item.id)} style={styles.deleteBtn}>
+              <Ionicons name="trash-outline" size={16} color={colors.error} />
+              <Text style={styles.deleteText}>Remover</Text>
+            </TouchableOpacity>
           </View>
-
-          {item.attributes && (
-            <View style={styles.attrGrid}>
-              {Object.entries(item.attributes).map(([key, val]) => (
-                <View key={key} style={styles.attrBox}>
-                  <Text style={styles.attrLabel}>
-                    {key.toUpperCase().slice(0, 3)}
-                  </Text>
-                  <Text style={styles.attrVal}>{val.value}</Text>
-                  <Text style={styles.attrMod}>{formatMod(val.value)}</Text>
-                </View>
-              ))}
-            </View>
-          )}
-
-          {/* Ações / Equipamento (Texto Simples) */}
-          {!!item.actions && (
-            <View style={styles.section}>
-              <Text style={styles.sectionHeader}>
-                Ações Básicas / Equipamento
-              </Text>
-              <Text style={styles.detailText}>{item.actions}</Text>
-              {!!item.equipment && (
-                <Text style={[styles.detailText, { marginTop: 4 }]}>
-                  {item.equipment}
-                </Text>
-              )}
-            </View>
-          )}
-
-          {/* Botão de Remover */}
-          <TouchableOpacity
-            onPress={() => removeCombatant(item.id)}
-            style={styles.deleteBtn}
-          >
-            <Ionicons name="trash-outline" size={18} color={colors.error} />
-            <Text style={{ color: colors.error, fontWeight: "bold" }}>
-              Remover do Combate
-            </Text>
-          </TouchableOpacity>
         </View>
       )}
     </View>
   );
 };
 
-const getStyles = (colors: any) =>
+const getStyles = (colors: any, isDark: boolean) =>
   StyleSheet.create({
     cardContainer: {
       backgroundColor: colors.surface,
       borderRadius: 12,
-      marginBottom: 10,
+      marginBottom: 8,
       borderWidth: 1,
       borderColor: colors.border,
       overflow: "hidden",
+      elevation: 2,
     },
-    playerBorder: { borderColor: "#2e7d32", borderWidth: 2 },
-    mainRow: { flexDirection: "row", alignItems: "center", padding: 10 },
+    playerCard: { borderLeftWidth: 4, borderLeftColor: colors.success },
+    npcCard: { borderLeftWidth: 4, borderLeftColor: "#c62828" },
+    mainRow: { flexDirection: "row", alignItems: "center", padding: 8 },
     initBox: {
-      backgroundColor: colors.inputBg,
-      width: 50,
-      height: 50,
+      width: 44,
+      height: 44,
       borderRadius: 8,
+      backgroundColor: colors.inputBg,
       alignItems: "center",
       justifyContent: "center",
-    },
-    initInput: {
-      fontSize: 20,
-      fontWeight: "bold",
-      color: colors.text,
-      padding: 0,
-    },
-    tinyLabel: { fontSize: 8, color: colors.textSecondary, fontWeight: "bold" },
-    name: { fontSize: 16, fontWeight: "bold", color: colors.text },
-    type: { fontSize: 10, color: colors.textSecondary, fontWeight: "bold" },
-    miniBadge: {
-      flexDirection: "row",
-      alignItems: "center",
-      backgroundColor: colors.inputBg,
-      paddingHorizontal: 6,
-      paddingVertical: 2,
-      borderRadius: 4,
-      gap: 4,
-    },
-    miniBadgeText: {
-      fontSize: 12,
-      color: colors.textSecondary,
-      fontWeight: "bold",
-    },
-    hpCtrl: {
-      flexDirection: "row",
-      alignItems: "center",
-      backgroundColor: colors.inputBg,
-      borderRadius: 20,
-      paddingHorizontal: 5,
-    },
-    hpVal: { fontSize: 18, fontWeight: "bold", color: colors.text },
-    detailsBody: {
-      backgroundColor: colors.inputBg + "40",
-      padding: 12,
-      borderTopWidth: 1,
-      borderTopColor: colors.border,
-    },
-    divider: { height: 1, backgroundColor: colors.border, marginBottom: 10 },
-    section: { marginBottom: 12 },
-    sectionHeader: {
-      fontSize: 12,
-      fontWeight: "bold",
-      color: "#c62828",
-      textTransform: "uppercase",
-      marginBottom: 6,
-    },
-    sectionHeaderSmall: {
-      fontSize: 12,
-      fontWeight: "bold",
-      color: colors.textSecondary,
-      textTransform: "uppercase",
-      marginRight: 4,
-    },
-    detailText: { fontSize: 13, color: colors.textSecondary, lineHeight: 18 },
-    stanceContainer: {
-      flexDirection: "row",
-      flexWrap: "wrap",
-      gap: 8,
-      marginBottom: 6,
-    },
-    stanceBtn: {
-      paddingVertical: 6,
-      paddingHorizontal: 12,
-      borderRadius: 6,
-      backgroundColor: colors.inputBg,
       borderWidth: 1,
       borderColor: colors.border,
     },
-    activeStanceBtn: { backgroundColor: "#c62828", borderColor: "#c62828" },
-    stanceBtnText: {
-      fontSize: 12,
-      fontWeight: "bold",
-      color: colors.textSecondary,
-    },
-    skillRow: {
-      flexDirection: "row",
-      alignItems: "center",
-      backgroundColor: colors.surface,
-      padding: 8,
-      borderRadius: 8,
-      marginBottom: 6,
-      borderWidth: 1,
-      borderColor: colors.border,
-    },
-    skillName: { fontWeight: "bold", color: colors.text, fontSize: 14 },
-    skillCost: {
-      alignItems: "center",
-      justifyContent: "center",
-      paddingHorizontal: 8,
-      borderLeftWidth: 1,
-      borderColor: colors.border,
-      marginLeft: 8,
-    },
-    skillCostText: { fontWeight: "bold", fontSize: 14, color: colors.text },
-    deleteBtn: {
-      flexDirection: "row",
-      alignItems: "center",
-      justifyContent: "center",
-      padding: 10,
-      backgroundColor: colors.inputBg,
-      borderRadius: 8,
-      marginTop: 10,
-      gap: 8,
-    },
-    statsRow: {
-      flexDirection: "row",
-      justifyContent: "space-between",
-      alignItems: "center",
-      marginBottom: 12,
-    },
-    statItem: { alignItems: "center", flexDirection: "row", gap: 6 },
-    statLabel: {
-      fontSize: 12,
-      color: colors.textSecondary,
-      fontWeight: "bold",
-    },
-    statValue: { fontSize: 16, fontWeight: "bold", color: colors.text },
-    attrGrid: {
-      flexDirection: "row",
-      justifyContent: "space-between",
-      backgroundColor: colors.inputBg,
-      borderRadius: 8,
-      padding: 8,
-      marginBottom: 12,
-    },
-    attrBox: { alignItems: "center", width: 40 },
-    attrLabel: { fontSize: 9, fontWeight: "bold", color: colors.textSecondary },
-    attrVal: { fontSize: 14, fontWeight: "bold", color: colors.text },
-    attrMod: { fontSize: 10, color: colors.textSecondary },
-    actionTrackerRow: {
-      flexDirection: "row",
-      alignItems: "center",
-      gap: 8,
-      marginBottom: 10,
-      paddingHorizontal: 4,
-    },
-    miniActionBtn: {
-      paddingVertical: 4,
-      paddingHorizontal: 8,
-      borderRadius: 4,
-      minWidth: 50,
-      alignItems: "center",
-    },
-    miniActionText: {
-      fontSize: 10,
-      fontWeight: "bold",
-      color: "#fff",
-      textTransform: "uppercase",
-    },
-    resetTurnBtn: {
-      marginLeft: "auto",
-      padding: 4,
-      backgroundColor: colors.inputBg,
-      borderRadius: 12,
-      borderWidth: 1,
-      borderColor: colors.border,
-    },
+    initInput: { fontSize: 18, fontWeight: "900", color: colors.text, textAlign: "center", padding: 0 },
+    tinyLabel: { fontSize: 8, fontWeight: "bold", color: colors.textSecondary, marginTop: -2 },
+    infoCol: { flex: 1, marginLeft: 12, gap: 2 },
+    name: { fontSize: 15, fontWeight: "bold", color: colors.text },
+    badgeRow: { flexDirection: "row", alignItems: "center", gap: 6 },
+    miniBadge: { flexDirection: "row", alignItems: "center", paddingHorizontal: 6, paddingVertical: 1, borderRadius: 4, gap: 2 },
+    miniBadgeText: { fontSize: 11, fontWeight: "bold" },
+    typeLabel: { fontSize: 9, color: colors.textSecondary, fontWeight: "900", marginLeft: 4 },
+    hpCtrl: { flexDirection: "row", alignItems: "center", backgroundColor: colors.inputBg, borderRadius: 10, borderWidth: 1, borderColor: colors.border },
+    hpBtn: { padding: 8 },
+    hpDisplay: { minWidth: 32, alignItems: "center" },
+    hpVal: { fontSize: 16, fontWeight: "900", color: colors.text },
+    detailsBody: { padding: 12, backgroundColor: isDark ? "rgba(255,255,255,0.03)" : "rgba(0,0,0,0.02)", borderTopWidth: 1, borderTopColor: colors.border },
+    actionTrackerRow: { flexDirection: "row", gap: 8, marginBottom: 12, alignItems: "center" },
+    miniActionBtn: { width: 32, height: 28, borderRadius: 6, alignItems: "center", justifyContent: "center", backgroundColor: colors.border },
+    miniActionText: { fontSize: 12, fontWeight: "bold", color: "#fff" },
+    resetTurnBtn: { marginLeft: "auto", padding: 6, backgroundColor: colors.inputBg, borderRadius: 6, borderWidth: 1, borderColor: colors.border },
+    detailSection: { marginBottom: 12 },
+    sectionHeader: { fontSize: 10, fontWeight: "bold", color: colors.textSecondary, textTransform: "uppercase", marginBottom: 6, letterSpacing: 0.5 },
+    chipGrid: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
+    chip: { paddingVertical: 4, paddingHorizontal: 10, borderRadius: 6, backgroundColor: colors.inputBg, borderWidth: 1, borderColor: colors.border },
+    activeChip: { backgroundColor: "#c62828", borderColor: "#c62828" },
+    chipText: { fontSize: 11, fontWeight: "bold", color: colors.textSecondary },
+    activeChipText: { color: "#fff" },
+    skillRow: { flexDirection: "row", alignItems: "center", backgroundColor: colors.surface, padding: 8, borderRadius: 8, marginBottom: 4, borderWidth: 1, borderColor: colors.border },
+    skillName: { fontSize: 13, fontWeight: "bold", color: colors.text },
+    skillDesc: { fontSize: 11, color: colors.textSecondary },
+    skillCostBadge: { marginLeft: 8, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4, backgroundColor: colors.inputBg, minWidth: 24, alignItems: "center" },
+    skillCostText: { fontSize: 12, fontWeight: "bold", color: colors.text },
+    footerActions: { marginTop: 4, borderTopWidth: 1, borderTopColor: colors.border, paddingTop: 8 },
+    deleteBtn: { flexDirection: "row", alignItems: "center", gap: 6, alignSelf: "flex-end" },
+    deleteText: { fontSize: 12, fontWeight: "bold", color: colors.error }
   });

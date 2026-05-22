@@ -120,6 +120,15 @@ export default function TabLayout() {
           ),
         }}
       />
+      <Tabs.Screen
+        name="pet"
+        options={{
+          title: "Pet",
+          tabBarIcon: ({ color }) => (
+            <Ionicons name="paw" size={24} color={color} />
+          ),
+        }}
+      />
     </Tabs>
   );
 }

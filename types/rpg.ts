@@ -217,6 +217,36 @@ export interface Character {
   };
   specialization?: Specialization | null;
   feats: Feat[]; // Façanhas já desbloqueadas
+
+  // Pet / Monstro Companheiro
+  pet?: Pet | null;
+}
+
+// --- PET / MONSTRO COMPANHEIRO ---
+export interface Pet {
+  id: string;
+  name: string;
+  image?: string;
+
+  level: number;
+  species: string; // Ex: "Lobo Sombrio", "Golem de Pedra"
+
+  maxHp: number;
+  armorClass: number;
+  maxFocus: number;
+
+  attributes: Record<AttributeName, Attribute>;
+
+  stances: Stance[];
+  skills: Skill[];
+  spells: Spell[];
+
+  initiativeBonus: number;
+  speed: string;
+  weapons?: {
+    melee?: CombatWeaponData;
+    ranged?: CombatWeaponData;
+  };
 }
 
 export interface CombatWeaponData {
@@ -233,7 +263,8 @@ export interface Combatant {
   templateId?: string; // ID original (do Character ou NpcTemplate)
   name: string;
   baseName?: string;
-  type: "player" | "npc" | "gm";
+  type: "player" | "npc" | "gm" | "pet";
+  ownerId?: string; // ID do player dono (para pets)
   image?: string; // Útil para o avatar no combate
 
   // Stats Vitais (Obrigatórios para o combate)

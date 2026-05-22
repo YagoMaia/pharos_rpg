@@ -1,13 +1,13 @@
 import { useTheme } from "@/context/ThemeContext";
 import { Stance } from "@/types/rpg";
-import { Ionicons } from "@expo/vector-icons";
+import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import React, { useMemo } from "react";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
 interface StanceSelectorProps {
   stances: Stance[];
   activeStanceId?: string | null;
-  turnActions: { bonus: boolean }; // Precisa saber se tem ação bônus
+  turnActions: { bonus: boolean };
   onStanceChange: (newIndex: number) => void;
 }
 
@@ -17,10 +17,9 @@ export const StanceSelector = ({
   turnActions,
   onStanceChange,
 }: StanceSelectorProps) => {
-  const { colors } = useTheme();
-  const styles = useMemo(() => getStyles(colors), [colors]);
+  const { colors, isDark } = useTheme();
+  const styles = useMemo(() => getStyles(colors, isDark), [colors, isDark]);
 
-  // Se não tiver posturas, não renderiza nada
   if (!stances || stances.length === 0) return null;
 
   const currentStanceIdx = stances.findIndex((s) => s.id === activeStanceId);
@@ -29,21 +28,19 @@ export const StanceSelector = ({
 
   return (
     <View style={styles.container}>
-      <Text style={styles.label}>Postura Atual</Text>
+      <Text style={styles.label}>Postura de Combate</Text>
 
-      {/* --- GRUPO DE BOTÕES (NEUTRA + I, II, III...) --- */}
       <View style={styles.toggleGroup}>
-        {/* Botão Neutra */}
         <TouchableOpacity
           style={[styles.btn, isNeutral && styles.btnNeutralActive]}
           onPress={() => onStanceChange(-1)}
+          activeOpacity={0.7}
         >
           <Text style={[styles.btnText, isNeutral && styles.btnTextActive]}>
             Neutra
           </Text>
         </TouchableOpacity>
 
-        {/* Botões das Posturas */}
         {stances.map((stance, index) => {
           const isActive = currentStanceIdx === index;
           const canSwitch = isActive || turnActions.bonus;
@@ -53,36 +50,31 @@ export const StanceSelector = ({
               key={stance.id || index}
               style={[
                 styles.btn,
-                isActive &&
-                  (index === 0 ? styles.btnP1Active : styles.btnP2Active),
-                !canSwitch && { opacity: 0.5 },
+                isActive && (index === 0 ? styles.btnP1Active : styles.btnP2Active),
+                !canSwitch && { opacity: 0.4 },
               ]}
               onPress={() => canSwitch && onStanceChange(index)}
               disabled={!canSwitch}
+              activeOpacity={0.7}
             >
               <Text
                 style={[styles.stanceName, isActive && styles.activeText]}
-                numberOfLines={1} // Garante que o texto não quebre a linha dentro do botão
-                adjustsFontSizeToFit // Diminui a fonte levemente se o nome for muito grande
+                numberOfLines={1}
+                adjustsFontSizeToFit
               >
                 {stance.name}
               </Text>
 
-              {/* Ícone de Cadeado se não puder trocar */}
               {!isActive && !turnActions.bonus && (
-                <Ionicons
-                  name="lock-closed"
-                  size={10}
-                  color={colors.textSecondary}
-                  style={styles.lockIcon}
-                />
+                <View style={styles.lockBadge}>
+                  <Ionicons name="lock-closed" size={8} color={colors.textSecondary} />
+                </View>
               )}
             </TouchableOpacity>
           );
         })}
       </View>
 
-      {/* --- CARD DE DETALHES --- */}
       <View
         style={[
           styles.card,
@@ -93,31 +85,41 @@ export const StanceSelector = ({
               : styles.cardP2,
         ]}
       >
-        <Text style={styles.cardTitle}>
-          {isNeutral ? "Postura Neutra" : activeStance?.name}
-        </Text>
+        <View style={styles.cardHeader}>
+          <MaterialCommunityIcons 
+            name={isNeutral ? "shield-outline" : "sword-cross"} 
+            size={20} 
+            color={isNeutral ? colors.textSecondary : colors.primary} 
+          />
+          <Text style={styles.cardTitle}>
+            {isNeutral ? "Postura Neutra" : activeStance?.name}
+          </Text>
+        </View>
 
         <View style={styles.divider} />
 
         {isNeutral ? (
           <Text style={styles.neutralDesc}>
-            Combatendo sem foco em técnicas específicas.
+            Equilíbrio entre ataque e defesa. Sem bônus ou restrições específicas.
           </Text>
         ) : (
           <View style={styles.detailsList}>
             <InfoRow
+              icon="plus-circle-outline"
               label="Benefício"
               text={activeStance?.benefit}
               color={colors.success}
               styles={styles}
             />
             <InfoRow
+              icon="minus-circle-outline"
               label="Restrição"
               text={activeStance?.restriction}
               color={colors.error}
               styles={styles}
             />
             <InfoRow
+              icon="flash-outline"
               label="Manobra"
               text={activeStance?.maneuver}
               color={colors.focus}
@@ -125,6 +127,7 @@ export const StanceSelector = ({
             />
             {activeStance?.recovery && (
               <InfoRow
+                icon="refresh-circle-outline"
                 label="Recuperação"
                 text={activeStance.recovery}
                 color={colors.primary}
@@ -138,100 +141,125 @@ export const StanceSelector = ({
   );
 };
 
-// Helper simples para renderizar linhas de informação
-const InfoRow = ({ label, text, color, styles }: any) => (
+const InfoRow = ({ icon, label, text, color, styles }: any) => (
   <View style={styles.infoRow}>
-    <Text style={[styles.infoLabel, { color }]}>{label}:</Text>
+    <View style={styles.labelCol}>
+      <MaterialCommunityIcons name={icon} size={14} color={color} />
+      <Text style={[styles.infoLabel, { color }]}>{label}</Text>
+    </View>
     <Text style={styles.infoText}>{text}</Text>
   </View>
 );
 
-const getStyles = (colors: any) =>
+const getStyles = (colors: any, isDark: boolean) =>
   StyleSheet.create({
     container: { marginBottom: 16 },
     label: {
-      fontSize: 18,
-      fontWeight: "bold",
-      color: colors.text,
-      marginBottom: 8,
-      marginLeft: 4,
-    },
-    buttonContainer: {
-      flexDirection: "row",
-      flexWrap: "wrap", // Permite que os botões desçam para a linha de baixo se necessário
-      gap: 8,
+      fontSize: 14,
+      fontWeight: "900",
+      color: colors.textSecondary,
+      marginBottom: 10,
+      textTransform: "uppercase",
+      letterSpacing: 1,
     },
     toggleGroup: {
       flexDirection: "row",
       backgroundColor: colors.inputBg,
-      borderRadius: 8,
+      borderRadius: 12,
       padding: 4,
-      marginBottom: 10,
+      marginBottom: 12,
+      borderWidth: 1,
+      borderColor: colors.border,
     },
     btn: {
       flex: 1,
-      paddingVertical: 10,
+      paddingVertical: 12,
       alignItems: "center",
       justifyContent: "center",
-      borderRadius: 6,
+      borderRadius: 10,
+      position: "relative",
     },
     btnText: {
       fontWeight: "bold",
       color: colors.textSecondary,
-      fontSize: 14,
+      fontSize: 13,
     },
     btnTextActive: { color: colors.text },
-
-    // Estilos de Ativo
     btnNeutralActive: { backgroundColor: colors.surface, elevation: 2 },
-    btnP1Active: { backgroundColor: colors.primary }, // Azul/Roxo
-    btnP2Active: { backgroundColor: colors.error }, // Vermelho (Agressivo)
-    // Se tiver P3, usaria outra cor
-
-    lockIcon: { position: "absolute", top: 4, right: 4 },
-
-    // Card de Detalhes
+    btnP1Active: { backgroundColor: colors.primary, elevation: 4 },
+    btnP2Active: { backgroundColor: "#c62828", elevation: 4 },
+    lockBadge: {
+      position: "absolute",
+      top: 2,
+      right: 2,
+      backgroundColor: "rgba(0,0,0,0.1)",
+      padding: 2,
+      borderRadius: 4,
+    },
     card: {
       padding: 16,
-      borderRadius: 12,
+      borderRadius: 16,
       borderWidth: 1,
-      borderColor: "transparent",
+      elevation: 2,
+      shadowColor: "#000",
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.1,
+      shadowRadius: 4,
+    },
+    cardHeader: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+      gap: 8,
+      marginBottom: 8,
     },
     cardNeutral: {
       backgroundColor: colors.surface,
       borderColor: colors.border,
     },
     cardP1: {
-      backgroundColor: colors.primary + "10",
-      borderColor: colors.primary + "40",
+      backgroundColor: isDark ? colors.primary + "10" : colors.primary + "05",
+      borderColor: colors.primary + "30",
     },
     cardP2: {
-      backgroundColor: colors.error + "10",
-      borderColor: colors.error + "40",
+      backgroundColor: isDark ? "#c6282810" : "#c6282805",
+      borderColor: "#c6282830",
     },
-
     cardTitle: {
-      fontSize: 16,
-      fontWeight: "bold",
+      fontSize: 18,
+      fontWeight: "900",
       color: colors.text,
       textAlign: "center",
-      marginBottom: 8,
     },
     divider: {
       height: 1,
       backgroundColor: colors.border,
-      marginBottom: 8,
+      marginBottom: 12,
       opacity: 0.5,
     },
     neutralDesc: {
       textAlign: "center",
       fontStyle: "italic",
       color: colors.textSecondary,
+      fontSize: 14,
+      lineHeight: 20,
     },
-    detailsList: { gap: 4 },
-    infoRow: { flexDirection: "row", flexWrap: "wrap" },
-    infoLabel: { fontWeight: "bold", marginRight: 6, fontSize: 13 },
-    infoText: { color: colors.textSecondary, flex: 1, fontSize: 13 },
-    stanceName: { color: colors.text, fontWeight: "600", fontSize: 13 },
+    detailsList: { gap: 10 },
+    infoRow: { flexDirection: "row", gap: 12 },
+    labelCol: {
+      width: 100,
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 6,
+    },
+    infoLabel: { fontWeight: "900", fontSize: 11, textTransform: "uppercase" },
+    infoText: { 
+      color: colors.text, 
+      flex: 1, 
+      fontSize: 13, 
+      lineHeight: 18,
+      fontWeight: "500"
+    },
+    stanceName: { color: colors.textSecondary, fontWeight: "bold", fontSize: 13 },
     activeText: { color: "#fff" },
   });

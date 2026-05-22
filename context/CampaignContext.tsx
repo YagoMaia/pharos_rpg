@@ -1,20 +1,19 @@
 import { npcToCombatant, playerToCombatant } from "@/utils/combatantFactory";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import React, {
-  createContext,
-  ReactNode,
-  useCallback,
-  useContext,
-  useEffect,
-  useMemo,
-  useState,
+    createContext,
+    ReactNode,
+    useCallback,
+    useContext,
+    useEffect,
+    useMemo,
+    useState,
 } from "react";
 import {
-  Character,
-  Combatant,
-  CombatantUpdate,
-  GameEvent,
-  NpcTemplate,
+    Character,
+    Combatant,
+    GameEvent,
+    NpcTemplate
 } from "../types/rpg";
 
 interface CampaignContextType {
@@ -27,7 +26,7 @@ interface CampaignContextType {
     details?: Partial<Character> | Partial<NpcTemplate> | any,
   ) => void;
   removeCombatant: (id: string) => void;
-  updateCombatant: (id: string, updates: Partial<Combatant>) => void;
+  updateCombatant: (id: string, fieldOrUpdates: string | Partial<Combatant>, value?: any) => void;
   sortCombat: () => void;
   clearCombat: () => void;
 
@@ -148,15 +147,32 @@ export const CampaignProvider = ({ children }: { children: ReactNode }) => {
   );
 
   const updateCombatant = useCallback(
-    (id: string, updates: Partial<Combatant>) => {
+    (id: string, fieldOrUpdates: string | Partial<Combatant>, value?: any) => {
       setCombatants((prev) =>
         prev.map((c) => {
           if (c.id !== id) return c;
 
-          const newHp = updates.hp ? { ...c.hp, ...updates.hp } : c.hp;
+          // Normaliza: se veio como (id, "campo", valor), converte para objeto
+          let updates: Partial<Combatant>;
+          if (typeof fieldOrUpdates === "string") {
+            updates = { [fieldOrUpdates]: value } as any;
+          } else {
+            updates = fieldOrUpdates;
+          }
+
+          // Tratamento especial para campos aninhados
+          const newHp = updates.hp
+            ? typeof updates.hp === "number"
+              ? { ...c.hp, current: updates.hp } // updateCombatant(id, "hp", 5) → seta current
+              : { ...c.hp, ...updates.hp }       // updateCombatant(id, { hp: { current: 5 } })
+            : c.hp;
+
           const newFocus = updates.focus
-            ? { ...c.focus, ...updates.focus }
+            ? typeof updates.focus === "number"
+              ? { ...c.focus, current: updates.focus }
+              : { ...c.focus, ...updates.focus }
             : c.focus;
+
           const newActions = updates.turnActions
             ? { ...c.turnActions, ...updates.turnActions }
             : c.turnActions;

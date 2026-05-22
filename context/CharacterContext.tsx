@@ -1,30 +1,30 @@
 // src/context/CharacterContext.tsx
+import { SKILL_GROUPS } from "@/data/expertiseData";
 import { ANCESTRIES, CULTURAL_ORIGINS } from "@/data/origins";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import React, {
-  createContext,
-  ReactNode,
-  useCallback,
-  useContext,
-  useEffect,
-  useMemo,
-  useState,
+    createContext,
+    ReactNode,
+    useCallback,
+    useContext,
+    useEffect,
+    useMemo,
+    useState,
 } from "react";
 import { CLASS_DATA } from "../data/classData";
 import {
-  AttributeName,
-  Character,
-  CharacterClass,
-  EquipmentItem,
-  Feat,
-  Item,
-  ItemType,
-  MAGIC_CLASSES,
-  ProficiencyLevel,
-  Specialization,
-  Spell,
+    AttributeName,
+    Character,
+    CharacterClass,
+    EquipmentItem,
+    Feat,
+    Item,
+    ItemType,
+    MAGIC_CLASSES,
+    ProficiencyLevel,
+    Specialization,
+    Spell
 } from "../types/rpg";
-import { SKILL_DESCRIPTIONS, SKILL_GROUPS } from "@/data/expertiseData";
 
 // Chave para salvar no armazenamento do celular
 const STORAGE_KEY = "@rpg_sheet_data_v2";
@@ -101,6 +101,7 @@ const INITIAL_CHARACTER: Character = {
   },
   spells: [],
   feats: [],
+  pet: null,
 };
 
 interface CharacterContextType {
@@ -149,6 +150,8 @@ interface CharacterContextType {
   applySpecialization: (spec: Specialization) => void;
   addFeat: (feat: Feat) => void;
   removeFeat: (featId: string) => void;
+  setPet: (pet: Pet | null) => void;
+  updatePet: (updates: Partial<Pet>) => void;
 }
 
 const CharacterContext = createContext<CharacterContextType | undefined>(
@@ -164,7 +167,17 @@ export const CharacterProvider = ({ children }: { children: ReactNode }) => {
       try {
         const jsonValue = await AsyncStorage.getItem(STORAGE_KEY);
         if (jsonValue != null) {
-          setCharacter(JSON.parse(jsonValue));
+          const parsed = JSON.parse(jsonValue);
+
+          // Migração: remove perícias passivas com nível 0 que ficaram no array
+          // (limpeza de dados legados antes do fix)
+          if (parsed.skills && Array.isArray(parsed.skills)) {
+            parsed.skills = parsed.skills.filter(
+              (s: any) => !!s.id || (s.level && s.level > 0)
+            );
+          }
+
+          setCharacter(parsed);
         }
       } catch (e) {
         console.error("Erro ao carregar dados:", e);
@@ -615,6 +628,20 @@ export const CharacterProvider = ({ children }: { children: ReactNode }) => {
     }));
   }, []);
 
+  const setPet = useCallback((pet: Pet | null) => {
+    setCharacter((prev) => ({ ...prev, pet }));
+  }, []);
+
+  const updatePet = useCallback((updates: Partial<Pet>) => {
+    setCharacter((prev) => {
+      if (!prev.pet) return prev;
+      return {
+        ...prev,
+        pet: { ...prev.pet, ...updates },
+      };
+    });
+  }, []);
+
   const updateSkillLevel = useCallback(
     (skillName: string, newLevel: ProficiencyLevel) => {
       setCharacter((prev) => {
@@ -622,9 +649,23 @@ export const CharacterProvider = ({ children }: { children: ReactNode }) => {
         let updatedSkills;
 
         if (skillExists) {
-          updatedSkills = prev.skills.map((s) =>
-            s.name === skillName ? { ...s, level: newLevel } : s,
-          );
+          if (newLevel === 0) {
+            // Remove perícias passivas (sem id) quando voltam para nível 0
+            updatedSkills = prev.skills.filter((s) => {
+              if (s.name === skillName && !s.id) return false;
+              // Se for skill de combate (tem id) com mesmo nome, apenas atualiza o level
+              if (s.name === skillName && s.id) return true;
+              return true;
+            });
+            // Atualiza skills de combate que tenham o mesmo nome (caso raro)
+            updatedSkills = updatedSkills.map((s) =>
+              s.name === skillName ? { ...s, level: newLevel } : s,
+            );
+          } else {
+            updatedSkills = prev.skills.map((s) =>
+              s.name === skillName ? { ...s, level: newLevel } : s,
+            );
+          }
         } else {
           // Busca o atributo correto percorrendo os grupos de perícias
           const group = SKILL_GROUPS.find((g) => g.skills.includes(skillName));
@@ -681,6 +722,8 @@ export const CharacterProvider = ({ children }: { children: ReactNode }) => {
       applySpecialization,
       addFeat,
       removeFeat,
+      setPet,
+      updatePet,
     }),
     [
       character,
@@ -716,6 +759,8 @@ export const CharacterProvider = ({ children }: { children: ReactNode }) => {
       applySpecialization,
       addFeat,
       removeFeat,
+      setPet,
+      updatePet,
     ],
   );
 
