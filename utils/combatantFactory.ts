@@ -3,7 +3,8 @@ import {
     Combatant,
     CombatWeaponData,
     EquipmentItem,
-    NpcTemplate
+    NpcTemplate,
+    Pet
 } from "@/types/rpg";
 import { generateSafeId } from "@/utils/stringUtils";
 

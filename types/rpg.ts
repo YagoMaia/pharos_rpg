@@ -159,6 +159,14 @@ export interface Feat {
   prerequisite?: string;
 }
 
+// Façanhas customizadas (preenchidas pelo jogador)
+export interface CustomFeat {
+  id: string;
+  name: string;
+  category: string;
+  benefit: string;
+}
+
 export type ProficiencyLevel = 0 | 1 | 2 | 3; // 0: Nenhum, 1: Treinado, 2: Especialista, 3: Expert
 
 export interface CharacterSkill {
@@ -217,6 +225,10 @@ export interface Character {
   };
   specialization?: Specialization | null;
   feats: Feat[]; // Façanhas já desbloqueadas
+
+  // Façanhas customizadas
+  factionFeat?: CustomFeat | null; // Façanha Faccional
+  specialFeat?: CustomFeat | null; // Façanha Especial
 
   // Pet / Monstro Companheiro
   pet?: Pet | null;

@@ -1,5 +1,6 @@
 import { EditCharacterModal } from "@/components/modals/EditCharacterModal";
 import { FeatsModal } from "@/components/modals/FeatsModal";
+import { CustomFeatModal } from "@/components/modals/CustomFeatModal";
 import { GoldModal } from "@/components/modals/GoldModal";
 import { SpecializationModal } from "@/components/modals/SpecializationModal";
 import { AttributeGrid } from "@/components/rpg/AttributeGrid";
@@ -44,6 +45,8 @@ export default function HomeScreen() {
   const [specModalVisible, setSpecModalVisible] = useState(false);
   const [featsModalVisible, setFeatsModalVisible] = useState(false);
   const [isMoneyModalVisible, setMoneyModalVisible] = useState(false);
+  const [factionFeatModalVisible, setFactionFeatModalVisible] = useState(false);
+  const [specialFeatModalVisible, setSpecialFeatModalVisible] = useState(false);
 
   // Estados da Imagem por URL
   const [isImageModalVisible, setImageModalVisible] = useState(false);
@@ -352,6 +355,36 @@ export default function HomeScreen() {
             </View>
             <Ionicons name="trophy-outline" size={24} color={colors.text} />
           </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.progressionBtn}
+            onPress={() => setFactionFeatModalVisible(true)}
+          >
+            <View>
+              <Text style={styles.btnTitle}>Façanha Faccional</Text>
+              <Text style={styles.btnSub}>
+                {character.factionFeat
+                  ? character.factionFeat.name
+                  : "Toque para definir"}
+              </Text>
+            </View>
+            <Ionicons name="flag-outline" size={24} color={colors.text} />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.progressionBtn}
+            onPress={() => setSpecialFeatModalVisible(true)}
+          >
+            <View>
+              <Text style={styles.btnTitle}>Façanha Especial</Text>
+              <Text style={styles.btnSub}>
+                {character.specialFeat
+                  ? character.specialFeat.name
+                  : "Toque para definir"}
+              </Text>
+            </View>
+            <Ionicons name="star-outline" size={24} color={colors.text} />
+          </TouchableOpacity>
         </View>
 
         <View style={styles.divider} />
@@ -541,6 +574,18 @@ export default function HomeScreen() {
       <FeatsModal
         visible={featsModalVisible}
         onClose={() => setFeatsModalVisible(false)}
+      />
+
+      <CustomFeatModal
+        visible={factionFeatModalVisible}
+        onClose={() => setFactionFeatModalVisible(false)}
+        type="faction"
+      />
+
+      <CustomFeatModal
+        visible={specialFeatModalVisible}
+        onClose={() => setSpecialFeatModalVisible(false)}
+        type="special"
       />
 
       {/* --- MODAL DA IMAGEM (URL) --- */}

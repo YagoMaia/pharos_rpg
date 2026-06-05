@@ -1,6 +1,6 @@
-import { playerToCombatant } from "@/utils/combatantFactory";
-import React, { createContext, useCallback, useContext, useMemo, useRef, useState } from "react";
-import { Alert } from "react-native";
+import { petToCombatant, playerToCombatant } from "@/utils/combatantFactory";
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
+import { Alert, AppState } from "react-native";
 import { Combatant, GameEvent } from "../types/rpg";
 import { useCampaign } from "./CampaignContext";
 import { useCharacter } from "./CharacterContext";
@@ -25,12 +25,16 @@ interface WebSocketContextType {
     ip: string,
     sessionId: string,
     initialData: Combatant | any,
+    petData?: Combatant | null,
   ) => void;
 }
 
 const WebSocketContext = createContext<WebSocketContextType | undefined>(
   undefined,
 );
+
+const MAX_RECONNECT_ATTEMPTS = 5;
+const BASE_RECONNECT_DELAY = 1000; // 1 segundo
 
 export const WebSocketProvider = ({
   children,
@@ -39,6 +43,18 @@ export const WebSocketProvider = ({
 }) => {
   const [isConnected, setIsConnected] = useState(false);
   const socketRef = useRef<WebSocket | null>(null);
+  const intentionalClose = useRef(false);
+  const reconnectTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const reconnectAttempts = useRef(0);
+  const pingInterval = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Guarda os dados da última conexão para reconexão
+  const lastConnectionRef = useRef<{
+    ip: string;
+    sessionId: string;
+    initialData: any;
+    petData?: Combatant | null;
+  } | null>(null);
 
   const { character } = useCharacter();
   const {
@@ -50,11 +66,68 @@ export const WebSocketProvider = ({
     updateCombatant,
   } = useCampaign();
 
+  // Limpa timers ao desmontar
+  useEffect(() => {
+    return () => {
+      if (reconnectTimeout.current) clearTimeout(reconnectTimeout.current);
+      if (pingInterval.current) clearInterval(pingInterval.current);
+    };
+  }, []);
+
+  // Reconecta quando o app volta do background
+  useEffect(() => {
+    const subscription = AppState.addEventListener("change", (nextState) => {
+      if (
+        nextState === "active" &&
+        !isConnected &&
+        lastConnectionRef.current &&
+        !intentionalClose.current
+      ) {
+        reconnectAttempts.current = 0;
+        attemptReconnect();
+      }
+    });
+    return () => subscription.remove();
+  }, [isConnected]);
+
+  const attemptReconnect = useCallback(() => {
+    const conn = lastConnectionRef.current;
+    if (!conn || intentionalClose.current) return;
+    if (reconnectAttempts.current >= MAX_RECONNECT_ATTEMPTS) {
+      console.log("🔌 Máximo de tentativas de reconexão atingido.");
+      return;
+    }
+
+    const delay = Math.min(
+      BASE_RECONNECT_DELAY * Math.pow(2, reconnectAttempts.current),
+      30000,
+    );
+
+    console.log(`🔄 Reconectando em ${delay}ms (tentativa ${reconnectAttempts.current + 1}/${MAX_RECONNECT_ATTEMPTS})`);
+
+    reconnectTimeout.current = setTimeout(() => {
+      reconnectAttempts.current++;
+      connectToRoute(conn.ip, conn.sessionId, conn.initialData, conn.petData);
+    }, delay);
+  }, []);
+
+  const startPingInterval = useCallback(() => {
+    if (pingInterval.current) clearInterval(pingInterval.current);
+    pingInterval.current = setInterval(() => {
+      if (socketRef.current?.readyState === WebSocket.OPEN) {
+        socketRef.current.send(JSON.stringify({ type: "PING" }));
+      }
+    }, 25000); // Ping a cada 25s para manter a conexão viva
+  }, []);
+
   const handleServerMessage = useCallback((data: WebSocketMessage) => {
     if (data.error) {
       Alert.alert("Erro do Servidor", data.error);
       return;
     }
+
+    // Ignora pong do servidor (se implementado)
+    if (data.type === "PONG") return;
 
     // 1. SINCRONIZAÇÃO TOTAL (Snapshot)
     if (data.combatants && data.turn_order) {
@@ -69,7 +142,7 @@ export const WebSocketProvider = ({
       }
 
       if (data.logs && Array.isArray(data.logs)) {
-        setLogs(data.logs);
+        setLogs(data.logs.slice(-50));
       }
 
       if (data.last_event) {
@@ -132,6 +205,26 @@ export const WebSocketProvider = ({
 
       case "TURN_UPDATE":
         setActiveTurnId(payload.newActiveId);
+        // Reseta as ações do novo ator ativo (usa o valor do servidor ou o padrão)
+        updateCombatant(payload.newActiveId, {
+          turnActions: payload.turnActions || {
+            standard: true,
+            bonus: true,
+            reaction: true,
+          },
+        });
+        if (payload.log) addLog(payload.log);
+        break;
+
+      case "DEATH_SAVE_UPDATE":
+        updateCombatant(payload.combatantId, {
+          deathSaves: {
+            successes: payload.successes,
+            failures: payload.failures,
+          },
+          hp: { current: payload.newHp },
+          turnActions: payload.turnActions,
+        });
         if (payload.log) addLog(payload.log);
         break;
       
@@ -146,10 +239,22 @@ export const WebSocketProvider = ({
     initialData: any,
     petData?: Combatant | null,
   ) => {
+    // Limpa reconexão pendente
+    if (reconnectTimeout.current) {
+      clearTimeout(reconnectTimeout.current);
+      reconnectTimeout.current = null;
+    }
+
     if (socketRef.current) {
+      socketRef.current.onclose = null; // Evita trigger de reconexão
       socketRef.current.close();
       socketRef.current = null;
     }
+
+    intentionalClose.current = false;
+
+    // Salva dados para reconexão futura
+    lastConnectionRef.current = { ip: inputIp, sessionId, initialData, petData };
 
     let host = inputIp
       .trim()
@@ -170,6 +275,9 @@ export const WebSocketProvider = ({
 
       ws.onopen = () => {
         setIsConnected(true);
+        reconnectAttempts.current = 0; // Reset ao conectar com sucesso
+        startPingInterval();
+
         const eventType =
           initialData.type === "gm" ? "GM_CONNECT" : "JOIN_SESSION";
         
@@ -179,6 +287,8 @@ export const WebSocketProvider = ({
         if (petData) {
           payload.pet = petData;
         }
+
+        console.log("📤 Enviando para servidor:", eventType, "| Pet:", petData ? petData.name : "Nenhum");
         
         ws.send(
           JSON.stringify({
@@ -197,19 +307,39 @@ export const WebSocketProvider = ({
         }
       };
 
-      ws.onclose = () => setIsConnected(false);
+      ws.onclose = () => {
+        setIsConnected(false);
+        if (pingInterval.current) clearInterval(pingInterval.current);
+
+        // Tenta reconectar automaticamente se não foi intencional
+        if (!intentionalClose.current) {
+          attemptReconnect();
+        }
+      };
+
       ws.onerror = (e: any) => {
         console.log("⚠️ WebSocket Error:", e.message);
-        setIsConnected(false);
+        // onclose será chamado em seguida, que cuidará da reconexão
       };
     } catch (error) {
       Alert.alert("Erro", "Não foi possível criar a conexão.");
     }
-  }, [handleServerMessage]);
+  }, [handleServerMessage, startPingInterval, attemptReconnect]);
 
   const disconnect = useCallback(() => {
+    intentionalClose.current = true;
+    if (reconnectTimeout.current) {
+      clearTimeout(reconnectTimeout.current);
+      reconnectTimeout.current = null;
+    }
+    if (pingInterval.current) {
+      clearInterval(pingInterval.current);
+      pingInterval.current = null;
+    }
     socketRef.current?.close();
     socketRef.current = null;
+    lastConnectionRef.current = null;
+    reconnectAttempts.current = 0;
     setIsConnected(false);
   }, []);
 

@@ -16,6 +16,7 @@ import {
     AttributeName,
     Character,
     CharacterClass,
+    CustomFeat,
     EquipmentItem,
     Feat,
     Item,
@@ -150,6 +151,8 @@ interface CharacterContextType {
   applySpecialization: (spec: Specialization) => void;
   addFeat: (feat: Feat) => void;
   removeFeat: (featId: string) => void;
+  setFactionFeat: (feat: CustomFeat | null) => void;
+  setSpecialFeat: (feat: CustomFeat | null) => void;
   setPet: (pet: Pet | null) => void;
   updatePet: (updates: Partial<Pet>) => void;
 }
@@ -628,6 +631,14 @@ export const CharacterProvider = ({ children }: { children: ReactNode }) => {
     }));
   }, []);
 
+  const setFactionFeat = useCallback((feat: CustomFeat | null) => {
+    setCharacter((prev) => ({ ...prev, factionFeat: feat }));
+  }, []);
+
+  const setSpecialFeat = useCallback((feat: CustomFeat | null) => {
+    setCharacter((prev) => ({ ...prev, specialFeat: feat }));
+  }, []);
+
   const setPet = useCallback((pet: Pet | null) => {
     setCharacter((prev) => ({ ...prev, pet }));
   }, []);
@@ -722,6 +733,8 @@ export const CharacterProvider = ({ children }: { children: ReactNode }) => {
       applySpecialization,
       addFeat,
       removeFeat,
+      setFactionFeat,
+      setSpecialFeat,
       setPet,
       updatePet,
     }),
@@ -759,6 +772,8 @@ export const CharacterProvider = ({ children }: { children: ReactNode }) => {
       applySpecialization,
       addFeat,
       removeFeat,
+      setFactionFeat,
+      setSpecialFeat,
       setPet,
       updatePet,
     ],
