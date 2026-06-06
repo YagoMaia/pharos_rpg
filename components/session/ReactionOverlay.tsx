@@ -44,11 +44,15 @@ export const ReactionOverlay = ({ combatant }: Props) => {
 
   // 1. Ataque de Oportunidade
   const handleOpportunityAttack = (
-    targetId: string,
+    targetIds: string[],
     hitTotal: number,
     damageTotal: number,
     isCrit: boolean,
   ) => {
+    // Reação é sempre alvo único — pega o primeiro
+    const targetId = targetIds[0];
+    if (!targetId) return;
+
     // Valida alvo
     const target = combatants.find((c) => c.id === targetId);
     if (!target) return;

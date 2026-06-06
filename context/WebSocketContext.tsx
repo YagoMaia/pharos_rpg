@@ -180,7 +180,18 @@ export const WebSocketProvider = ({
         break;
 
       case "ACTION_RESOLVED":
-        if (payload.targetId && payload.targetHp !== undefined) {
+        // Multi-target: atualiza cada alvo individualmente
+        if (payload.results && Array.isArray(payload.results)) {
+          payload.results.forEach((r: any) => {
+            if (r.targetId && r.targetHp !== undefined) {
+              updateCombatant(r.targetId, {
+                hp: { current: r.targetHp },
+              });
+            }
+          });
+        }
+        // Single-target (retrocompatibilidade)
+        else if (payload.targetId && payload.targetHp !== undefined) {
           updateCombatant(payload.targetId, {
             hp: { current: payload.targetHp },
           });

@@ -453,47 +453,72 @@ export const ActiveTurnInterface = ({ combatant, isGm = false }: Props) => {
   };
 
   const handleConfirmAttack = (
-    targetId: string,
+    targetIds: string[],
     hitTotal: number,
     damageTotal: number,
     isCrit: boolean,
   ) => {
-    const target = combatants.find((c) => c.id === targetId);
-    if (!target) {
-      showAlert("Erro", "Alvo não encontrado.");
+    if (targetIds.length === 0) {
+      showAlert("Erro", "Nenhum alvo selecionado.");
       return;
     }
 
-    const isHit = isCrit || hitTotal >= target.armorClass;
-    const finalDamage = isHit ? damageTotal : 0;
-
     const isSpecialAction = !!spellAttackConfig;
-    let actionName = isSpecialAction ? spellAttackConfig.name : "Ataque Básico";
-    if (isCrit) actionName += " (Crítico!)";
-    else if (!isHit) actionName += " (Errou)";
+    let baseActionName = isSpecialAction ? spellAttackConfig.name : "Ataque Básico";
+    if (isCrit) baseActionName += " (Crítico!)";
 
     const focusCost = isSpecialAction ? spellAttackConfig.cost : 0;
-    let actionSpent: ActionCostType = "standard";
+    const actionSpent: ActionCostType = "standard";
+
+    // Monta lista de alvos com dano individual baseado no acerto vs CA
+    const targets = targetIds
+      .map((tid) => {
+        const t = combatants.find((c) => c.id === tid);
+        if (!t) return null;
+        const isHit = isCrit || hitTotal >= t.armorClass;
+        return {
+          targetId: tid,
+          damageAmount: isHit ? damageTotal : 0,
+          healingAmount: 0,
+        };
+      })
+      .filter((t): t is NonNullable<typeof t> => t !== null);
+
+    const anyHit = targets.some((t) => t.damageAmount > 0);
+
+    // Determina o nome da ação final
+    let actionName = baseActionName;
+    if (!isCrit && targetIds.length === 1) {
+      const singleTarget = combatants.find((c) => c.id === targetIds[0]);
+      if (singleTarget && hitTotal < singleTarget.armorClass) {
+        actionName = baseActionName.replace(" (Crítico!)", "") + " (Errou)";
+      }
+    }
 
     const payload: ResolveActionPayload = {
       attackerId: combatant.id,
-      targetId: targetId,
+      targetId: targetIds.length === 1 ? targetIds[0] : null,
+      targets: targets,
       actionName: actionName,
       costType: actionSpent,
       focusCost: focusCost,
-      damageAmount: finalDamage,
+      damageAmount: targetIds.length === 1 ? targets[0]?.damageAmount ?? 0 : 0,
       healingAmount: 0,
     };
 
-    // 1. Envia para o Servidor (Persistência e Broadcast para outros players)
+    // 1. Envia para o Servidor
     sendMessage("RESOLVE_ACTION", payload);
 
-    // 2. ATUALIZAÇÃO LOCAL (Optimistic UI)
-    // Atualiza Vida do Alvo
-    if (isHit && finalDamage > 0) {
-      const newHp = Math.max(0, target.hp.current - finalDamage);
-      updateCombatant(targetId, { hp: { current: newHp } }); // Merge inteligente do contexto cuida do resto
-    }
+    // 2. ATUALIZAÇÃO LOCAL (Optimistic UI) — cada alvo
+    targets.forEach((t) => {
+      if (t.damageAmount > 0) {
+        const target = combatants.find((c) => c.id === t.targetId);
+        if (target) {
+          const newHp = Math.max(0, target.hp.current - t.damageAmount);
+          updateCombatant(t.targetId, { hp: { current: newHp } });
+        }
+      }
+    });
 
     // Atualiza Ações do Atacante (Gasta a ação padrão)
     if (turnActions.standard) {
@@ -511,16 +536,27 @@ export const ActiveTurnInterface = ({ combatant, isGm = false }: Props) => {
     }
 
     setSpellAttackConfig(null);
-    setAttackModalOpen(false); // Fecha o modal após confirmar
+    setAttackModalOpen(false);
 
-    showAlert(
-      isHit ? "Sucesso" : "Errou",
-      isHit
-        ? `Causou ${finalDamage} de dano!`
-        : isGm
-          ? `Não superou a CA ${target.armorClass}.`
-          : `O ataque não superou a defesa do alvo.`,
-    );
+    // Feedback
+    if (targetIds.length === 1) {
+      const singleTarget = combatants.find((c) => c.id === targetIds[0]);
+      const isHit = isCrit || (singleTarget && hitTotal >= singleTarget.armorClass);
+      showAlert(
+        isHit ? "Sucesso" : "Errou",
+        isHit
+          ? `Causou ${damageTotal} de dano!`
+          : isGm
+            ? `Não superou a CA ${singleTarget?.armorClass}.`
+            : `O ataque não superou a defesa do alvo.`,
+      );
+    } else {
+      const hitCount = targets.filter((t) => t.damageAmount > 0).length;
+      showAlert(
+        "Ataque em Área",
+        `${hitCount} de ${targetIds.length} alvos atingidos!${hitCount > 0 ? ` (${damageTotal} de dano cada)` : ""}`,
+      );
+    }
   };
 
   // --- RENDERIZAÇÃO NORMAL (Combate Ativo) ---

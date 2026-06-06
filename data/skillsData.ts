@@ -11,7 +11,7 @@ export const HAOTAI_SKILLS: Skill[] = [
     actionType: "Padrão",
     level: 1,
     description:
-    "Aproveitando seus 3 metros de altura, você ergue a guarda e desfere um soco ou golpe diagonal descendente avassalador. Impulsionado pela gravidade e por alavancas ósseas massivas, o impacto adiciona 1d6 de dano extra, sendo capaz de esmagar escudos e deformar armaduras de cima para baixo.",
+      "Você canaliza toda a sua força em um único golpe devastador para romper defesas. Faça um ataque corpo a corpo. Se acertar, você adiciona um dado de dano extra da arma ao total. Se o alvo estiver usando escudo ou armadura pesada, você tem Vantagem na jogada de ataque.",
     usesWeaponDamage: true,
     weaponType: "melee",
     bonusDamage: "1d6",
@@ -24,7 +24,8 @@ export const HAOTAI_SKILLS: Skill[] = [
     actionType: "Ação Bônus",
     level: 1,
     description:
-    "Rotacionando o quadril com precisão geométrica, você projeta sua enorme envergadura em um chute circular ou golpe de longo alcance. O ataque corta horizontalmente um cone de 3 metros à sua frente, atingindo a linha alta de todos os inimigos na área com o dano normal da arma. Ideal contra oponentes aglomerados.",    isHealing: true,
+      "Você ignora a dor através de pura disciplina marcial. Você recupera uma quantidade de Pontos de Vida igual a 1d10 + Constituição.",
+    isHealing: true,
     healFormula: "1d10 + @CON",
   },
   {
@@ -35,7 +36,7 @@ export const HAOTAI_SKILLS: Skill[] = [
     weaponType: "melee",
     level: 1,
     description:
-    "Ao ser atingido, você firma os pés como as raízes das montanhas e cruza seus longos antebraços na Guarda do Pico. Essa estrutura biomecânica perfeita dissipa a força do ataque, reduzindo o dano recebido pela metade. Requer que você não tenha se movido neste turno. Não acumulável com outras reduções de dano.",
+      "Usando o alcance de uma arma de haste ou um golpe amplo de espada, você atinge todos os inimigos em um arco à sua frente. Faça uma única jogada de ataque e compare com a CA de todos os inimigos em um cone de 3m (ou adjacentes). Quem for atingido sofre o dano normal da arma e é empurrado 1,5m para trás.",
     usesWeaponDamage: true,
     damageType: "Físico",
   },
@@ -46,7 +47,7 @@ export const HAOTAI_SKILLS: Skill[] = [
     actionType: "Reação",
     level: 1,
     description:
-      "Ao ser atingido por um ataque, você firma os pés e endurece o corpo, reduzindo o dano recebido pela metade. Requer que você não tenha se movido neste turno. Não acumulável com outras reduções de dano.",
+      "Você se recusa a cair. Você reduz o dano recebido de um único ataque pela metade. Além disso, você não pode ser movido, derrubado ou empurrado até o início do seu próximo turno.",
   },
   // Nível 2
   {
@@ -56,12 +57,12 @@ export const HAOTAI_SKILLS: Skill[] = [
     actionType: "Padrão",
     level: 2,
     description:
-      "Você avança o dobro do seu deslocamento em linha reta e desfere um golpe com todo o momento. Causa o dano normal da arma e o alvo deve fazer uma Salvaguarda de Força ou ser derrubado (Prostrado). Você não provoca ataques de oportunidade durante o avanço.",
+      "Você usa seu corpo ou escudo como uma arma de cerco. Mova-se até o dobro do seu deslocamento em linha reta em direção a um inimigo. Faça uma jogada de ataque com Vantagem. Se acertar, o alvo sofre o dano da arma e deve passar em um teste de Força ou ser empurrado 3m para trás e ficar Caído (Prostrado).",
     weaponType: "melee",
     usesWeaponDamage: true,
     saveRequest: {
       attribute: "Força",
-      effect: "Derrubado (Prostrado)",
+      effect: "Empurrado 3m e Derrubado (Prostrado)",
     },
   },
   {
@@ -71,7 +72,7 @@ export const HAOTAI_SKILLS: Skill[] = [
     actionType: "Padrão",
     level: 2,
     description:
-      "Um golpe preciso direcionado à cabeça do oponente. Causa o dano normal da arma e o alvo deve fazer uma Salvaguarda de Constituição ou ficar Confuso até o final do próximo turno dele, sofrendo Desvantagem em testes de ataque e habilidade.",
+      "Você foca sua força na cabeça do inimigo. Faça uma jogada de ataque, se acertar cause o dano da sua arma e o inimigo deve fazer uma salvaguarda de Constituição, se falhar, o alvo fica Confuso, o alvo deve repetir o teste de Constituição ao final de cada turno dele. O efeito termina em um sucesso.",
     usesWeaponDamage: true,
     weaponType: "melee",
     saveRequest: {
@@ -86,7 +87,7 @@ export const HAOTAI_SKILLS: Skill[] = [
     actionType: "Reação",
     level: 2,
     description:
-      "Quando um aliado a até 3 metros sofreria dano de um ataque, você se interpõe heroicamente. Troque de lugar com o aliado e receba o ataque em seu lugar. O dano que você sofre é reduzido pela metade. Não acumulável com outras reduções.",
+      "Você se atira na frente do perigo para salvar um companheiro. Você troca de lugar com o aliado alvo (ou se move para a frente dele) e recebe o ataque ou efeito no lugar dele. O dano que você recebe dessa ação é reduzido pela metade, mas você não pode usar nenhuma outra habilidade para reduzir ou anular esse dano ainda mais (como Bastião Imóvel).",
   },
   {
     id: "ataque_redemoinho",
@@ -95,7 +96,7 @@ export const HAOTAI_SKILLS: Skill[] = [
     actionType: "Padrão",
     level: 2,
     description:
-      "Você gira com sua arma em um círculo completo, atacando todos os inimigos adjacentes (1,5m). Faça uma única jogada de ataque e compare com a CA de cada alvo. Todos que forem atingidos sofrem o dano normal da arma.",
+      "Você gira em um redemoinho furioso, transformando-se em uma zona de morte momentânea. Realize uma única jogada de ataque corpo-a-corpo e compare o resultado com a Classe de Armadura (CA) de todos os inimigos adjacentes a você (dentro de 1,5m). Todo inimigo cujo a CA for superada sofre o dano normal da sua arma.",
   },
 ]
 
@@ -109,7 +110,7 @@ export const MARTIAL_SKILLS: Skill[] = [
     actionType: "Padrão",
     level: 1,
     description:
-      "Você concentra toda a força em um único golpe devastador com sua arma corpo a corpo, adicionando 1d6 de dano extra ao impacto. O ataque é tão violento que pode rachar escudos e deformar armaduras.",
+      "Você canaliza toda a sua força em um único golpe devastador para romper defesas. Faça um ataque corpo a corpo. Se acertar, você adiciona um dado de dano extra da arma ao total. Se o alvo estiver usando escudo ou armadura pesada, você tem Vantagem na jogada de ataque.",
     usesWeaponDamage: true,
     weaponType: "melee",
     bonusDamage: "1d6",
@@ -122,7 +123,7 @@ export const MARTIAL_SKILLS: Skill[] = [
     actionType: "Ação Bônus",
     level: 1,
     description:
-      "Através de pura força de vontade, você ignora a dor e fecha suas feridas pela determinação. Recupera 1d10 + modificador de Constituição de Pontos de Vida. Não funciona se estiver inconsciente.",
+      "Você ignora a dor através de pura disciplina marcial. Você recupera uma quantidade de Pontos de Vida igual a 1d10 + Constituição.",
     isHealing: true,
     healFormula: "1d10 + @CON",
   },
@@ -134,7 +135,7 @@ export const MARTIAL_SKILLS: Skill[] = [
     weaponType: "melee",
     level: 1,
     description:
-      "Você gira sua arma em um arco amplo, atingindo todos os inimigos em um cone de 3 metros à sua frente. Cada alvo na área sofre o dano normal da arma. Ideal contra grupos aglomerados.",
+      "Usando o alcance de uma arma de haste ou um golpe amplo de espada, você atinge todos os inimigos em um arco à sua frente. Faça uma única jogada de ataque e compare com a CA de todos os inimigos em um cone de 3m (ou adjacentes). Quem for atingido sofre o dano normal da arma e é empurrado 1,5m para trás.",
     usesWeaponDamage: true,
     damageType: "Físico",
   },
@@ -145,7 +146,7 @@ export const MARTIAL_SKILLS: Skill[] = [
     actionType: "Reação",
     level: 1,
     description:
-      "Ao ser atingido por um ataque, você firma os pés e endurece o corpo, reduzindo o dano recebido pela metade. Requer que você não tenha se movido neste turno. Não acumulável com outras reduções de dano.",
+      "Você se recusa a cair. Você reduz o dano recebido de um único ataque pela metade. Além disso, você não pode ser movido, derrubado ou empurrado até o início do seu próximo turno.",
   },
   // Nível 2
   {
@@ -155,12 +156,12 @@ export const MARTIAL_SKILLS: Skill[] = [
     actionType: "Padrão",
     level: 2,
     description:
-      "Você avança o dobro do seu deslocamento em linha reta e desfere um golpe com todo o momento. Causa o dano normal da arma e o alvo deve fazer uma Salvaguarda de Força ou ser derrubado (Prostrado). Você não provoca ataques de oportunidade durante o avanço.",
+      "Você usa seu corpo ou escudo como uma arma de cerco. Mova-se até o dobro do seu deslocamento em linha reta em direção a um inimigo. Faça uma jogada de ataque com Vantagem. Se acertar, o alvo sofre o dano da arma e deve passar em um teste de Força ou ser empurrado 3m para trás e ficar Caído (Prostrado).",
     weaponType: "melee",
     usesWeaponDamage: true,
     saveRequest: {
       attribute: "Força",
-      effect: "Derrubado (Prostrado)",
+      effect: "Empurrado 3m e Derrubado (Prostrado)",
     },
   },
   {
@@ -170,7 +171,7 @@ export const MARTIAL_SKILLS: Skill[] = [
     actionType: "Padrão",
     level: 2,
     description:
-      "Um golpe preciso direcionado à cabeça do oponente. Causa o dano normal da arma e o alvo deve fazer uma Salvaguarda de Constituição ou ficar Confuso até o final do próximo turno dele, sofrendo Desvantagem em testes de ataque e habilidade.",
+      "Você foca sua força na cabeça do inimigo. Faça uma jogada de ataque, se acertar cause o dano da sua arma e o inimigo deve fazer uma salvaguarda de Constituição, se falhar, o alvo fica Confuso, o alvo deve repetir o teste de Constituição ao final de cada turno dele. O efeito termina em um sucesso.",
     usesWeaponDamage: true,
     weaponType: "melee",
     saveRequest: {
@@ -185,7 +186,7 @@ export const MARTIAL_SKILLS: Skill[] = [
     actionType: "Reação",
     level: 2,
     description:
-      "Quando um aliado a até 3 metros sofreria dano de um ataque, você se interpõe heroicamente. Troque de lugar com o aliado e receba o ataque em seu lugar. O dano que você sofre é reduzido pela metade. Não acumulável com outras reduções.",
+      "Você se atira na frente do perigo para salvar um companheiro. Você troca de lugar com o aliado alvo (ou se move para a frente dele) e recebe o ataque ou efeito no lugar dele. O dano que você recebe dessa ação é reduzido pela metade, mas você não pode usar nenhuma outra habilidade para reduzir ou anular esse dano ainda mais (como Bastião Imóvel).",
   },
   {
     id: "ataque_redemoinho",
@@ -194,7 +195,7 @@ export const MARTIAL_SKILLS: Skill[] = [
     actionType: "Padrão",
     level: 2,
     description:
-      "Você gira com sua arma em um círculo completo, atacando todos os inimigos adjacentes (1,5m). Faça uma única jogada de ataque e compare com a CA de cada alvo. Todos que forem atingidos sofrem o dano normal da arma.",
+      "Você gira em um redemoinho furioso, transformando-se em uma zona de morte momentânea. Realize uma única jogada de ataque corpo-a-corpo e compare o resultado com a Classe de Armadura (CA) de todos os inimigos adjacentes a você (dentro de 1,5m). Todo inimigo cujo a CA for superada sofre o dano normal da sua arma.",
   },
 ];
 
@@ -208,7 +209,7 @@ export const DEXTERITY_SKILLS: Skill[] = [
     actionType: "Ação Bônus",
     level: 1,
     description:
-      "Você joga areia nos olhos, puxa uma capa sobre o rosto do inimigo ou chuta terra — qualquer truque vale. Um alvo a até 3 metros deve fazer uma Salvaguarda de Constituição ou ficar Cego ou Prostrado (à sua escolha) até o final do próximo turno dele.",
+      "Você joga areia nos olhos, dispara pólvora no rosto do inimigo ou chuta alguma parte sensível. Um alvo a até 3m deve passar num teste de Constituição, caso falhe, ele fica Cego ou Prostrado até o final do próximo turno dele.",
   },
   {
     id: "disparo_incapacitante",
@@ -217,7 +218,7 @@ export const DEXTERITY_SKILLS: Skill[] = [
     actionType: "Padrão",
     level: 1,
     description:
-      "Um tiro calculado que visa articulações ou pontos vulneráveis. Causa o dano normal da arma à distância. Se acertar, o alvo tem seu deslocamento reduzido pela metade até o final do próximo turno dele.",
+      "Você mira em um ponto funcional do inimigo. Faça um ataque à distância. Se acertar, causa dano normal e escolhe um efeito: Asa/Perna: O deslocamento do alvo torna-se 0. Mão/Garra: O alvo larga um item que esteja segurando ou tem Desvantagem no próximo ataque.",
     usesWeaponDamage: true,
     weaponType: "ranged",
   },
@@ -228,7 +229,7 @@ export const DEXTERITY_SKILLS: Skill[] = [
     actionType: "Reação",
     level: 1,
     description:
-      "Seus reflexos afiados permitem uma esquiva instintiva. Ao ser alvo de um ataque, escolha: adicionar seu bônus de Proficiência à CA contra esse ataque específico, OU ganhar Vantagem em um teste de Destreza provocado pelo ataque.",
+      "Sua velocidade salva sua vida. Você adiciona seu bônus de Proficiência à sua CA contra um ataque, ou recebe Vantagem em um teste de resistência de Destreza.",
   },
   {
     id: "passo_esgueiro",
@@ -246,7 +247,7 @@ export const DEXTERITY_SKILLS: Skill[] = [
     actionType: "Padrão",
     level: 1,
     description:
-      "Um golpe preciso que explora aberturas na guarda do oponente. Se você tiver Vantagem no ataque (ou o alvo estiver Cego/Prostrado), causa +1 dado de dano da arma. Além disso, o alvo perde todas as Reações até o início do próximo turno dele.",
+      "Você aproveita uma distração momentânea para atingir um ponto vital. Realize um ataque corpo a corpo com uma espada. Se você tiver Vantagem na jogada de ataque (ou se o alvo estiver sob uma condição negativa como Cego ou Prostrado), o golpe causa + 1 dado de dano da arma e o alvo fica Incapaz de realizar Reações até o início do próximo turno dele.",
     usesWeaponDamage: true,
     weaponType: "melee",
   },
@@ -254,11 +255,11 @@ export const DEXTERITY_SKILLS: Skill[] = [
   {
     id: "movimento_dancante",
     name: "Movimento Dançante",
-    cost: 3,
+    cost: 2,
     actionType: "Reação",
     level: 2,
     description:
-      "Quando um inimigo erra um ataque corpo a corpo contra você, seus pés se movem como em uma dança. Mova-se até 3 metros sem provocar ataques de oportunidade e ganhe Vantagem em testes de Furtividade ou Acrobacia até o final do turno.",
+      "Você usa o erro do inimigo como impulso. Você pode se mover até 3m sem provocar ataques de oportunidade e ganha Vantagem no próximo teste de Furtividade ou Acrobacia até o fim do turno.",
   },
   {
     id: "granada_fumaca",
@@ -267,7 +268,7 @@ export const DEXTERITY_SKILLS: Skill[] = [
     actionType: "Padrão",
     level: 2,
     description:
-      "Você arremessa um dispositivo que gera uma densa nuvem de fumaça em uma área de 6 metros. Todas as criaturas dentro ficam Cegas e são consideradas invisíveis para quem está fora da nuvem. A fumaça dura 1 rodada. Requer 1 uso de Kit de Explosivos.",
+      "Você joga uma granada que explode e gera uma área coberta de fumaça, deixando todos em sua área de 6m cegos e fora do campo de visão para aqueles que olham de fora para dentro. Requer 1 uso de Kit de Explosivos.",
   },
   {
     id: "mira_calculada",
@@ -276,7 +277,7 @@ export const DEXTERITY_SKILLS: Skill[] = [
     actionType: "Ação Bônus",
     level: 2,
     description:
-      "Você respira fundo e alinha sua mira com precisão cirúrgica. Seu próximo ataque neste turno causa +1 dado de dano da arma. Se o ataque errar, o Foco gasto não é recuperado. Não acumulável consigo mesmo.",
+      "Você respira fundo e ajusta cada detalhe do disparo. O próximo ataque à distância que você realizar neste turno: Ignora Desvantagem por cobertura leve e causa mais um dado de dano da arma se acertar.",
   },
 ];
 
@@ -299,7 +300,7 @@ export const ORATORY_SKILLS: Skill[] = [
     actionType: "Padrão",
     level: 1,
     description:
-      "Com voz trovejante, você declara uma ameaça que faz o sangue gelar. Todos os inimigos em um cone de 3 metros devem fazer uma Salvaguarda de Sabedoria ou ficam Intimidados até o final do próximo turno deles, sofrendo Desvantagem em ataques contra você.",
+      "Você emite uma ordem ou ameaça que paralisa os inimigos. Todos os inimigos hostis em um cone de 5m devem fazer um teste de resistência de Sabedoria. Se falharem, eles ficam Intimidados até o próximo turno.",
     saveRequest: {
       attribute: "Sabedoria",
       effect: "Intimidado",
@@ -312,7 +313,7 @@ export const ORATORY_SKILLS: Skill[] = [
     actionType: "Padrão",
     level: 1,
     description:
-      "Sua voz carrega o peso de um líder nato. Até 3 aliados que possam ouvi-lo ganham +2 no próximo ataque ou teste de resistência que fizerem. O bônus dura até o início do seu próximo turno ou até ser usado.",
+      "Você impõe sua vontade sobre o campo de batalha. Escolha até 3 aliados que possam te ouvir. Cada Aliado pode aumentar em +2 sua próxima jogada de ataque ou teste de resistência até o final do próximo turno.",
   },
   {
     id: "palavra_coragem",
@@ -321,7 +322,7 @@ export const ORATORY_SKILLS: Skill[] = [
     actionType: "Padrão",
     level: 1,
     description:
-      "Você profere palavras de encorajamento que renovam a determinação de um aliado. O alvo recupera 1d6 + seu modificador de Carisma de Pontos de Vida. Funciona à distância desde que o aliado possa ouvi-lo (até 9m).",
+      "Você reforça o espírito de um aliado. Ele recupera (1d6 + Carisma) Pontos de vida.",
     isHealing: true,
     healFormula: "1d6 + @CHA",
   },
@@ -333,7 +334,7 @@ export const ORATORY_SKILLS: Skill[] = [
     actionType: "Reação",
     level: 2,
     description:
-      "Quando um aliado a até 9 metros sofrer dano, você grita uma advertência ou distrai o atacante com palavras afiadas. O dano sofrido pelo aliado é reduzido em 1d10 + seu modificador de Carisma. Se reduzir a 0, o ataque é completamente negado.",
+      "Você grita um aviso ou distrai o atacante com uma provocação no último segundo. O dano sofrido pelo aliado é reduzido em 1d10 + Carisma.",
   },
   {
     id: "coordenacao_aliada",
@@ -342,6 +343,6 @@ export const ORATORY_SKILLS: Skill[] = [
     actionType: "Padrão",
     level: 2,
     description:
-      "Você designa um inimigo e coordena um ataque combinado. Dois aliados ao alcance podem usar suas Reações para atacar o alvo imediatamente. Se o primeiro aliado causar uma condição (Prostrado, Cego, etc.), o segundo aliado ganha Vantagem em seu ataque.",
+      "Você orquestra um ataque simultâneo, explorando a distração do inimigo. Escolha um inimigo que você possa ver. Dois aliados seus que estejam ao alcance de ataque desse inimigo podem usar suas Reações para realizar um ataque imediato (corpo a corpo ou à distância) contra ele. Sinergia: Como os ataques ocorrem simultaneamente, se o primeiro aliado acertar e derrubar/atordoar o inimigo, o segundo aliado se beneficia dessa condição no ataque dele (Vantagem).",
   },
 ];

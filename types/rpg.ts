@@ -373,13 +373,14 @@ export type ActionCostType = "standard" | "bonus" | "reaction" | "free";
 export interface ResolveActionPayload {
   attackerId: string;
   targetId?: string | null;
+  targets?: Array<{ targetId: string; damageAmount: number; healingAmount: number }>;
   actionName: string;
 
   // Custos
   costType: ActionCostType;
   focusCost: number;
 
-  // Efeitos
+  // Efeitos (single-target)
   damageAmount: number;
   healingAmount: number;
 }
