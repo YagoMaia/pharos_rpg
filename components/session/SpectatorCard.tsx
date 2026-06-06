@@ -1,6 +1,7 @@
 import { Combatant } from "@/types/rpg";
 import React, { useMemo } from "react";
 import { StyleSheet, Text, View } from "react-native";
+import { ConditionBar } from "../rpg/ConditionBadges";
 import { AvatarPortrait } from "../ui/AvatarPortrait";
 
 interface SpectatorCardProps {
@@ -108,6 +109,9 @@ export const SpectatorCard = ({
               "Ativa"}
           </Text>
         )}
+
+        {/* Badges de Condições */}
+        <ConditionBar conditions={item.conditions || []} size="small" />
       </View>
     </View>
   );

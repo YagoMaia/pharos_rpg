@@ -75,6 +75,30 @@ export interface Stance {
   acBonus?: number;
 }
 
+// --- SISTEMA DE CONDIÇÕES ---
+export type ConditionName =
+  | "Cego"
+  | "Surdo"
+  | "Prostrado"
+  | "Confuso"
+  | "Amedrontado"
+  | "Intimidado"
+  | "Incapacitado"
+  | "Paralisado"
+  | "Envenenado"
+  | "Agarrado"
+  | "Lento"
+  | "Atordoado";
+
+export interface ActiveCondition {
+  id: string; // ID único da aplicação da condição
+  name: ConditionName;
+  appliedAtTurn: number; // Turno em que foi aplicada (para controle de duração)
+  durationTurns?: number; // Quantos turnos resta (undefined = permanente até remoção manual)
+  sourceId: string; // ID do combatente que aplicou
+  description: string; // Efeito mecânico (ex: "Desvantagem em ataques e testes de Percepção")
+}
+
 export type ItemType = "consumable" | "equipment" | "key";
 
 export interface Item {
@@ -314,15 +338,19 @@ export interface Combatant {
 
   equipmentSummary?: string;
   actionsDescription?: string;
+
+  // Condições ativas (ex: Cego, Prostrado, Confuso)
+  conditions: ActiveCondition[];
 }
 
 export type CombatantUpdate = Partial<
-  Omit<Combatant, "hp" | "focus" | "turnActions" | "deathSaves">
+  Omit<Combatant, "hp" | "focus" | "turnActions" | "deathSaves" | "conditions">
 > & {
   hp?: Partial<Combatant["hp"]>;
   focus?: Partial<Combatant["focus"]>;
   turnActions?: Partial<Combatant["turnActions"]>;
   deathSaves?: Partial<Combatant["deathSaves"]>;
+  conditions?: ActiveCondition[];
 };
 
 export interface NpcTemplate {
@@ -383,6 +411,14 @@ export interface ResolveActionPayload {
   // Efeitos (single-target)
   damageAmount: number;
   healingAmount: number;
+
+  // Condições a aplicar nos alvos
+  appliedConditions?: Array<{
+    targetId: string;
+    conditionName: ConditionName;
+    durationTurns?: number; // undefined = permanente
+    description: string;
+  }>;
 }
 
 export interface GameEvent {

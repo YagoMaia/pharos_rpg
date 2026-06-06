@@ -25,6 +25,7 @@ import {
 import { getActionKey } from "@/utils/rpgUtils";
 
 import { AttackModal } from "../modals/AttackModal";
+import { ConditionManagerModal } from "../modals/ConditionManagerModal";
 import { HealModal } from "../modals/HealModal";
 import { ActionTracker } from "../rpg/ActionTracker";
 import { CombatHud } from "../rpg/CombatHud";
@@ -62,6 +63,8 @@ export const ActiveTurnInterface = ({ combatant, isGm = false }: Props) => {
     cost: number;
     modifier: number;
   } | null>(null);
+
+  const [conditionModalOpen, setConditionModalOpen] = useState(false);
 
   // Garante que actions existe com valores padrão
   const turnActions = combatant.turnActions || {
@@ -580,6 +583,7 @@ export const ActiveTurnInterface = ({ combatant, isGm = false }: Props) => {
         focus={combatant.focus}
         armorClass={combatant.armorClass}
         stanceMod={stanceBonus}
+        conditions={combatant.conditions || []}
       />
 
       <View style={{ paddingHorizontal: 16 }}>
@@ -591,6 +595,19 @@ export const ActiveTurnInterface = ({ combatant, isGm = false }: Props) => {
             turnActions={turnActions}
             onStanceChange={handleStanceChange}
           />
+        )}
+
+        {/* --- BOTÃO GERENCIAR CONDIÇÕES (GM) --- */}
+        {isGm && (
+          <TouchableOpacity
+            style={styles.conditionBtn}
+            onPress={() => setConditionModalOpen(true)}
+          >
+            <MaterialCommunityIcons name="shield-alert" size={18} color={colors.text} />
+            <Text style={[styles.battlefieldBtnText, { color: colors.text }]}>
+              GERENCIAR CONDIÇÕES{combatant.conditions?.length ? ` (${combatant.conditions.length})` : ""}
+            </Text>
+          </TouchableOpacity>
         )}
 
         {/* --- RASTREADOR DE AÇÕES --- */}
@@ -752,6 +769,13 @@ export const ActiveTurnInterface = ({ combatant, isGm = false }: Props) => {
           />
         </View>
       </Modal>
+
+      {/* --- MODAL GERENCIAR CONDIÇÕES --- */}
+      <ConditionManagerModal
+        visible={conditionModalOpen}
+        onClose={() => setConditionModalOpen(false)}
+        combatant={combatant}
+      />
     </ScrollView>
   );
 };
@@ -823,6 +847,18 @@ const getStyles = (colors: any, isDark: any) =>
       fontSize: 12,
       textTransform: "uppercase",
       letterSpacing: 1,
+    },
+    conditionBtn: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+      backgroundColor: colors.surface,
+      padding: 10,
+      borderRadius: 8,
+      borderWidth: 1,
+      borderColor: "#ff7043" + "60",
+      gap: 8,
+      marginBottom: 12,
     },
 
     // MODAL

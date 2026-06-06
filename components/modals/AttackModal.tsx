@@ -13,6 +13,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { ConditionBar } from "../rpg/ConditionBadges";
 
 // --- HELPER: Status de Vida (Névoa de Guerra) ---
 const getHealthStatus = (current: number, max: number) => {
@@ -206,6 +207,11 @@ export const AttackModal = ({
                               : status}
                           </Text>
                         </Text>
+                        {item.conditions && item.conditions.length > 0 && (
+                          <View style={{ marginTop: 4 }}>
+                            <ConditionBar conditions={item.conditions} size="small" />
+                          </View>
+                        )}
                       </View>
 
                       {/* CONDICIONAL DE CA (Só GM vê o Badge) */}

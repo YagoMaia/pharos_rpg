@@ -7,7 +7,9 @@ export type WSEventType =
   | "JOIN_SESSION_WITH_PET"
   | "UPDATE_COMBATANTS"
   | "SYNC_COMBAT_STATE"
-  | "PLAYER_ACTION";
+  | "PLAYER_ACTION"
+  | "APPLY_CONDITION"
+  | "REMOVE_CONDITION";
 
 // Estrutura Base da Mensagem
 export interface WSMessage {

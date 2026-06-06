@@ -13,10 +13,12 @@ import { useAlert } from "@/context/AlertContext";
 import { useCampaign } from "@/context/CampaignContext";
 import { useTheme } from "@/context/ThemeContext";
 import { useWebSocket } from "@/context/WebSocketContext";
+import { Combatant } from "@/types/rpg";
 
 // Componentes
 import { CombatLog } from "@/components/gm/CombatLog";
 import { GMCombatantCard } from "@/components/gm/GMCombatantCard";
+import { ConditionManagerModal } from "@/components/modals/ConditionManagerModal";
 import { ActiveTurnInterface } from "@/components/session/ActiveTurnInterface";
 import { ConnectionForm } from "@/components/session/ConnectionForm";
 
@@ -28,6 +30,9 @@ export default function GMCombatScreen() {
 
   const { isConnected, sendMessage, connectToRoute, disconnect } =
     useWebSocket();
+
+  const [conditionModalOpen, setConditionModalOpen] = React.useState(false);
+  const [selectedConditionCombatant, setSelectedConditionCombatant] = React.useState<Combatant | null>(null);
 
   const handleConnectGM = (ip: string, code: string) => {
     if (!ip || !code) {
@@ -156,6 +161,10 @@ export default function GMCombatScreen() {
               colors={colors}
               onUpdate={handleUpdateStat}
               onRemove={handleRemoveCombatant}
+              onManageConditions={(c) => {
+                setSelectedConditionCombatant(c);
+                setConditionModalOpen(true);
+              }}
             />
           )}
           ListEmptyComponent={
@@ -175,6 +184,15 @@ export default function GMCombatScreen() {
       )}
 
       {/* Modal Add NPC Rápido */}
+
+      {/* Modal Gerenciar Condições */}
+      {selectedConditionCombatant && (
+        <ConditionManagerModal
+          visible={conditionModalOpen}
+          onClose={() => setConditionModalOpen(false)}
+          combatant={selectedConditionCombatant}
+        />
+      )}
     </View>
   );
 }

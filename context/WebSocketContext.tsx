@@ -238,6 +238,13 @@ export const WebSocketProvider = ({
         });
         if (payload.log) addLog(payload.log);
         break;
+
+      case "CONDITION_UPDATE":
+        updateCombatant(payload.combatantId, {
+          conditions: payload.conditions,
+        });
+        if (payload.log) addLog(payload.log);
+        break;
       
       default:
         console.warn(`Mensagem WebSocket não tratada: ${type}`);

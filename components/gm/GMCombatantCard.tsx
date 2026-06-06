@@ -1,7 +1,8 @@
 import { Combatant } from "@/types/rpg";
-import { Ionicons } from "@expo/vector-icons";
+import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import React from "react";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { ConditionBar } from "../rpg/ConditionBadges";
 import { AvatarPortrait } from "../ui/AvatarPortrait";
 
 interface GMCombatantCardProps {
@@ -10,6 +11,7 @@ interface GMCombatantCardProps {
   colors: any;
   onUpdate: (id: string, type: "hp" | "focus", value: number) => void;
   onRemove: (id: string) => void;
+  onManageConditions?: (item: Combatant) => void;
 }
 
 export const GMCombatantCard = ({
@@ -18,6 +20,7 @@ export const GMCombatantCard = ({
   colors,
   onUpdate,
   onRemove,
+  onManageConditions,
 }: GMCombatantCardProps) => {
   const isPlayer = item.type === "player";
 
@@ -83,15 +86,31 @@ export const GMCombatantCard = ({
                 "Ativa"}
             </Text>
           )}
+          {item.conditions && item.conditions.length > 0 && (
+            <View style={{ marginTop: 4 }}>
+              <ConditionBar conditions={item.conditions} size="small" />
+            </View>
+          )}
         </View>
 
-        {/* Botão Remover */}
-        <TouchableOpacity
-          onPress={() => onRemove(item.id)}
-          style={styles.removeBtn}
-        >
-          <Ionicons name="trash-outline" size={20} color={colors.error} />
-        </TouchableOpacity>
+        <View style={styles.actionButtons}>
+          {onManageConditions && (
+            <TouchableOpacity
+              onPress={() => onManageConditions(item)}
+              style={styles.actionBtn}
+            >
+              <MaterialCommunityIcons name="shield-alert" size={20} color={"#ff7043"} />
+            </TouchableOpacity>
+          )}
+
+          {/* Botão Remover */}
+          <TouchableOpacity
+            onPress={() => onRemove(item.id)}
+            style={styles.actionBtn}
+          >
+            <Ionicons name="trash-outline" size={20} color={colors.error} />
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* --- CONTROLES DE HP E FOCO --- */}
@@ -197,7 +216,8 @@ const styles = StyleSheet.create({
   name: { fontSize: 16, fontWeight: "bold" },
   typeLabel: { fontSize: 11, fontWeight: "bold", marginTop: 2 },
 
-  removeBtn: { padding: 8 },
+  actionButtons: { flexDirection: "row", alignItems: "center" },
+  actionBtn: { padding: 8 },
 
   statsRow: {
     flexDirection: "row",

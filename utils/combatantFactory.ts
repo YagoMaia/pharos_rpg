@@ -111,6 +111,7 @@ export const playerToCombatant = (
       melee: meleeData,
       ranged: rangedData,
     },
+    conditions: [],
     // actionsDescription: "Ações do Jogador...", // Pode deixar vazio ou automatizar
   };
 };
@@ -163,6 +164,7 @@ export const npcToCombatant = (
       },
     },
 
+    conditions: [],
     // actionsDescription: npc.actions,
   };
 };
@@ -280,5 +282,6 @@ export const petToCombatant = (
         range: "4.5m",
       },
     },
+    conditions: [],
   };
 };
