@@ -1,6 +1,104 @@
 // src/data/skillData.ts
 import { Skill } from "../types/rpg";
 
+// Skills exclusivas dos haotai (mudam apanas as descricoes -- Wayne que ta codando)
+export const HAOTAI_SKILLS: Skill[] = [
+ // Nível 1
+  {
+    id: "golpe_demolidor",
+    name: "Golpe Demolidor",
+    cost: 2,
+    actionType: "Padrão",
+    level: 1,
+    description:
+    "Aproveitando seus 3 metros de altura, você ergue a guarda e desfere um soco ou golpe diagonal descendente avassalador. Impulsionado pela gravidade e por alavancas ósseas massivas, o impacto adiciona 1d6 de dano extra, sendo capaz de esmagar escudos e deformar armaduras de cima para baixo.",
+    usesWeaponDamage: true,
+    weaponType: "melee",
+    bonusDamage: "1d6",
+    damageType: "Físico",
+  },
+  {
+    id: "vigor_ferro",
+    name: "Vigor de Ferro",
+    cost: 3,
+    actionType: "Ação Bônus",
+    level: 1,
+    description:
+    "Rotacionando o quadril com precisão geométrica, você projeta sua enorme envergadura em um chute circular ou golpe de longo alcance. O ataque corta horizontalmente um cone de 3 metros à sua frente, atingindo a linha alta de todos os inimigos na área com o dano normal da arma. Ideal contra oponentes aglomerados.",    isHealing: true,
+    healFormula: "1d10 + @CON",
+  },
+  {
+    id: "varrer_linha",
+    name: "Varrer a Linha",
+    cost: 4,
+    actionType: "Padrão",
+    weaponType: "melee",
+    level: 1,
+    description:
+    "Ao ser atingido, você firma os pés como as raízes das montanhas e cruza seus longos antebraços na Guarda do Pico. Essa estrutura biomecânica perfeita dissipa a força do ataque, reduzindo o dano recebido pela metade. Requer que você não tenha se movido neste turno. Não acumulável com outras reduções de dano.",
+    usesWeaponDamage: true,
+    damageType: "Físico",
+  },
+  {
+    id: "bastiao_imovel",
+    name: "Bastião Imóvel",
+    cost: 3,
+    actionType: "Reação",
+    level: 1,
+    description:
+      "Ao ser atingido por um ataque, você firma os pés e endurece o corpo, reduzindo o dano recebido pela metade. Requer que você não tenha se movido neste turno. Não acumulável com outras reduções de dano.",
+  },
+  // Nível 2
+  {
+    id: "investida_ariete",
+    name: "Investida de Aríete",
+    cost: 5,
+    actionType: "Padrão",
+    level: 2,
+    description:
+      "Você avança o dobro do seu deslocamento em linha reta e desfere um golpe com todo o momento. Causa o dano normal da arma e o alvo deve fazer uma Salvaguarda de Força ou ser derrubado (Prostrado). Você não provoca ataques de oportunidade durante o avanço.",
+    weaponType: "melee",
+    usesWeaponDamage: true,
+    saveRequest: {
+      attribute: "Força",
+      effect: "Derrubado (Prostrado)",
+    },
+  },
+  {
+    id: "concussao",
+    name: "Concussão",
+    cost: 3,
+    actionType: "Padrão",
+    level: 2,
+    description:
+      "Um golpe preciso direcionado à cabeça do oponente. Causa o dano normal da arma e o alvo deve fazer uma Salvaguarda de Constituição ou ficar Confuso até o final do próximo turno dele, sofrendo Desvantagem em testes de ataque e habilidade.",
+    usesWeaponDamage: true,
+    weaponType: "melee",
+    saveRequest: {
+      attribute: "Constituição",
+      effect: "Confuso",
+    },
+  },
+  {
+    id: "martir",
+    name: "Mártir",
+    cost: 4,
+    actionType: "Reação",
+    level: 2,
+    description:
+      "Quando um aliado a até 3 metros sofreria dano de um ataque, você se interpõe heroicamente. Troque de lugar com o aliado e receba o ataque em seu lugar. O dano que você sofre é reduzido pela metade. Não acumulável com outras reduções.",
+  },
+  {
+    id: "ataque_redemoinho",
+    name: "Ataque Redemoinho",
+    cost: 4,
+    actionType: "Padrão",
+    level: 2,
+    description:
+      "Você gira com sua arma em um círculo completo, atacando todos os inimigos adjacentes (1,5m). Faça uma única jogada de ataque e compare com a CA de cada alvo. Todos que forem atingidos sofrem o dano normal da arma.",
+  },
+]
+
 // 1. FORÇA / CONSTITUIÇÃO (Guerreiro, Vanguarda)
 export const MARTIAL_SKILLS: Skill[] = [
   // Nível 1
