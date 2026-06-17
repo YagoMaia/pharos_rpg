@@ -10,9 +10,10 @@ interface EntityCardProps {
   actionIcon?: "add" | "remove" | "chevron-forward";
   onAction?: () => void;
   showCampaignBadge?: boolean;
+  onCombatAction?: () => void;
 }
 
-export function EntityCard({ entity, type, onPress, actionIcon = "chevron-forward", onAction, showCampaignBadge = false }: EntityCardProps) {
+export function EntityCard({ entity, type, onPress, actionIcon = "chevron-forward", onAction, showCampaignBadge = false, onCombatAction }: EntityCardProps) {
   const { colors } = useTheme();
   const styles = getStyles(colors);
 
@@ -53,10 +54,19 @@ export function EntityCard({ entity, type, onPress, actionIcon = "chevron-forwar
         )}
       </View>
 
-      {onAction ? (
-        <TouchableOpacity style={styles.actionBtn} onPress={onAction}>
-          <Ionicons name={actionIcon as any} size={24} color={actionIcon === "remove" ? "#f44336" : colors.primary} />
-        </TouchableOpacity>
+      {onAction || onCombatAction ? (
+        <View style={{ flexDirection: "row", alignItems: "center" }}>
+          {onCombatAction && (type === "npc" || type === "monster") && (
+            <TouchableOpacity style={styles.actionBtn} onPress={onCombatAction}>
+              <MaterialCommunityIcons name="sword-cross" size={22} color={"#c62828"} />
+            </TouchableOpacity>
+          )}
+          {onAction && (
+            <TouchableOpacity style={styles.actionBtn} onPress={onAction}>
+              <Ionicons name={actionIcon as any} size={24} color={actionIcon === "remove" ? "#f44336" : colors.primary} />
+            </TouchableOpacity>
+          )}
+        </View>
       ) : (
         <Ionicons name={actionIcon as any} size={20} color={colors.textSecondary} />
       )}

@@ -9,7 +9,12 @@ import { NpcFormModal } from "@/components/gm/NpcFormModal";
 import { MonsterFormModal } from "@/components/gm/MonsterFormModal";
 import { ItemFormModal } from "@/components/gm/ItemFormModal";
 import { LocationFormModal } from "@/components/gm/LocationFormModal";
-import { EntityType } from "@/types/campaign";
+import { EntityType, MonsterEntry, NpcEntry } from "@/types/campaign";
+import { useCampaign } from "@/context/CampaignContext";
+import { useWebSocket } from "@/context/WebSocketContext";
+import { useAlert } from "@/context/AlertContext";
+import { libraryToCombatant } from "@/utils/combatantFactory";
+import { TextInput, Modal } from "react-native";
 
 export default function LibraryScreen() {
   const { colors } = useTheme();
@@ -26,6 +31,15 @@ export default function LibraryScreen() {
 
   const [modalVisible, setModalVisible] = useState(false);
   const [editingItem, setEditingItem] = useState<any>(null);
+
+  // Combat states
+  const { combatants, addCombatant } = useCampaign();
+  const { sendMessage, isConnected } = useWebSocket();
+  const { showAlert } = useAlert();
+  
+  const [qtyModalVisible, setQtyModalVisible] = useState(false);
+  const [selectedCombatEntity, setSelectedCombatEntity] = useState<NpcEntry | MonsterEntry | null>(null);
+  const [quantity, setQuantity] = useState("1");
 
   const handleCreate = () => {
     setEditingItem(null);
@@ -44,6 +58,73 @@ export default function LibraryScreen() {
       case "item": deleteItem(id); break;
       case "location": deleteLocation(id); break;
     }
+  };
+
+  const handleCombatAction = (entity: NpcEntry | MonsterEntry) => {
+    setSelectedCombatEntity(entity);
+    setQuantity("1");
+    setQtyModalVisible(true);
+  };
+
+  const confirmAddToCombat = () => {
+    if (!selectedCombatEntity) return;
+    const qty = parseInt(quantity) || 1;
+
+    const baseName = selectedCombatEntity.name.replace(/ #\d+$/, "").trim();
+
+    const existingSameName = combatants.filter(
+      (c) => c.name === baseName || c.name.startsWith(`${baseName} #`),
+    );
+
+    let highestNumber = 0;
+    if (existingSameName.length > 0) {
+      existingSameName.forEach((c) => {
+        if (c.name === baseName) {
+          highestNumber = Math.max(highestNumber, 1);
+        } else {
+          const match = c.name.match(/ #(\d+)$/);
+          if (match && match[1]) {
+            highestNumber = Math.max(highestNumber, parseInt(match[1]));
+          }
+        }
+      });
+    }
+
+    for (let i = 0; i < qty; i++) {
+      // Usa agilidade/destreza se houver, senao bonus base 0
+      const attrs: any = (selectedCombatEntity.stats as any)?.attributes || {};
+      const agiVal = attrs["Destreza"]?.modifier || attrs["Agilidade"]?.value || 0;
+      const init = Math.floor(Math.random() * 20) + 1 + Number(agiVal);
+
+      const nextNumber = highestNumber + i + 1;
+      const shouldNumber = qty > 1 || existingSameName.length > 0;
+
+      const newCombatant = libraryToCombatant(selectedCombatEntity, init, nextNumber);
+
+      if (!shouldNumber) {
+        newCombatant.name = baseName;
+        newCombatant.id = newCombatant.id.replace(/ #\d+$/, ""); // Remove o id numérico gerado
+      } else {
+        newCombatant.name = `${baseName} #${nextNumber}`;
+      }
+
+      // Envio
+      if (isConnected) {
+        sendMessage("GM_ADD_NPC", newCombatant);
+      } else {
+        addCombatant(
+          newCombatant.name,
+          newCombatant.hp.max,
+          init,
+          "npc",
+          newCombatant,
+        );
+      }
+    }
+
+    const modeMsg = isConnected ? "enviados ao servidor" : "adicionados (Offline)";
+    showAlert("Sucesso", `${qty}x ${baseName} ${modeMsg}.`);
+    setQtyModalVisible(false);
   };
 
   const renderTabBtn = (tab: EntityType, label: string) => (
@@ -98,6 +179,7 @@ export default function LibraryScreen() {
                 type={activeTab}
                 onPress={() => handleEdit(item)}
                 showCampaignBadge={true}
+                onCombatAction={(activeTab === "npc" || activeTab === "monster") ? () => handleCombatAction(item as any) : undefined}
               />
             </View>
             <TouchableOpacity style={styles.deleteBtn} onPress={() => handleDelete(item.id)}>
@@ -139,6 +221,46 @@ export default function LibraryScreen() {
         onSave={(data) => editingItem ? updateLocation(editingItem.id, data) : createLocation(data as any)}
         initialData={editingItem}
       />
+
+      {/* Modal Quantidade Combate */}
+      <Modal visible={qtyModalVisible} animationType="fade" transparent>
+        <View style={styles.overlay}>
+          <View style={styles.qtyBox}>
+            <Text style={styles.qtyTitle}>Adicionar ao Combate</Text>
+            <Text
+              style={{
+                color: colors.textSecondary,
+                marginBottom: 10,
+                textAlign: "center",
+              }}
+            >
+              Quantos {selectedCombatEntity?.name}?
+            </Text>
+            <TextInput
+              style={styles.qtyInput}
+              keyboardType="numeric"
+              value={quantity}
+              onChangeText={setQuantity}
+              autoFocus
+              selectTextOnFocus
+            />
+            <View style={styles.modalBtns}>
+              <TouchableOpacity
+                onPress={() => setQtyModalVisible(false)}
+                style={styles.cancelBtn}
+              >
+                <Text style={styles.cancelText}>Cancelar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={confirmAddToCombat}
+                style={styles.confirmBtn}
+              >
+                <Text style={styles.saveText}>Confirmar</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -218,4 +340,56 @@ const getStyles = (colors: any) => StyleSheet.create({
     shadowOpacity: 0.25,
     shadowRadius: 3.84,
   },
+  overlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.6)",
+    justifyContent: "center",
+    padding: 20,
+    alignItems: "center",
+  },
+  qtyBox: {
+    backgroundColor: colors.surface,
+    padding: 20,
+    borderRadius: 12,
+    width: "80%",
+    elevation: 5,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  qtyTitle: {
+    color: colors.text,
+    fontSize: 18,
+    fontWeight: "bold",
+    textAlign: "center",
+    marginBottom: 12,
+  },
+  qtyInput: {
+    backgroundColor: colors.inputBg,
+    fontSize: 24,
+    fontWeight: "bold",
+    textAlign: "center",
+    padding: 12,
+    borderRadius: 8,
+    color: colors.text,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  modalBtns: { flexDirection: "row", gap: 10 },
+  cancelBtn: {
+    flex: 1,
+    padding: 12,
+    backgroundColor: colors.inputBg,
+    alignItems: "center",
+    borderRadius: 8,
+  },
+  confirmBtn: {
+    flex: 1,
+    padding: 12,
+    backgroundColor: "#c62828",
+    alignItems: "center",
+    borderRadius: 8,
+  },
+  cancelText: { color: colors.textSecondary, fontWeight: "bold" },
+  saveText: { color: "#fff", fontWeight: "bold" },
 });
