@@ -42,6 +42,7 @@ export interface NpcEntry {
   secrets?: string;           // Visível apenas para o Mestre
   tags: string[];
   linkedCampaignIds: string[];
+  isRevealedToPlayers?: boolean;
   stats?: object;             // Compatível com NpcTemplate (types/rpg.ts)
   createdAt: string;
   updatedAt: string;
@@ -62,6 +63,7 @@ export interface MonsterEntry {
   description: string;
   tags: string[];
   linkedCampaignIds: string[];
+  isRevealedToPlayers?: boolean;
   stats?: object;             // Compatível com NpcTemplate (types/rpg.ts)
   createdAt: string;
   updatedAt: string;
@@ -83,6 +85,7 @@ export interface ItemEntry {
   properties?: string;        // Efeitos mágicos, propriedades especiais
   tags: string[];
   linkedCampaignIds: string[];
+  isRevealedToPlayers?: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -101,6 +104,7 @@ export interface LocationEntry {
   notableNpcIds?: string[];   // Referências a NpcEntry.id
   tags: string[];
   linkedCampaignIds: string[];
+  isRevealedToPlayers?: boolean;
   createdAt: string;
   updatedAt: string;
 }

@@ -12,6 +12,7 @@ import { useAlert } from "@/context/AlertContext";
 import { useCampaign } from "@/context/CampaignContext";
 import { useTheme } from "@/context/ThemeContext";
 import { Combatant, Skill } from "@/types/rpg";
+import { AvatarPortrait } from "@/components/ui/AvatarPortrait";
 import { formatMod, getActionKey } from "@/utils/rpgUtils";
 
 export const CombatantCard = ({ item }: { item: Combatant }) => {
@@ -109,6 +110,10 @@ export const CombatantCard = ({ item }: { item: Combatant }) => {
             selectTextOnFocus
           />
           <Text style={styles.tinyLabel}>INI</Text>
+        </View>
+
+        <View style={{ marginLeft: 8 }}>
+          <AvatarPortrait imageUrl={item.image} name={item.name} size={40} />
         </View>
 
         <View style={styles.infoCol}>

@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, Modal, TextInput, TouchableOpacity, ScrollView 
 import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "@/context/ThemeContext";
 import { MonsterEntry, MonsterType, CreatureSize } from "@/types/campaign";
+import { ImagePickerSelector } from "@/components/ui/ImagePickerSelector";
 
 interface MonsterFormModalProps {
   visible: boolean;
@@ -21,6 +22,7 @@ export function MonsterFormModal({ visible, onClose, onSave, initialData }: Mons
   const [cr, setCr] = useState("");
   const [environment, setEnvironment] = useState("");
   const [description, setDescription] = useState("");
+  const [image, setImage] = useState<string | undefined>(undefined);
 
   useEffect(() => {
     if (visible) {
@@ -31,6 +33,7 @@ export function MonsterFormModal({ visible, onClose, onSave, initialData }: Mons
         setCr(initialData.cr);
         setEnvironment(initialData.environment || "");
         setDescription(initialData.description);
+        setImage(initialData.image);
       } else {
         setName("");
         setType("Besta");
@@ -38,6 +41,7 @@ export function MonsterFormModal({ visible, onClose, onSave, initialData }: Mons
         setCr("");
         setEnvironment("");
         setDescription("");
+        setImage(undefined);
       }
     }
   }, [visible, initialData]);
@@ -52,6 +56,7 @@ export function MonsterFormModal({ visible, onClose, onSave, initialData }: Mons
       cr,
       environment,
       description,
+      image,
       tags: [],
       linkedCampaignIds: initialData ? initialData.linkedCampaignIds : [],
     });
@@ -81,6 +86,13 @@ export function MonsterFormModal({ visible, onClose, onSave, initialData }: Mons
         </View>
 
         <ScrollView contentContainerStyle={styles.content}>
+          <ImagePickerSelector
+            currentImage={image}
+            onImageSelected={setImage}
+            label="Imagem do Monstro"
+            round={true}
+          />
+
           <View style={styles.field}>
             <Text style={styles.label}>Nome do Monstro *</Text>
             <TextInput

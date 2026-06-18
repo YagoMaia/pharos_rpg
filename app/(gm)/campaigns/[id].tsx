@@ -16,7 +16,11 @@ export default function CampaignDetailScreen() {
   const { colors } = useTheme();
   const styles = getStyles(colors);
 
-  const { getCampaignById, updateCampaign, unlinkEntityFromCampaign, npcs, monsters, items, locations } = useGMContext();
+  const { 
+    getCampaignById, updateCampaign, unlinkEntityFromCampaign, 
+    npcs, monsters, items, locations,
+    updateNpc, updateMonster, updateItem, updateLocation
+  } = useGMContext();
   const campaign = getCampaignById(id);
 
   const [activeTab, setActiveTab] = useState<Tab>("overview");
@@ -112,6 +116,16 @@ export default function CampaignDetailScreen() {
               onPress={() => {}}
               actionIcon="remove"
               onAction={() => unlinkEntityFromCampaign(campaign.id, type, item.id)}
+              isRevealed={item.isRevealedToPlayers}
+              onToggleReveal={() => {
+                const newValue = !item.isRevealedToPlayers;
+                switch (type) {
+                  case "npc": updateNpc(item.id, { isRevealedToPlayers: newValue }); break;
+                  case "monster": updateMonster(item.id, { isRevealedToPlayers: newValue }); break;
+                  case "item": updateItem(item.id, { isRevealedToPlayers: newValue }); break;
+                  case "location": updateLocation(item.id, { isRevealedToPlayers: newValue }); break;
+                }
+              }}
             />
           )}
         />

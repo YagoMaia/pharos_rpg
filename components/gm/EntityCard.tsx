@@ -1,6 +1,7 @@
 import React from "react";
 import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
 import { MaterialCommunityIcons, Ionicons } from "@expo/vector-icons";
+import { Image } from "expo-image";
 import { useTheme } from "@/context/ThemeContext";
 
 interface EntityCardProps {
@@ -11,9 +12,11 @@ interface EntityCardProps {
   onAction?: () => void;
   showCampaignBadge?: boolean;
   onCombatAction?: () => void;
+  isRevealed?: boolean;
+  onToggleReveal?: () => void;
 }
 
-export function EntityCard({ entity, type, onPress, actionIcon = "chevron-forward", onAction, showCampaignBadge = false, onCombatAction }: EntityCardProps) {
+export function EntityCard({ entity, type, onPress, actionIcon = "chevron-forward", onAction, showCampaignBadge = false, onCombatAction, isRevealed, onToggleReveal }: EntityCardProps) {
   const { colors } = useTheme();
   const styles = getStyles(colors);
 
@@ -40,7 +43,11 @@ export function EntityCard({ entity, type, onPress, actionIcon = "chevron-forwar
   return (
     <TouchableOpacity style={styles.card} onPress={onPress}>
       <View style={styles.iconContainer}>
-        <MaterialCommunityIcons name={getIcon() as any} size={28} color={colors.primary} />
+        {entity.image ? (
+          <Image source={{ uri: entity.image }} style={styles.image} contentFit="cover" />
+        ) : (
+          <MaterialCommunityIcons name={getIcon() as any} size={28} color={colors.primary} />
+        )}
       </View>
       
       <View style={styles.content}>
@@ -54,8 +61,17 @@ export function EntityCard({ entity, type, onPress, actionIcon = "chevron-forwar
         )}
       </View>
 
-      {onAction || onCombatAction ? (
+      {onAction || onCombatAction || onToggleReveal ? (
         <View style={{ flexDirection: "row", alignItems: "center" }}>
+          {onToggleReveal && (
+            <TouchableOpacity style={[styles.actionBtn, { marginRight: 4 }]} onPress={onToggleReveal}>
+              <Ionicons 
+                name={isRevealed ? "eye" : "lock-closed"} 
+                size={22} 
+                color={isRevealed ? colors.primary : colors.textSecondary} 
+              />
+            </TouchableOpacity>
+          )}
           {onCombatAction && (type === "npc" || type === "monster") && (
             <TouchableOpacity style={styles.actionBtn} onPress={onCombatAction}>
               <MaterialCommunityIcons name="sword-cross" size={22} color={"#c62828"} />
@@ -93,6 +109,11 @@ const getStyles = (colors: any) => StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     marginRight: 12,
+    overflow: "hidden",
+  },
+  image: {
+    width: "100%",
+    height: "100%",
   },
   content: {
     flex: 1,

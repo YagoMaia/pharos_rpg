@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, Modal, TextInput, TouchableOpacity, ScrollView 
 import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "@/context/ThemeContext";
 import { NpcEntry, NpcRole } from "@/types/campaign";
+import { ImagePickerSelector } from "@/components/ui/ImagePickerSelector";
 
 interface NpcFormModalProps {
   visible: boolean;
@@ -21,6 +22,7 @@ export function NpcFormModal({ visible, onClose, onSave, initialData }: NpcFormM
   const [appearance, setAppearance] = useState("");
   const [personality, setPersonality] = useState("");
   const [secrets, setSecrets] = useState("");
+  const [image, setImage] = useState<string | undefined>(undefined);
 
   useEffect(() => {
     if (visible) {
@@ -31,6 +33,7 @@ export function NpcFormModal({ visible, onClose, onSave, initialData }: NpcFormM
         setAppearance(initialData.appearance || "");
         setPersonality(initialData.personality || "");
         setSecrets(initialData.secrets || "");
+        setImage(initialData.image);
       } else {
         setName("");
         setRole("Neutro");
@@ -38,6 +41,7 @@ export function NpcFormModal({ visible, onClose, onSave, initialData }: NpcFormM
         setAppearance("");
         setPersonality("");
         setSecrets("");
+        setImage(undefined);
       }
     }
   }, [visible, initialData]);
@@ -52,6 +56,7 @@ export function NpcFormModal({ visible, onClose, onSave, initialData }: NpcFormM
       appearance,
       personality,
       secrets,
+      image,
       tags: [],
       linkedCampaignIds: initialData ? initialData.linkedCampaignIds : [],
     });
@@ -81,6 +86,13 @@ export function NpcFormModal({ visible, onClose, onSave, initialData }: NpcFormM
         </View>
 
         <ScrollView contentContainerStyle={styles.content}>
+          <ImagePickerSelector
+            currentImage={image}
+            onImageSelected={setImage}
+            label="Imagem do NPC"
+            round={true}
+          />
+
           <View style={styles.field}>
             <Text style={styles.label}>Nome do NPC *</Text>
             <TextInput

@@ -3,6 +3,7 @@ import { useTheme } from "@/context/ThemeContext";
 import { ANCESTRIES, CULTURAL_ORIGINS } from "@/data/origins";
 import { ALL_CLASSES, AttributeName, CharacterClass } from "@/types/rpg";
 import { Ionicons } from "@expo/vector-icons";
+import { ImagePickerSelector } from "@/components/ui/ImagePickerSelector";
 import React from "react";
 import {
   Modal,
@@ -32,6 +33,7 @@ export function EditCharacterModal({
     updateOrigin,
     updateMaxStat,
     updateAttribute,
+    updateImage,
   } = useCharacter();
 
   const { colors } = useTheme();
@@ -55,6 +57,13 @@ export function EditCharacterModal({
 
         {/* --- CONTEÚDO COM SCROLL --- */}
         <ScrollView contentContainerStyle={styles.content}>
+          <ImagePickerSelector
+            currentImage={character.image}
+            onImageSelected={updateImage}
+            label="Avatar do Personagem"
+            round={true}
+          />
+
           {/* 1. Identidade & Nível */}
           <Text style={styles.sectionTitle}>Identidade</Text>
 

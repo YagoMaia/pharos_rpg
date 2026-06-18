@@ -1,6 +1,7 @@
 import React from "react";
 import { View, Text, StyleSheet, TouchableOpacity, Alert } from "react-native";
 import { MaterialCommunityIcons, Ionicons } from "@expo/vector-icons";
+import { Image } from "expo-image";
 import { Campaign, CampaignStatus } from "@/types/campaign";
 import { useTheme } from "@/context/ThemeContext";
 
@@ -68,6 +69,9 @@ export function CampaignCard({
 
   return (
     <TouchableOpacity style={styles.card} onPress={onPress}>
+      {campaign.coverImage && (
+        <Image source={{ uri: campaign.coverImage }} style={styles.coverImage} contentFit="cover" />
+      )}
       {/* Header */}
       <View style={styles.header}>
         <View style={styles.titleRow}>
@@ -160,6 +164,10 @@ const getStyles = (colors: any) =>
       borderColor: colors.border,
       marginBottom: 16,
       overflow: "hidden",
+    },
+    coverImage: {
+      width: "100%",
+      height: 120,
     },
     header: {
       padding: 16,

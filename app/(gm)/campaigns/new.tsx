@@ -5,6 +5,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useGMContext } from "@/context/GMContext";
 import { useTheme } from "@/context/ThemeContext";
 import { GameSystem, CampaignVisibility, CampaignStatus } from "@/types/campaign";
+import { ImagePickerSelector } from "@/components/ui/ImagePickerSelector";
 
 export default function CampaignFormScreen() {
   const { colors } = useTheme();
@@ -19,6 +20,7 @@ export default function CampaignFormScreen() {
   const [visibility, setVisibility] = useState<CampaignVisibility>("private");
   const [maxPlayers, setMaxPlayers] = useState("5");
   const [status, setStatus] = useState<CampaignStatus>("active");
+  const [coverImage, setCoverImage] = useState<string | undefined>(undefined);
 
   const isEditing = !!edit;
 
@@ -32,6 +34,7 @@ export default function CampaignFormScreen() {
         setVisibility(camp.visibility);
         setMaxPlayers(camp.maxPlayers.toString());
         setStatus(camp.status);
+        setCoverImage(camp.coverImage);
       }
     }
   }, [edit]);
@@ -47,6 +50,7 @@ export default function CampaignFormScreen() {
         visibility,
         maxPlayers: parseInt(maxPlayers) || 5,
         status,
+        coverImage,
       });
     } else {
       createCampaign({
@@ -56,6 +60,7 @@ export default function CampaignFormScreen() {
         visibility,
         maxPlayers: parseInt(maxPlayers) || 5,
         status: "active",
+        coverImage,
         playerIds: [],
         linkedNpcIds: [],
         linkedMonsterIds: [],
@@ -89,6 +94,12 @@ export default function CampaignFormScreen() {
       </View>
 
       <ScrollView contentContainerStyle={styles.content}>
+        <ImagePickerSelector
+          currentImage={coverImage}
+          onImageSelected={setCoverImage}
+          label="Capa da Campanha"
+        />
+
         <View style={styles.field}>
           <Text style={styles.label}>Nome da Campanha *</Text>
           <TextInput

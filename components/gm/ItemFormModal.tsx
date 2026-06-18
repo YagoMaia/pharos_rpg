@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, Modal, TextInput, TouchableOpacity, ScrollView 
 import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "@/context/ThemeContext";
 import { ItemEntry, ItemRarity, LibraryItemType } from "@/types/campaign";
+import { ImagePickerSelector } from "@/components/ui/ImagePickerSelector";
 
 interface ItemFormModalProps {
   visible: boolean;
@@ -22,6 +23,7 @@ export function ItemFormModal({ visible, onClose, onSave, initialData }: ItemFor
   const [properties, setProperties] = useState("");
   const [weight, setWeight] = useState("");
   const [value, setValue] = useState("");
+  const [image, setImage] = useState<string | undefined>(undefined);
 
   useEffect(() => {
     if (visible) {
@@ -33,6 +35,7 @@ export function ItemFormModal({ visible, onClose, onSave, initialData }: ItemFor
         setProperties(initialData.properties || "");
         setWeight(initialData.weight ? initialData.weight.toString() : "");
         setValue(initialData.value || "");
+        setImage(initialData.image);
       } else {
         setName("");
         setType("Equipamento");
@@ -41,6 +44,7 @@ export function ItemFormModal({ visible, onClose, onSave, initialData }: ItemFor
         setProperties("");
         setWeight("");
         setValue("");
+        setImage(undefined);
       }
     }
   }, [visible, initialData]);
@@ -56,6 +60,7 @@ export function ItemFormModal({ visible, onClose, onSave, initialData }: ItemFor
       properties,
       weight: parseFloat(weight) || undefined,
       value,
+      image,
       tags: [],
       linkedCampaignIds: initialData ? initialData.linkedCampaignIds : [],
     });
@@ -85,6 +90,13 @@ export function ItemFormModal({ visible, onClose, onSave, initialData }: ItemFor
         </View>
 
         <ScrollView contentContainerStyle={styles.content}>
+          <ImagePickerSelector
+            currentImage={image}
+            onImageSelected={setImage}
+            label="Imagem do Item"
+            round={true}
+          />
+
           <View style={styles.field}>
             <Text style={styles.label}>Nome do Item *</Text>
             <TextInput
