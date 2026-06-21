@@ -2,38 +2,47 @@ import { Ionicons } from "@expo/vector-icons";
 import { Tabs } from "expo-router";
 import React from "react";
 import { TouchableOpacity } from "react-native";
-import { useTheme } from "@/context/ThemeContext";
+
+// Contextos
+import { useTheme } from "@/context/ThemeContext"; // <--- Importe o Tema
 
 export default function PlayerLayout() {
+  // Pegamos as cores e a função de trocar tema aqui no Layout
   const { colors, isDark, toggleTheme } = useTheme();
 
   return (
     <Tabs
       screenOptions={{
+        // --- CORES DA TAB BAR (Inferior) ---
         tabBarStyle: {
-          backgroundColor: colors.surface,
-          borderTopColor: colors.border,
+          backgroundColor: colors.surface, // Fundo da barra
+          borderTopColor: colors.border, // Borda fina no topo da barra
         },
-        tabBarActiveTintColor: colors.primary,
-        tabBarInactiveTintColor: colors.textSecondary,
+        tabBarActiveTintColor: colors.primary, // Cor do ícone ativo
+        tabBarInactiveTintColor: colors.textSecondary, // Cor do ícone inativo
+
+        // --- CORES DO HEADER (Superior) ---
         headerStyle: {
-          backgroundColor: colors.background,
+          backgroundColor: colors.background, // Fundo do cabeçalho
+          // No Android, remove a sombra "feia" padrão se quiser um visual flat:
           elevation: 0,
           borderBottomWidth: 1,
           borderBottomColor: colors.border,
         },
-        headerTintColor: colors.text,
+        headerTintColor: colors.text, // Cor do Título e botões de voltar
         headerTitleStyle: {
           fontWeight: "bold",
         },
+
+        // --- BOTÃO DE TEMA NO TOPO (Direita) ---
         headerRight: () => (
           <TouchableOpacity
             onPress={toggleTheme}
-            style={{ marginRight: 15 }}
+            style={{ marginRight: 15 }} // Espaçamento da margem direita
             activeOpacity={0.7}
           >
             <Ionicons
-              name={isDark ? "sunny" : "moon"}
+              name={isDark ? "sunny" : "moon"} // Muda o ícone
               size={24}
               color={colors.text}
             />
