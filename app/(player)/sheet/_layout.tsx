@@ -5,15 +5,15 @@ import React from "react";
 import { TouchableOpacity } from "react-native";
 
 // Contextos
-import { useTheme } from "@/context/ThemeContext"; // <--- Importe o Tema
+import { useTheme } from "@/context/ThemeContext";
+import { useCharacter } from "@/context/CharacterContext";
 
 export default function TabLayout() {
-  // Pegamos as cores e a função de trocar tema aqui no Layout
   const { colors, isDark, toggleTheme } = useTheme();
+  const { character } = useCharacter();
 
-  // Lógica para esconder Grimório (mantida)
-  // const canUseMagic = MAGIC_CLASSES.includes(character.class);
-  const canUseMagic = true;
+  const magicClasses = ["Mago", "Feiticeiro", "Bruxo", "Clérigo", "Druida", "Bardo", "Paladino", "Ranger"];
+  const canUseMagic = character && character.class ? magicClasses.includes(character.class) : false;
 
   return (
     <Tabs
@@ -114,10 +114,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="session-combat"
         options={{
-          title: "Turnos",
-          tabBarIcon: ({ color }) => (
-            <Ionicons name="wifi" size={24} color={color} />
-          ),
+          href: null,
         }}
       />
       <Tabs.Screen

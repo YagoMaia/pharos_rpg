@@ -6,6 +6,7 @@ import { useCharacter } from "@/context/CharacterContext";
 import { useAlert } from "@/context/AlertContext";
 import { Ionicons } from "@expo/vector-icons";
 import { router, Stack } from "expo-router";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function CharactersScreen() {
   const { colors } = useTheme();
@@ -33,7 +34,7 @@ export default function CharactersScreen() {
   };
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
       <Stack.Screen options={{ headerShown: false }} />
       <View style={[styles.header, { borderBottomColor: colors.border }]}>
         <Text style={[styles.title, { color: colors.text }]}>Meus Personagens</Text>
@@ -89,7 +90,7 @@ export default function CharactersScreen() {
           </View>
         )}
       </ScrollView>
-    </View>
+    </SafeAreaView>
   );
 }
 
