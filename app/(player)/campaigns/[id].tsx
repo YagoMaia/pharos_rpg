@@ -4,14 +4,16 @@ import { useLocalSearchParams, router, Stack } from "expo-router";
 import { useTheme } from "@/context/ThemeContext";
 import { usePlayer } from "@/context/PlayerContext";
 import { useCharacter } from "@/context/CharacterContext";
+import { useAlert } from "@/context/AlertContext";
 import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function CampaignDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { colors } = useTheme();
-  const { getMembershipByCampaign } = usePlayer();
+  const { getMembershipByCampaign, leaveCampaign } = usePlayer();
   const { character } = useCharacter();
+  const { showAlert } = useAlert();
   
   const membership = getMembershipByCampaign(id);
   const [activeTab, setActiveTab] = useState("overview");
@@ -102,6 +104,30 @@ export default function CampaignDetailScreen() {
             >
               <Ionicons name="clipboard-outline" size={20} color="#fff" style={{ marginRight: 8 }} />
               <Text style={styles.actionButtonText}>Abrir Ficha de Personagem</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity 
+              style={[styles.actionButton, { backgroundColor: "transparent", borderWidth: 1, borderColor: "#e74c3c", marginTop: 16 }]}
+              onPress={() => {
+                showAlert(
+                  "Sair da Campanha",
+                  "Tem certeza que deseja sair desta campanha? Esta ação precisará da aprovação do mestre para ser revertida.",
+                  [
+                    { 
+                      text: "Sair", 
+                      style: "destructive", 
+                      onPress: () => {
+                        leaveCampaign(id);
+                        router.navigate("/(player)/campaigns");
+                      }
+                    },
+                    { text: "Cancelar", style: "cancel" }
+                  ]
+                );
+              }}
+            >
+              <Ionicons name="exit-outline" size={20} color="#e74c3c" style={{ marginRight: 8 }} />
+              <Text style={[styles.actionButtonText, { color: "#e74c3c" }]}>Sair da Campanha</Text>
             </TouchableOpacity>
           </View>
         )}
