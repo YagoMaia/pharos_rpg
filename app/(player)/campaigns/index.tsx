@@ -1,30 +1,21 @@
 import React, { useState } from "react";
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Modal, TextInput, Alert } from "react-native";
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Modal, TextInput, Alert, Image } from "react-native";
 import { useTheme } from "@/context/ThemeContext";
 import { usePlayer } from "@/context/PlayerContext";
+import { useCharacter } from "@/context/CharacterContext";
 import { Ionicons } from "@expo/vector-icons";
 import { router, Stack } from "expo-router";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { JoinCampaignModal } from "@/components/rpg/JoinCampaignModal";
 
 export default function CampaignsScreen() {
   const { colors } = useTheme();
   const { memberships, joinCampaignByCode } = usePlayer();
+  const { character } = useCharacter();
   const [isModalVisible, setModalVisible] = useState(false);
-  const [code, setCode] = useState("");
-
-  const handleJoinCampaign = async () => {
-    if (!code) return;
-    const res = await joinCampaignByCode(code.trim().toUpperCase());
-    if (res.success) {
-      Alert.alert("Sucesso", "Você entrou na campanha!");
-      setModalVisible(false);
-      setCode("");
-    } else {
-      Alert.alert("Erro", res.error || "Erro ao entrar na campanha.");
-    }
-  };
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
       <Stack.Screen options={{ headerShown: false }} />
       <View style={[styles.header, { borderBottomColor: colors.border }]}>
         <Text style={[styles.title, { color: colors.text }]}>Minhas Campanhas</Text>
@@ -40,16 +31,19 @@ export default function CampaignsScreen() {
             >
               <View style={[styles.coverPlaceholder, { backgroundColor: colors.primary }]} />
               <View style={styles.info}>
-                <Text style={[styles.name, { color: colors.text }]}>{m.campaignName}</Text>
-                <Text style={{ color: colors.textSecondary }}>{m.campaignSystem} • Mestre: {m.gmName}</Text>
-                <View style={styles.statusRow}>
-                  <View style={[styles.badge, { backgroundColor: colors.primary }]}>
-                    <Text style={styles.badgeText}>{m.status}</Text>
-                  </View>
-                  <Text style={{ color: colors.textSecondary, fontSize: 12 }}>
-                    Última sessão: {new Date(m.lastActivity).toLocaleDateString()}
-                  </Text>
-                </View>
+                <Text style={[styles.name, { color: colors.text }]}>{m.campaignName} • {m.campaignSystem}</Text>
+                <Text style={{ color: colors.textSecondary }}>Mestre: {m.gmName}</Text>
+                
+                <Text style={{ color: colors.textSecondary, fontSize: 13, marginTop: 4 }}>
+                  Status: <Text style={{ fontWeight: "bold", color: m.campaignStatus === "Ativa" ? "#2ecc71" : colors.text }}>{m.campaignStatus || "Ativa"}</Text>
+                </Text>
+
+                <Text style={{ color: colors.textSecondary, fontSize: 13 }}>
+                  Personagem: {character.name !== "Novo Personagem" ? character.name : "Nenhum"}
+                </Text>
+                <Text style={{ color: colors.textSecondary, fontSize: 13, marginTop: 2 }}>
+                  Data da última sessão: {new Date(m.lastActivity).toLocaleDateString()}
+                </Text>
               </View>
             </TouchableOpacity>
           ))
@@ -70,32 +64,11 @@ export default function CampaignsScreen() {
         <Ionicons name="add" size={24} color="#fff" />
       </TouchableOpacity>
 
-      {/* Modal Entrar em Campanha */}
-      <Modal visible={isModalVisible} transparent animationType="slide">
-        <View style={styles.modalOverlay}>
-          <View style={[styles.modalContent, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-            <Text style={[styles.modalTitle, { color: colors.text }]}>Entrar em uma Campanha</Text>
-            <Text style={{ color: colors.textSecondary, marginBottom: 10 }}>Insira o código de acesso:</Text>
-            <TextInput
-              style={[styles.input, { color: colors.text, borderColor: colors.border }]}
-              placeholder="Ex: FARO-4721"
-              placeholderTextColor={colors.textSecondary}
-              value={code}
-              onChangeText={setCode}
-              autoCapitalize="characters"
-            />
-            <View style={styles.modalActions}>
-              <TouchableOpacity style={styles.modalButton} onPress={() => setModalVisible(false)}>
-                <Text style={{ color: colors.text }}>Cancelar</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={[styles.modalButton, { backgroundColor: colors.primary }]} onPress={handleJoinCampaign}>
-                <Text style={{ color: "#fff", fontWeight: "bold" }}>Entrar</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
-    </View>
+      <JoinCampaignModal 
+        visible={isModalVisible} 
+        onClose={() => setModalVisible(false)} 
+      />
+    </SafeAreaView>
   );
 }
 
@@ -175,38 +148,5 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.2,
     shadowRadius: 4,
     shadowOffset: { width: 0, height: 2 },
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: "rgba(0,0,0,0.6)",
-    justifyContent: "center",
-    padding: 20,
-  },
-  modalContent: {
-    padding: 20,
-    borderRadius: 12,
-    borderWidth: 1,
-  },
-  modalTitle: {
-    fontSize: 20,
-    fontWeight: "bold",
-    marginBottom: 10,
-  },
-  input: {
-    borderWidth: 1,
-    borderRadius: 8,
-    padding: 12,
-    marginBottom: 20,
-    fontSize: 16,
-  },
-  modalActions: {
-    flexDirection: "row",
-    justifyContent: "flex-end",
-    gap: 12,
-  },
-  modalButton: {
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    borderRadius: 8,
   },
 });

@@ -5,6 +5,7 @@ import { useCharacter } from "@/context/CharacterContext";
 import { usePlayer } from "@/context/PlayerContext";
 import { useAlert } from "@/context/AlertContext";
 import { DiceRoller } from "@/components/rpg/DiceRoller";
+import { JoinCampaignModal } from "@/components/rpg/JoinCampaignModal";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 
@@ -14,20 +15,7 @@ export default function HomeDashboard() {
   const { profile, memberships, joinCampaignByCode } = usePlayer();
   const { showAlert } = useAlert();
   const [isModalVisible, setModalVisible] = useState(false);
-  const [code, setCode] = useState("");
   const [isDiceCollapsed, setIsDiceCollapsed] = useState(true);
-
-  const handleJoinCampaign = async () => {
-    if (!code) return;
-    const res = await joinCampaignByCode(code.trim().toUpperCase());
-    if (res.success) {
-      showAlert("Sucesso", "Você entrou na campanha!");
-      setModalVisible(false);
-      setCode("");
-    } else {
-      showAlert("Erro", res.error || "Erro ao entrar na campanha.");
-    }
-  };
 
   const handleRollResult = (sides: number, result: number) => {
     showAlert(`Resultado do D${sides}`, `Você rolou: ${result}`);
@@ -153,30 +141,10 @@ export default function HomeDashboard() {
       </View>
 
       {/* Modal Entrar em Campanha */}
-      <Modal visible={isModalVisible} transparent animationType="slide">
-        <View style={styles.modalOverlay}>
-          <View style={[styles.modalContent, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-            <Text style={[styles.modalTitle, { color: colors.text }]}>Entrar em uma Campanha</Text>
-            <Text style={{ color: colors.textSecondary, marginBottom: 10 }}>Insira o código fornecido pelo Mestre:</Text>
-            <TextInput
-              style={[styles.input, { color: colors.text, borderColor: colors.border }]}
-              placeholder="Ex: FARO-4721"
-              placeholderTextColor={colors.textSecondary}
-              value={code}
-              onChangeText={setCode}
-              autoCapitalize="characters"
-            />
-            <View style={styles.modalActions}>
-              <TouchableOpacity style={styles.modalButton} onPress={() => setModalVisible(false)}>
-                <Text style={{ color: colors.text }}>Cancelar</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={[styles.modalButton, { backgroundColor: colors.primary }]} onPress={handleJoinCampaign}>
-                <Text style={{ color: "#fff", fontWeight: "bold" }}>Entrar</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
+      <JoinCampaignModal 
+        visible={isModalVisible} 
+        onClose={() => setModalVisible(false)} 
+      />
 
     </ScrollView>
   );
@@ -302,38 +270,5 @@ const styles = StyleSheet.create({
   outlineButtonText: {
     fontWeight: "bold",
     fontSize: 16,
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: "rgba(0,0,0,0.6)",
-    justifyContent: "center",
-    padding: 20,
-  },
-  modalContent: {
-    padding: 20,
-    borderRadius: 12,
-    borderWidth: 1,
-  },
-  modalTitle: {
-    fontSize: 20,
-    fontWeight: "bold",
-    marginBottom: 10,
-  },
-  input: {
-    borderWidth: 1,
-    borderRadius: 8,
-    padding: 12,
-    marginBottom: 20,
-    fontSize: 16,
-  },
-  modalActions: {
-    flexDirection: "row",
-    justifyContent: "flex-end",
-    gap: 12,
-  },
-  modalButton: {
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    borderRadius: 8,
   },
 });
