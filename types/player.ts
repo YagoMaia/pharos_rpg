@@ -12,6 +12,7 @@ export interface CampaignMembership {
   campaignSystem: string;
   gmName: string;
   lastActivity: string;
+  campaignStatus: "Ativa" | "Pausada" | "Encerrada";
 }
 
 export interface PlayerProfile {

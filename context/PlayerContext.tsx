@@ -91,8 +91,9 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
       status: "pending",
       campaignName: "Campanha " + code,
       campaignSystem: "Pharos",
-      gmName: "Mestre",
-      lastActivity: new Date().toISOString()
+      gmName: "Mestre Supremo",
+      lastActivity: new Date().toISOString(),
+      campaignStatus: "Ativa"
     };
     
     setMemberships(prev => [...prev, newMembership]);
