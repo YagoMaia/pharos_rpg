@@ -1,5 +1,4 @@
 // types/campaign.ts
-
 export type GameSystem = "Pharos" | "D&D 5e" | "Tormenta20" | "Call of Cthulhu" | "Outro";
 export type CampaignStatus = "active" | "paused" | "finished";
 export type CampaignVisibility = "open" | "private";
@@ -43,6 +42,7 @@ export interface NpcEntry {
   secrets?: string;           // Visível apenas para o Mestre
   tags: string[];
   linkedCampaignIds: string[];
+  isRevealedToPlayers?: boolean;
   stats?: object;             // Compatível com NpcTemplate (types/rpg.ts)
   createdAt: string;
   updatedAt: string;
@@ -63,6 +63,7 @@ export interface MonsterEntry {
   description: string;
   tags: string[];
   linkedCampaignIds: string[];
+  isRevealedToPlayers?: boolean;
   stats?: object;             // Compatível com NpcTemplate (types/rpg.ts)
   createdAt: string;
   updatedAt: string;
@@ -84,6 +85,7 @@ export interface ItemEntry {
   properties?: string;        // Efeitos mágicos, propriedades especiais
   tags: string[];
   linkedCampaignIds: string[];
+  isRevealedToPlayers?: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -102,6 +104,9 @@ export interface LocationEntry {
   notableNpcIds?: string[];   // Referências a NpcEntry.id
   tags: string[];
   linkedCampaignIds: string[];
+  isRevealedToPlayers?: boolean;
   createdAt: string;
   updatedAt: string;
 }
+
+export type EntityType = "npc" | "monster" | "item" | "location";

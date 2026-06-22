@@ -6,6 +6,7 @@ import {
     NpcTemplate,
     Pet
 } from "@/types/rpg";
+import { NpcEntry, MonsterEntry } from "@/types/campaign";
 import { generateSafeId } from "@/utils/stringUtils";
 
 const playerArmor = (char: Character) => {
@@ -166,6 +167,59 @@ export const npcToCombatant = (
 
     conditions: [],
     // actionsDescription: npc.actions,
+  };
+};
+
+// --- CONVERSOR: LIBRARY -> COMBATANT ---
+export const libraryToCombatant = (
+  entity: NpcEntry | MonsterEntry,
+  initiativeRoll: number,
+  instanceId: number = 1,
+): Combatant => {
+  const uniqueName = `${entity.name} #${instanceId}`;
+  
+  // Extrai status do campo de compatibilidade (se existir)
+  const stats: any = entity.stats || {};
+  
+  return {
+    id: generateSafeId(uniqueName),
+    name: uniqueName,
+    image: entity.image,
+    baseName: entity.name,
+    type: "npc", // O sistema de combate trata monstros e npcs como "npc"
+
+    hp: { current: stats.maxHp || 10, max: stats.maxHp || 10 },
+    focus: { current: stats.maxFocus || 0, max: stats.maxFocus || 0 },
+    armorClass: stats.armorClass || 10,
+    initiative: initiativeRoll,
+
+    attributes: stats.attributes || {},
+    stances: stats.stances || [],
+    activeStanceId: null,
+
+    skills: stats.skills || [],
+    spells: stats.spells || [],
+
+    turnActions: { standard: true, bonus: true, reaction: true },
+    deathSaves: { successes: 0, failures: 0 },
+    weapons: stats.weapons || {
+      melee: {
+        name: "Ataque Básico",
+        damage: "1d4",
+        attribute: "Força",
+        attackBonus: 0,
+        range: "1.5m",
+      },
+      ranged: {
+        name: "Ataque à Distância",
+        damage: "1d4",
+        attribute: "Destreza",
+        attackBonus: 0,
+        range: "9m",
+      },
+    },
+
+    conditions: [],
   };
 };
 

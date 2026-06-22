@@ -44,11 +44,22 @@ export default function GMLayout() {
         }}
       />
       <Tabs.Screen
-        name="npcs"
+        name="campaigns"
         options={{
-          title: "Bestiário",
+          title: "Campanhas",
+          headerShown: false,
           tabBarIcon: ({ color }) => (
-            <Ionicons name="people" size={24} color={color} />
+            <MaterialCommunityIcons name="map" size={24} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="library"
+        options={{
+          title: "Biblioteca",
+          headerShown: false,
+          tabBarIcon: ({ color }) => (
+            <Ionicons name="book" size={24} color={color} />
           ),
         }}
       />
@@ -69,9 +80,13 @@ export default function GMLayout() {
         name="gm-combat-screen"
         options={{
           title: "Turnos",
-          tabBarIcon: ({ color }) => (
-            <MaterialCommunityIcons name="dice-d20" size={24} color={color} />
-          ),
+          tabBarButton: () => null, // Hidden from tab bar
+        }}
+      />
+      <Tabs.Screen
+        name="npcs"
+        options={{
+          href: null, // Temporarily hiding it from tabs since we are merging into library
         }}
       />
     </Tabs>
