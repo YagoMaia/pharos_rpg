@@ -1,14 +1,19 @@
+// app/(tabs)/_layout.tsx
 import { Ionicons } from "@expo/vector-icons";
 import { Tabs } from "expo-router";
 import React from "react";
 import { TouchableOpacity } from "react-native";
 
 // Contextos
-import { useTheme } from "@/context/ThemeContext"; // <--- Importe o Tema
+import { useTheme } from "@/context/ThemeContext";
+import { useCharacter } from "@/context/CharacterContext";
 
-export default function PlayerLayout() {
-  // Pegamos as cores e a função de trocar tema aqui no Layout
+export default function TabLayout() {
   const { colors, isDark, toggleTheme } = useTheme();
+  const { character } = useCharacter();
+
+  const magicClasses = ["Mago", "Feiticeiro", "Bruxo", "Clérigo", "Druida", "Bardo", "Paladino", "Ranger"];
+  const canUseMagic = character && character.class ? magicClasses.includes(character.class) : false;
 
   return (
     <Tabs
@@ -26,6 +31,7 @@ export default function PlayerLayout() {
           backgroundColor: colors.background, // Fundo do cabeçalho
           // No Android, remove a sombra "feia" padrão se quiser um visual flat:
           elevation: 0,
+          // boxShadowOpacity: 0,
           borderBottomWidth: 1,
           borderBottomColor: colors.border,
         },
@@ -51,42 +57,72 @@ export default function PlayerLayout() {
       }}
     >
       <Tabs.Screen
-        name="home-dashboard"
+        name="home"
         options={{
-          title: "Início",
-          tabBarIcon: ({ color }) => (
-            <Ionicons name="home" size={24} color={color} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="characters"
-        options={{
-          title: "Personagens",
-          headerShown: false,
+          title: "Geral",
           tabBarIcon: ({ color }) => (
             <Ionicons name="person" size={24} color={color} />
           ),
         }}
       />
       <Tabs.Screen
-        name="campaigns"
+        name="combat"
         options={{
-          title: "Campanhas",
-          headerShown: false,
-          unmountOnBlur: true,
+          title: "Combate",
           tabBarIcon: ({ color }) => (
-            <Ionicons name="map" size={24} color={color} />
+            <Ionicons name="shield-half" size={24} color={color} />
           ),
         }}
       />
       <Tabs.Screen
-        name="sheet"
+        name="inventory"
         options={{
-          title: "Ficha",
-          headerShown: false,
+          title: "Inventário",
           tabBarIcon: ({ color }) => (
-            <Ionicons name="clipboard" size={24} color={color} />
+            <Ionicons name="briefcase" size={24} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="biography"
+        options={{
+          title: "Biografia",
+          tabBarIcon: ({ color }) => (
+            <Ionicons name="document-text" size={24} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="grimoire"
+        options={{
+          title: "Grimório",
+          href: canUseMagic ? "/sheet/grimoire" : null,
+          tabBarIcon: ({ color }) => (
+            <Ionicons name="book" size={24} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="dices"
+        options={{
+          title: "Dados",
+          tabBarIcon: ({ color }) => (
+            <Ionicons name="dice" size={24} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="session-combat"
+        options={{
+          href: null,
+        }}
+      />
+      <Tabs.Screen
+        name="pet"
+        options={{
+          title: "Pet",
+          tabBarIcon: ({ color }) => (
+            <Ionicons name="paw" size={24} color={color} />
           ),
         }}
       />

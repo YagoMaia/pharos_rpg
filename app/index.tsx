@@ -8,7 +8,7 @@ export default function RoleSelectionScreen() {
   const router = useRouter();
 
   const handleSelectPlayer = () => {
-    router.replace("/(player)/home"); // Redireciona para as abas de jogador
+    router.replace("/(player)/home-dashboard"); // Redireciona para as abas de jogador
   };
 
   const handleSelectGM = () => {
