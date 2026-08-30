@@ -16,8 +16,9 @@ import {
     NpcTemplate
 } from "../types/rpg";
 
-interface CampaignContextType {
+export interface CombatantsContextType {
   combatants: Combatant[];
+  activeTurnId: string | null;
   addCombatant: (
     baseName: string,
     hp: number,
@@ -29,31 +30,36 @@ interface CampaignContextType {
   updateCombatant: (id: string, fieldOrUpdates: string | Partial<Combatant>, value?: any) => void;
   sortCombat: () => void;
   clearCombat: () => void;
-
-  npcLibrary: NpcTemplate[];
-  saveNpcToLibrary: (npc: Omit<NpcTemplate, "id">) => void;
-  deleteNpcFromLibrary: (id: string) => void;
-  updateNpcInLibrary: (id: string, npc: Partial<NpcTemplate>) => void;
-
-  diceHistory: string[];
-  addDiceRoll: (roll: string) => void;
-  endTurnCombatant: (id: string) => void;
-
   setCombatants: React.Dispatch<React.SetStateAction<Combatant[]>>;
-
-  activeTurnId: string | null;
   setActiveTurnId: React.Dispatch<React.SetStateAction<string | null>>;
+  endTurnCombatant: (id: string) => void;
+}
 
+export interface CombatLogContextType {
   logs: string[];
-  setLogs: React.Dispatch<React.SetStateAction<string[]>>;
-  addLog: (message: string) => void;
   lastEvent: GameEvent | null;
+  addLog: (message: string) => void;
+  setLogs: React.Dispatch<React.SetStateAction<string[]>>;
   setLastEvent: React.Dispatch<React.SetStateAction<GameEvent | null>>;
 }
 
-const CampaignContext = createContext<CampaignContextType | undefined>(
-  undefined,
-);
+export interface CampaignMetaContextType {
+  npcLibrary: NpcTemplate[];
+  diceHistory: string[];
+  isLoaded: boolean;
+  saveNpcToLibrary: (npc: Omit<NpcTemplate, "id">) => void;
+  deleteNpcFromLibrary: (id: string) => void;
+  updateNpcInLibrary: (id: string, npc: Partial<NpcTemplate>) => void;
+  addDiceRoll: (roll: string) => void;
+}
+
+export type CampaignContextType = CombatantsContextType & CombatLogContextType & CampaignMetaContextType;
+
+const CombatantsContext = createContext<CombatantsContextType | undefined>(undefined);
+const CombatLogContext = createContext<CombatLogContextType | undefined>(undefined);
+const CampaignMetaContext = createContext<CampaignMetaContextType | undefined>(undefined);
+
+export const CampaignContext = createContext<CampaignContextType | undefined>(undefined);
 
 export const CampaignProvider = ({ children }: { children: ReactNode }) => {
   const [combatants, setCombatants] = useState<Combatant[]>([]);
@@ -238,61 +244,103 @@ export const CampaignProvider = ({ children }: { children: ReactNode }) => {
     setDiceHistory((prev) => [roll, ...prev].slice(0, 20));
   }, []);
 
-  const contextValue = useMemo(
+  const combatantsValue = useMemo<CombatantsContextType>(
     () => ({
       combatants,
-      setCombatants,
+      activeTurnId,
       addCombatant,
       removeCombatant,
       updateCombatant,
       sortCombat,
       clearCombat,
-      npcLibrary,
-      saveNpcToLibrary,
-      deleteNpcFromLibrary,
-      diceHistory,
-      addDiceRoll,
-      updateNpcInLibrary,
-      endTurnCombatant,
-      activeTurnId,
+      setCombatants,
       setActiveTurnId,
-      logs,
-      setLogs,
-      addLog,
-      lastEvent,
-      setLastEvent,
+      endTurnCombatant,
     }),
     [
       combatants,
+      activeTurnId,
       addCombatant,
       removeCombatant,
       updateCombatant,
       sortCombat,
       clearCombat,
-      npcLibrary,
-      saveNpcToLibrary,
-      deleteNpcFromLibrary,
-      diceHistory,
-      addDiceRoll,
-      updateNpcInLibrary,
+      setCombatants,
+      setActiveTurnId,
       endTurnCombatant,
-      activeTurnId,
+    ],
+  );
+
+  const logValue = useMemo<CombatLogContextType>(
+    () => ({
       logs,
       lastEvent,
+      addLog,
+      setLogs,
+      setLastEvent,
+    }),
+    [logs, lastEvent, addLog, setLogs, setLastEvent],
+  );
+
+  const metaValue = useMemo<CampaignMetaContextType>(
+    () => ({
+      npcLibrary,
+      diceHistory,
+      isLoaded,
+      saveNpcToLibrary,
+      deleteNpcFromLibrary,
+      updateNpcInLibrary,
+      addDiceRoll,
+    }),
+    [
+      npcLibrary,
+      diceHistory,
+      isLoaded,
+      saveNpcToLibrary,
+      deleteNpcFromLibrary,
+      updateNpcInLibrary,
+      addDiceRoll,
     ],
   );
 
   return (
-    <CampaignContext.Provider value={contextValue}>
-      {children}
-    </CampaignContext.Provider>
+    <CampaignMetaContext.Provider value={metaValue}>
+      <CombatLogContext.Provider value={logValue}>
+        <CombatantsContext.Provider value={combatantsValue}>
+          {children}
+        </CombatantsContext.Provider>
+      </CombatLogContext.Provider>
+    </CampaignMetaContext.Provider>
   );
 };
 
-export const useCampaign = () => {
-  const context = useContext(CampaignContext);
+export function useCombatants(): CombatantsContextType {
+  const context = useContext(CombatantsContext);
   if (!context) {
-    throw new Error("useCampaign must be used within a CampaignProvider");
+    throw new Error("useCombatants must be used within a CampaignProvider");
   }
   return context;
+}
+
+export function useCombatLog(): CombatLogContextType {
+  const context = useContext(CombatLogContext);
+  if (!context) {
+    throw new Error("useCombatLog must be used within a CampaignProvider");
+  }
+  return context;
+}
+
+export function useCampaignMeta(): CampaignMetaContextType {
+  const context = useContext(CampaignMetaContext);
+  if (!context) {
+    throw new Error("useCampaignMeta must be used within a CampaignProvider");
+  }
+  return context;
+}
+
+export function useCampaign(): CampaignContextType {
+  const combatants = useCombatants();
+  const log = useCombatLog();
+  const meta = useCampaignMeta();
+  return { ...combatants, ...log, ...meta };
 };

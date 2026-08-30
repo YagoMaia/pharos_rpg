@@ -2,7 +2,7 @@ import { petToCombatant, playerToCombatant } from "@/utils/combatantFactory";
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { Alert, AppState } from "react-native";
 import { Combatant, GameEvent } from "../types/rpg";
-import { useCampaign } from "./CampaignContext";
+import { useCombatants, useCombatLog } from "./CampaignContext";
 import { useCharacter } from "./CharacterContext";
 
 interface WebSocketMessage {
@@ -60,11 +60,13 @@ export const WebSocketProvider = ({
   const {
     setCombatants,
     setActiveTurnId,
+    updateCombatant,
+  } = useCombatants();
+  const {
     addLog,
     setLogs,
     setLastEvent,
-    updateCombatant,
-  } = useCampaign();
+  } = useCombatLog();
 
   // Limpa timers ao desmontar
   useEffect(() => {
@@ -157,16 +159,24 @@ export const WebSocketProvider = ({
 
     switch (type) {
       case "HP_UPDATE":
-        updateCombatant(payload.combatantId, {
-          hp: { current: payload.newHp },
-        });
+        setCombatants((prev) =>
+          prev.map((c) =>
+            c.id === payload.combatantId
+              ? { ...c, hp: { ...c.hp, current: payload.newHp } }
+              : c
+          )
+        );
         if (payload.log) addLog(payload.log);
         break;
 
       case "FOCUS_UPDATE":
-        updateCombatant(payload.combatantId, {
-          focus: { current: payload.newFocus },
-        });
+        setCombatants((prev) =>
+          prev.map((c) =>
+            c.id === payload.combatantId
+              ? { ...c, focus: { ...c.focus, current: payload.newFocus } }
+              : c
+          )
+        );
         if (payload.log) addLog(payload.log);
         break;
 
@@ -179,28 +189,78 @@ export const WebSocketProvider = ({
         if (payload.log) addLog(payload.log);
         break;
 
-      case "ACTION_RESOLVED":
+      case "ACTION_RESOLVED": {
+        const updates = new Map<string, Partial<Combatant>>();
+
         // Multi-target: atualiza cada alvo individualmente
         if (payload.results && Array.isArray(payload.results)) {
-          payload.results.forEach((r: any) => {
-            if (r.targetId && r.targetHp !== undefined) {
-              updateCombatant(r.targetId, {
-                hp: { current: r.targetHp },
+          for (const r of payload.results) {
+            const targetId = r.targetId || r.id;
+            const targetHp =
+              r.targetHp !== undefined
+                ? r.targetHp
+                : typeof r.hp === "number"
+                  ? r.hp
+                  : r.hp?.current;
+            if (targetId && targetHp !== undefined) {
+              updates.set(targetId, {
+                hp: { current: targetHp } as any,
               });
             }
-          });
+          }
         }
         // Single-target (retrocompatibilidade)
         else if (payload.targetId && payload.targetHp !== undefined) {
-          updateCombatant(payload.targetId, {
-            hp: { current: payload.targetHp },
+          updates.set(payload.targetId, {
+            hp: { current: payload.targetHp } as any,
           });
         }
 
-        updateCombatant(payload.attackerId, {
-          turnActions: payload.attackerActions,
-          focus: { current: payload.attackerFocus },
-        });
+        // Attacker updates
+        if (payload.attackerId) {
+          const existing = updates.get(payload.attackerId);
+          updates.set(payload.attackerId, {
+            ...existing,
+            turnActions: payload.attackerActions,
+            focus: {
+              ...(existing?.focus ?? {}),
+              current: payload.attackerFocus,
+            } as any,
+          });
+        }
+
+        if (updates.size > 0) {
+          setCombatants((prev) =>
+            prev.map((c) => {
+              const u = updates.get(c.id);
+              if (!u) return c;
+
+              const newHp = u.hp
+                ? typeof u.hp === "number"
+                  ? { ...c.hp, current: u.hp }
+                  : { ...c.hp, ...u.hp }
+                : c.hp;
+
+              const newFocus = u.focus
+                ? typeof u.focus === "number"
+                  ? { ...c.focus, current: u.focus }
+                  : { ...c.focus, ...u.focus }
+                : c.focus;
+
+              const newActions = u.turnActions
+                ? { ...c.turnActions, ...u.turnActions }
+                : c.turnActions;
+
+              return {
+                ...c,
+                ...u,
+                hp: newHp,
+                focus: newFocus,
+                turnActions: newActions,
+              };
+            }),
+          );
+        }
 
         setLastEvent({
           id: Date.now(),
@@ -213,6 +273,7 @@ export const WebSocketProvider = ({
 
         if (payload.log) addLog(payload.log);
         break;
+      }
 
       case "TURN_UPDATE":
         setActiveTurnId(payload.newActiveId);
@@ -228,14 +289,21 @@ export const WebSocketProvider = ({
         break;
 
       case "DEATH_SAVE_UPDATE":
-        updateCombatant(payload.combatantId, {
-          deathSaves: {
-            successes: payload.successes,
-            failures: payload.failures,
-          },
-          hp: { current: payload.newHp },
-          turnActions: payload.turnActions,
-        });
+        setCombatants((prev) =>
+          prev.map((c) =>
+            c.id === payload.combatantId
+              ? {
+                  ...c,
+                  deathSaves: {
+                    successes: payload.successes,
+                    failures: payload.failures,
+                  },
+                  hp: { ...c.hp, current: payload.newHp },
+                  turnActions: payload.turnActions,
+                }
+              : c
+          )
+        );
         if (payload.log) addLog(payload.log);
         break;
 

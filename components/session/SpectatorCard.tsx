@@ -11,7 +11,7 @@ interface SpectatorCardProps {
   isGm?: boolean;
 }
 
-export const SpectatorCard = ({
+const SpectatorCardComponent = ({
   item,
   activeTurnId,
   colors,
@@ -116,6 +116,25 @@ export const SpectatorCard = ({
     </View>
   );
 };
+
+export const SpectatorCard = React.memo(
+  SpectatorCardComponent,
+  (prev, next) => {
+    return (
+      prev.item.id === next.item.id &&
+      prev.item.hp?.current === next.item.hp?.current &&
+      prev.item.hp?.max === next.item.hp?.max &&
+      prev.item.activeStanceId === next.item.activeStanceId &&
+      (prev.item.conditions?.length ?? 0) ===
+        (next.item.conditions?.length ?? 0) &&
+      prev.activeTurnId === next.activeTurnId &&
+      prev.isGm === next.isGm &&
+      prev.colors === next.colors
+    );
+  },
+);
+
+export default SpectatorCard;
 
 // Helper para descrição de vida (Névoa de Guerra)
 const getHealthStatus = (percent: number) => {

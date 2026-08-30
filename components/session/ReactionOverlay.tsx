@@ -4,7 +4,7 @@ import { useTheme } from "@/context/ThemeContext";
 import { useWebSocket } from "@/context/WebSocketContext";
 import { Combatant, ResolveActionPayload, Skill } from "@/types/rpg";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import {
   ScrollView,
   StyleSheet,
@@ -18,27 +18,30 @@ interface Props {
   combatant: Combatant;
 }
 
-export const ReactionOverlay = ({ combatant }: Props) => {
+const ReactionOverlayComponent = ({ combatant }: Props) => {
   const { colors } = useTheme();
-  const styles = getStyles(colors);
+  const styles = useMemo(() => getStyles(colors), [colors]);
   const { showAlert } = useAlert();
   const { sendMessage } = useWebSocket();
   const { updateCombatant, combatants } = useCampaign(); // Necessário para alvos do ataque
 
   const [attackModalOpen, setAttackModalOpen] = useState(false);
 
+  // Filtra Skills de Reação
+  const reactionSkills = useMemo(() => {
+    if (!combatant.skills) return [];
+    return combatant.skills.filter((s) => {
+      const type = (s.actionType || "").toLowerCase();
+      return (
+        type.includes("reação") ||
+        type.includes("reacao") ||
+        type.includes("reaction")
+      );
+    });
+  }, [combatant.skills]);
+
   // Se já gastou a reação, não mostra nada
   if (!combatant.turnActions?.reaction) return null;
-
-  // Filtra Skills de Reação
-  const reactionSkills = combatant.skills.filter((s) => {
-    const type = (s.actionType || "").toLowerCase();
-    return (
-      type.includes("reação") ||
-      type.includes("reacao") ||
-      type.includes("reaction")
-    );
-  });
 
   // --- HANDLERS ---
 
@@ -178,6 +181,22 @@ export const ReactionOverlay = ({ combatant }: Props) => {
     </View>
   );
 };
+
+export const ReactionOverlay = React.memo(
+  ReactionOverlayComponent,
+  (prev, next) => {
+    return (
+      prev.combatant.id === next.combatant.id &&
+      prev.combatant.turnActions?.reaction ===
+        next.combatant.turnActions?.reaction &&
+      prev.combatant.focus?.current === next.combatant.focus?.current &&
+      (prev.combatant.skills?.length ?? 0) ===
+        (next.combatant.skills?.length ?? 0)
+    );
+  },
+);
+
+export default ReactionOverlay;
 
 const getStyles = (colors: any) =>
   StyleSheet.create({

@@ -1,6 +1,6 @@
 import { Combatant } from "@/types/rpg";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
-import React from "react";
+import React, { useCallback, useEffect, useRef } from "react";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { ConditionBar } from "../rpg/ConditionBadges";
 import { AvatarPortrait } from "../ui/AvatarPortrait";
@@ -14,7 +14,7 @@ interface GMCombatantCardProps {
   onManageConditions?: (item: Combatant) => void;
 }
 
-export const GMCombatantCard = ({
+const GMCombatantCardComponent = ({
   item,
   isActive,
   colors,
@@ -23,6 +23,24 @@ export const GMCombatantCard = ({
   onManageConditions,
 }: GMCombatantCardProps) => {
   const isPlayer = item.type === "player";
+
+  const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+    };
+  }, []);
+
+  const debouncedUpdate = useCallback(
+    (id: string, type: "hp" | "focus", val: number) => {
+      if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+      debounceTimerRef.current = setTimeout(() => {
+        onUpdate(id, type, val);
+      }, 300);
+    },
+    [onUpdate],
+  );
 
   return (
     <View
@@ -118,7 +136,7 @@ export const GMCombatantCard = ({
         {/* HP Control */}
         <View style={styles.statControl}>
           <TouchableOpacity
-            onPress={() => onUpdate(item.id, "hp", item.hp.current - 1)}
+            onPress={() => debouncedUpdate(item.id, "hp", item.hp.current - 1)}
           >
             <Ionicons name="remove-circle" size={32} color={colors.error} />
           </TouchableOpacity>
@@ -131,7 +149,7 @@ export const GMCombatantCard = ({
             </Text>
           </View>
           <TouchableOpacity
-            onPress={() => onUpdate(item.id, "hp", item.hp.current + 1)}
+            onPress={() => debouncedUpdate(item.id, "hp", item.hp.current + 1)}
           >
             <Ionicons name="add-circle" size={32} color={colors.success} />
           </TouchableOpacity>
@@ -145,7 +163,11 @@ export const GMCombatantCard = ({
         <View style={styles.statControl}>
           <TouchableOpacity
             onPress={() =>
-              onUpdate(item.id, "focus", Math.max(0, item.focus.current - 1))
+              debouncedUpdate(
+                item.id,
+                "focus",
+                Math.max(0, item.focus.current - 1),
+              )
             }
           >
             <Ionicons
@@ -164,7 +186,7 @@ export const GMCombatantCard = ({
           </View>
           <TouchableOpacity
             onPress={() =>
-              onUpdate(
+              debouncedUpdate(
                 item.id,
                 "focus",
                 Math.min(item.focus.max, item.focus.current + 1),
@@ -182,6 +204,30 @@ export const GMCombatantCard = ({
     </View>
   );
 };
+
+export const GMCombatantCard = React.memo(
+  GMCombatantCardComponent,
+  (prev, next) => {
+    return (
+      prev.item.id === next.item.id &&
+      prev.item.hp?.current === next.item.hp?.current &&
+      prev.item.hp?.max === next.item.hp?.max &&
+      prev.item.focus?.current === next.item.focus?.current &&
+      prev.item.focus?.max === next.item.focus?.max &&
+      prev.item.activeStanceId === next.item.activeStanceId &&
+      (prev.item.conditions?.length ?? 0) ===
+        (next.item.conditions?.length ?? 0) &&
+      prev.item.armorClass === next.item.armorClass &&
+      prev.isActive === next.isActive &&
+      prev.colors === next.colors &&
+      prev.onUpdate === next.onUpdate &&
+      prev.onRemove === next.onRemove &&
+      prev.onManageConditions === next.onManageConditions
+    );
+  },
+);
+
+export default GMCombatantCard;
 
 const styles = StyleSheet.create({
   card: {

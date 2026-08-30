@@ -1,6 +1,6 @@
 import { useCampaign } from "@/context/CampaignContext";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
-import { useMemo, useState } from "react";
+import React, { useMemo, useState } from "react";
 import {
   FlatList,
   Modal,
@@ -40,7 +40,7 @@ interface Props {
   isGm?: boolean;
 }
 
-export const ActiveTurnInterface = ({ combatant, isGm = false }: Props) => {
+const ActiveTurnInterfaceComponent = ({ combatant, isGm = false }: Props) => {
   const { updateCombatant, combatants, activeTurnId } = useCampaign();
   const { sendMessage } = useWebSocket();
   const { showAlert } = useAlert();
@@ -518,7 +518,7 @@ export const ActiveTurnInterface = ({ combatant, isGm = false }: Props) => {
         const target = combatants.find((c) => c.id === t.targetId);
         if (target) {
           const newHp = Math.max(0, target.hp.current - t.damageAmount);
-          updateCombatant(t.targetId, { hp: { current: newHp } });
+          updateCombatant(t.targetId, { hp: { ...target.hp, current: newHp } });
         }
       }
     });
@@ -534,7 +534,7 @@ export const ActiveTurnInterface = ({ combatant, isGm = false }: Props) => {
     if (focusCost > 0) {
       const newFocus = Math.max(0, combatant.focus.current - focusCost);
       updateCombatant(combatant.id, {
-        focus: { current: newFocus },
+        focus: { ...combatant.focus, current: newFocus },
       });
     }
 
@@ -779,6 +779,34 @@ export const ActiveTurnInterface = ({ combatant, isGm = false }: Props) => {
     </ScrollView>
   );
 };
+
+export const ActiveTurnInterface = React.memo(
+  ActiveTurnInterfaceComponent,
+  (prev, next) => {
+    return (
+      prev.combatant.id === next.combatant.id &&
+      prev.combatant.hp?.current === next.combatant.hp?.current &&
+      prev.combatant.hp?.max === next.combatant.hp?.max &&
+      prev.combatant.focus?.current === next.combatant.focus?.current &&
+      prev.combatant.focus?.max === next.combatant.focus?.max &&
+      prev.combatant.activeStanceId === next.combatant.activeStanceId &&
+      (prev.combatant.conditions?.length ?? 0) ===
+        (next.combatant.conditions?.length ?? 0) &&
+      prev.combatant.turnActions?.standard ===
+        next.combatant.turnActions?.standard &&
+      prev.combatant.turnActions?.bonus === next.combatant.turnActions?.bonus &&
+      prev.combatant.turnActions?.reaction ===
+        next.combatant.turnActions?.reaction &&
+      prev.combatant.deathSaves?.successes ===
+        next.combatant.deathSaves?.successes &&
+      prev.combatant.deathSaves?.failures ===
+        next.combatant.deathSaves?.failures &&
+      prev.isGm === next.isGm
+    );
+  },
+);
+
+export default ActiveTurnInterface;
 
 // ESTILOS LIMPOS (Sem rastros do antigo menu de Death Saves)
 const getStyles = (colors: any, isDark: any) =>
