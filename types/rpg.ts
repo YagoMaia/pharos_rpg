@@ -73,6 +73,7 @@ export interface Stance {
   maneuver: string; // Manobra de Postura
   recovery?: string; // Recuperação (Opcional)
   acBonus?: number;
+  acAttribute?: AttributeName;
 }
 
 // --- SISTEMA DE CONDIÇÕES ---
@@ -162,14 +163,20 @@ interface Origin {
   languages: string[];
 }
 
+export interface ProficiencyChange {
+  name: string;
+  description: string;
+  mechanicType?: "armor" | "weapon_damage" | "immunity" | "passive";
+  mechanicValue?: number | string;
+}
+
 export interface Specialization {
   id: string;
   name: string;
   classRequired: CharacterClass;
   description: string;
-  // Para o Corsário, a especialização altera as posturas
-  newStances?: Stance[];
-  proficiencyChanges?: string; // Texto descrevendo a mudança
+  newStances: Stance[];
+  proficiencyChanges: ProficiencyChange[];
 }
 
 export type FeatCategory = "Geral" | "Marcial" | "Social" | "Mágico";
@@ -285,6 +292,19 @@ export interface Pet {
   };
 }
 
+export interface NpcPhase {
+  name?: string;
+  image?: string;
+  maxHp?: number; // Se redefinir a vida total
+  armorClass?: number;
+  stances?: Stance[];
+  skills?: Skill[];
+  weapons?: {
+    melee?: CombatWeaponData;
+    ranged?: CombatWeaponData;
+  };
+}
+
 export interface CombatWeaponData {
   name: string;
   damage: string; // "1d8", "2d6"
@@ -302,6 +322,10 @@ export interface Combatant {
   type: "player" | "npc" | "gm" | "pet";
   ownerId?: string; // ID do player dono (para pets)
   image?: string; // Útil para o avatar no combate
+
+  // Suporte a Bosses de Múltiplas Fases
+  phases?: NpcPhase[];
+  currentPhaseIndex?: number;
 
   // Stats Vitais (Obrigatórios para o combate)
   hp: { current: number; max: number };
@@ -380,6 +404,7 @@ export interface NpcTemplate {
     melee?: CombatWeaponData;
     ranged?: CombatWeaponData;
   };
+  phases?: NpcPhase[];
 }
 
 // Exemplo de tipos para o futuro WebSocket

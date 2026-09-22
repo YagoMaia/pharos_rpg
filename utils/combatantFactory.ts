@@ -7,6 +7,7 @@ import {
     Pet
 } from "@/types/rpg";
 import { generateSafeId } from "@/utils/stringUtils";
+import { migrateSpecialization } from "./specializationMigration";
 
 const playerArmor = (char: Character) => {
   const dexMod = char.attributes["Destreza"].modifier || 0;
@@ -25,7 +26,27 @@ const playerArmor = (char: Character) => {
   }
   ac += shieldDef;
 
+  const spec = char.specialization;
+  if (Array.isArray(spec?.proficiencyChanges)) {
+    for (const change of spec.proficiencyChanges) {
+      if (change.mechanicType === "armor" &&
+        (spec.id !== "gue_encouracado" || armorDef >= 16)) {
+        const bonus = Number(change.mechanicValue);
+        if (Number.isFinite(bonus)) ac += bonus;
+      }
+    }
+  }
+  if (hasSwordAndShieldBonus(char)) ac += 1;
+
   return ac;
+};
+
+const hasSwordAndShieldBonus = (char: Character) => {
+  const weapon = char.equipment?.meleeWeapon;
+  return char.specialization?.id === "gue_espada_escudo" &&
+    (char.equipment?.shield?.defense ?? 0) > 0 &&
+    /espada|sabre|rapieira|florete/i.test(weapon?.name ?? "") &&
+    !/duas m[aã]os|2 m[aã]os/i.test(`${weapon?.name} ${weapon?.stats} ${weapon?.description}`);
 };
 
 const extractWeaponData = (
@@ -66,6 +87,7 @@ export const playerToCombatant = (
   char: Character,
   initiativeRoll: number,
 ): Combatant => {
+  char = migrateSpecialization(char);
   // Cria um resumo do equipamento para mostrar no combate
   const meleeData = extractWeaponData(
     char.equipment.meleeWeapon,
@@ -79,7 +101,9 @@ export const playerToCombatant = (
     "1d4",
   );
 
-  return {
+  if (hasSwordAndShieldBonus(char)) meleeData.damage += "+1";
+
+  const baseCombatant: Combatant = {
     id: generateSafeId(char.name), // Player geralmente usa o próprio nome como ID único ou char.id
     name: char.name,
     baseName: char.name,
@@ -98,8 +122,6 @@ export const playerToCombatant = (
     activeStanceId: null, // Player começa sem postura ou usa char.currentStanceIndex se quiser persistir
 
     // Mapeamentos importantes
-    // Filtra apenas skills de combate (que possuem 'id').
-    // Perícias passivas (Arcanismo, Intuição, etc.) não têm 'id' e não devem ir para o servidor.
     skills: char.skills.filter((s) => !!s.id),
     spells: char.grimoire || [], // Mapeia Grimório para Spells
 
@@ -112,8 +134,9 @@ export const playerToCombatant = (
       ranged: rangedData,
     },
     conditions: [],
-    // actionsDescription: "Ações do Jogador...", // Pode deixar vazio ou automatizar
   };
+
+  return baseCombatant;
 };
 
 // --- CONVERSOR: NPC -> COMBATANT ---
@@ -145,6 +168,9 @@ export const npcToCombatant = (
     skills: npc.skills,
     spells: npc.spells,
 
+    phases: npc.phases,
+    currentPhaseIndex: npc.phases && npc.phases.length > 0 ? 0 : undefined,
+
     turnActions: { standard: true, bonus: true, reaction: true },
     deathSaves: { successes: 0, failures: 0 },
     weapons: npc.weapons || {
@@ -171,6 +197,7 @@ export const npcToCombatant = (
 
 // Função pura para converter a ficha do Jogador para o formato do Bestiário
 export function mapPlayerToNpc(player: Character): Omit<NpcTemplate, "id"> {
+  player = migrateSpecialization(player);
   // 1. Tratamento da Ancestralidade (Objeto -> String)
   const ancestryName = player.ancestry?.name || "Desconhecida";
 
@@ -206,6 +233,11 @@ export function mapPlayerToNpc(player: Character): Omit<NpcTemplate, "id"> {
   // Se o seu sistema usa modificador (ex: (Valor - 10) / 2), ajuste aqui:
   const initiativeBonus = Number(agiValue);
 
+
+  // Cálculo do AC Base
+  const baseAc = playerArmor(player);
+  if (hasSwordAndShieldBonus(player)) meleeData.damage += "+1";
+
   return {
     name: `Player ${player.name}`,
     image: player.image || "",
@@ -216,8 +248,7 @@ export function mapPlayerToNpc(player: Character): Omit<NpcTemplate, "id"> {
     maxHp: player.stats?.hp?.max || 1,
     maxFocus: player.stats?.focus?.max || 0,
 
-    // Valores padrão de combate que o Mestre precisará revisar
-    armorClass: playerArmor(player),
+    armorClass: baseAc,
     acDetail: player.equipment?.armor?.name || "Sem armadura",
     speed: "9m",
     initiativeBonus: initiativeBonus,
@@ -227,7 +258,6 @@ export function mapPlayerToNpc(player: Character): Omit<NpcTemplate, "id"> {
     skills: player.skills || [],
     spells: player.spells || [],
 
-    // actions: actionsSummary,
     weapons: {
       melee: meleeData,
       ranged: rangedData,

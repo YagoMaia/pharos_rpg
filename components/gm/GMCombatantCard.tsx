@@ -12,6 +12,7 @@ interface GMCombatantCardProps {
   onUpdate: (id: string, type: "hp" | "focus", value: number) => void;
   onRemove: (id: string) => void;
   onManageConditions?: (item: Combatant) => void;
+  onAdvancePhase?: (id: string) => void;
 }
 
 const GMCombatantCardComponent = ({
@@ -21,6 +22,7 @@ const GMCombatantCardComponent = ({
   onUpdate,
   onRemove,
   onManageConditions,
+  onAdvancePhase,
 }: GMCombatantCardProps) => {
   const isPlayer = item.type === "player";
 
@@ -112,6 +114,15 @@ const GMCombatantCardComponent = ({
         </View>
 
         <View style={styles.actionButtons}>
+          {item.phases && item.currentPhaseIndex !== undefined && item.currentPhaseIndex < item.phases.length && onAdvancePhase && (
+            <TouchableOpacity
+              onPress={() => onAdvancePhase(item.id)}
+              style={styles.actionBtn}
+            >
+              <MaterialCommunityIcons name="chevron-double-up" size={24} color={"#9c27b0"} />
+            </TouchableOpacity>
+          )}
+
           {onManageConditions && (
             <TouchableOpacity
               onPress={() => onManageConditions(item)}
@@ -209,19 +220,12 @@ export const GMCombatantCard = React.memo(
   GMCombatantCardComponent,
   (prev, next) => {
     return (
-      prev.item.id === next.item.id &&
-      prev.item.hp?.current === next.item.hp?.current &&
-      prev.item.hp?.max === next.item.hp?.max &&
-      prev.item.focus?.current === next.item.focus?.current &&
-      prev.item.focus?.max === next.item.focus?.max &&
-      prev.item.activeStanceId === next.item.activeStanceId &&
-      (prev.item.conditions?.length ?? 0) ===
-        (next.item.conditions?.length ?? 0) &&
-      prev.item.armorClass === next.item.armorClass &&
+      prev.item === next.item &&
       prev.isActive === next.isActive &&
       prev.colors === next.colors &&
       prev.onUpdate === next.onUpdate &&
       prev.onRemove === next.onRemove &&
+      prev.onAdvancePhase === next.onAdvancePhase &&
       prev.onManageConditions === next.onManageConditions
     );
   },

@@ -8,6 +8,7 @@ import {
   AttributeName,
   CharacterClass,
   NpcTemplate,
+  NpcPhase,
   Skill,
   Spell,
   Stance,
@@ -36,6 +37,7 @@ interface AddNpcModalProps {
   onClose: () => void;
   onSave: (data: Partial<NpcTemplate>) => void;
   initialData?: NpcTemplate | null;
+  phaseMode?: boolean;
 }
 
 export const AddNpcModal = ({
@@ -43,11 +45,15 @@ export const AddNpcModal = ({
   onClose,
   onSave,
   initialData,
+  phaseMode = false,
 }: AddNpcModalProps) => {
   const { colors } = useTheme();
   const styles = useMemo(() => getStyles(colors), [colors]);
 
   const [image, setImage] = useState("");
+  const [phases, setPhases] = useState<NpcPhase[]>([]);
+  const [editingPhase, setEditingPhase] = useState<number | null>(null);
+  const [phaseDraft, setPhaseDraft] = useState<NpcTemplate | null>(null);
 
   // --- ESTADOS DO FORMULÁRIO (Copiados do NpcScreen) ---
   const [formTab, setFormTab] = useState<"general" | "details">("general");
@@ -107,6 +113,8 @@ export const AddNpcModal = ({
   useEffect(() => {
     // Só executa se o modal estiver visível
     if (visible) {
+      setPhases(initialData?.phases ?? []);
+      setEditingPhase(null);
       if (initialData) {
         // --- MODO EDIÇÃO ---
         setImage(initialData.image || "");
@@ -123,7 +131,7 @@ export const AddNpcModal = ({
         // Outros campos com proteção contra null/undefined
         setHp(String(initialData.maxHp || "10"));
         // setHpFormula(initialData.hpFormula || "");
-        setAc(String(initialData.armorClass || "10"));
+        setAc(String(initialData.armorClass ?? 10));
         setAcDetail(initialData.acDetail || "");
         setSpeed(initialData.speed || "9m");
         setInit(String(initialData.initiativeBonus || "0"));
@@ -238,7 +246,7 @@ export const AddNpcModal = ({
 
     // Só altera as listas automáticas se NÃO for uma edição
     // (Em edições, assumimos que o Mestre já customizou o que queria)
-    if (!initialData) {
+    if (!initialData || phaseMode) {
       if (CUSTOM_CLASSES.includes(cls)) {
         // Se mudou para Monstro/Outro, REMOVE as skills que vieram de
         // classes padrão (que não têm o prefixo "custom_"), mas MANTÉM as customizadas.
@@ -288,18 +296,18 @@ export const AddNpcModal = ({
     }
   };
 
-  const handleSave = () => {
-    const data = {
+  const buildTemplate = () => {
+    return {
       id: initialData?.id,
       name,
       image,
       subline,
-      maxHp: parseInt(hp) || 10,
+      maxHp: Math.max(1, parseInt(hp) || 10),
       level: parseInt(level) || 1,
       //   hpFormula,
       class: npcClass,
       ancestry: ancestry,
-      armorClass: parseInt(ac) || 10,
+      armorClass: Number.isNaN(parseInt(ac)) ? 10 : Math.max(0, parseInt(ac)),
       acDetail,
       speed: speed || "9m",
       initiativeBonus: parseInt(init) || 0,
@@ -310,6 +318,7 @@ export const AddNpcModal = ({
       stances: npcStances,
       skills: npcSkills,
       spells: npcSpells,
+      phases,
       // Dentro do seu objeto "data" na const handleSave
       weapons: {
         melee: {
@@ -328,8 +337,22 @@ export const AddNpcModal = ({
         },
       },
     };
+  };
+
+  const handleSave = () => {
+    const data = buildTemplate();
     onSave(data);
     onClose();
+  };
+
+  const openPhase = (index: number) => {
+    const base = buildTemplate();
+    // Cada fase começa com os valores herdados da anterior, inclusive armas e posturas.
+    const inherited = phases.slice(0, index + 1).reduce<NpcTemplate>((prev, phase) => ({ ...prev, ...phase }), {
+      ...base, id: `phase_${index}`, class: base.class ?? "Monstro",
+    });
+    setPhaseDraft({ ...inherited, phases: [] });
+    setEditingPhase(index);
   };
 
   const addSpell = (spell: Spell) => {
@@ -427,7 +450,7 @@ export const AddNpcModal = ({
       <SafeAreaView style={styles.modalContainer}>
         <View style={styles.modalHeader}>
           <Text style={styles.modalTitle}>
-            {initialData ? "Editar NPC" : "Criar NPC"}
+            {phaseMode ? "Editar Fase" : initialData ? "Editar NPC" : "Criar NPC"}
           </Text>
           <TouchableOpacity onPress={onClose}>
             <Text style={styles.closeText}>Cancelar</Text>
@@ -545,6 +568,7 @@ export const AddNpcModal = ({
                 })}
               </View>
 
+              {!phaseMode && <>
               <Text style={styles.label}>Ancestralidade</Text>
               <View style={styles.chipContainer}>
                 {ANCESTRIES.map((anc) => {
@@ -568,6 +592,7 @@ export const AddNpcModal = ({
                 })}
               </View>
 
+              </>}
               <View style={styles.row}>
                 <View style={{ flex: 1, marginRight: 8 }}>
                   <Text style={styles.label}>PV Máx</Text>
@@ -579,7 +604,7 @@ export const AddNpcModal = ({
                     placeholderTextColor={colors.textSecondary}
                   />
                 </View>
-                <View style={{ flex: 1 }}>
+                {!phaseMode && <View style={{ flex: 1 }}>
                   <Text style={styles.label}>Fórmula PV</Text>
                   <TextInput
                     style={styles.input}
@@ -588,7 +613,7 @@ export const AddNpcModal = ({
                     placeholder="1d10+2"
                     placeholderTextColor={colors.textSecondary}
                   />
-                </View>
+                </View>}
               </View>
 
               <View style={styles.row}>
@@ -602,7 +627,7 @@ export const AddNpcModal = ({
                     placeholderTextColor={colors.textSecondary}
                   />
                 </View>
-                <View style={{ flex: 1 }}>
+                {!phaseMode && <View style={{ flex: 1 }}>
                   <Text style={styles.label}>Detalhe CA</Text>
                   <TextInput
                     style={styles.input}
@@ -611,10 +636,10 @@ export const AddNpcModal = ({
                     placeholder="Couro"
                     placeholderTextColor={colors.textSecondary}
                   />
-                </View>
+                </View>}
               </View>
 
-              <View style={styles.row}>
+              {!phaseMode && <View style={styles.row}>
                 <View style={{ flex: 1, marginRight: 8 }}>
                   <Text style={styles.label}>Init (Mod)</Text>
                   <TextInput
@@ -646,8 +671,31 @@ export const AddNpcModal = ({
                     placeholderTextColor={colors.textSecondary}
                   />
                 </View>
-              </View>
+              </View>}
             </>
+          )}
+
+          {!phaseMode && formTab === "general" && (
+            <View>
+              <Text style={styles.label}>Fases subsequentes</Text>
+              <Text style={styles.miniItemDesc}>
+                A ficha acima é a fase 1. Cadastre as próximas na ordem em que serão ativadas.
+              </Text>
+              {phases.map((phase, index) => (
+                <View key={index} style={styles.miniItem}>
+                  <TouchableOpacity style={{ flex: 1 }} onPress={() => openPhase(index)}>
+                    <Text style={styles.miniItemTitle}>Fase {index + 2}: {phase.name || name}</Text>
+                    <Text style={styles.miniItemDesc}>PV: {phase.maxHp ?? "herdado"} · CA: {phase.armorClass ?? "herdada"} · Toque para editar</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity onPress={() => setPhases((prev) => prev.filter((_, i) => i !== index))}>
+                    <Ionicons name="trash-outline" size={22} color={colors.error} />
+                  </TouchableOpacity>
+                </View>
+              ))}
+              <TouchableOpacity style={styles.addBtnSmall} onPress={() => openPhase(phases.length)}>
+                <Text style={styles.addBtnText}>+ Próxima fase</Text>
+              </TouchableOpacity>
+            </View>
           )}
 
           {/* ABA DETALHES */}
@@ -890,6 +938,7 @@ export const AddNpcModal = ({
 
               <View style={styles.divider} />
 
+              {!phaseMode && <>
               <Text style={styles.label}>Outros Equipamentos (Inventário)</Text>
               <TextInput
                 style={styles.input}
@@ -898,6 +947,7 @@ export const AddNpcModal = ({
                 placeholder="Poções, armaduras, moedas..."
                 placeholderTextColor={colors.textSecondary}
               />
+              </>}
 
               <View style={styles.divider} />
 
@@ -957,6 +1007,7 @@ export const AddNpcModal = ({
 
               <View style={styles.divider} />
 
+              {!phaseMode && <>
               {/* Lógica de Magias e Atributos mantida... */}
               <View
                 style={{
@@ -1017,6 +1068,7 @@ export const AddNpcModal = ({
                   </View>
                 ))}
               </View>
+              </>}
             </>
           )}
         </ScrollView>
@@ -1035,6 +1087,23 @@ export const AddNpcModal = ({
           learnedSpells={npcSpells}
           character={{ class: npcClass, level: parseInt(level) || 1 } as any}
         />
+        {!phaseMode && editingPhase !== null && phaseDraft && (
+          <AddNpcModal
+            visible
+            phaseMode
+            initialData={phaseDraft}
+            onClose={() => setEditingPhase(null)}
+            onSave={(data) => {
+              const phase: NpcPhase = {
+                name: data.name, image: data.image, maxHp: data.maxHp,
+                armorClass: data.armorClass, stances: data.stances,
+                skills: data.skills, weapons: data.weapons,
+              };
+              setPhases((prev) => editingPhase === prev.length ? [...prev, phase] :
+                prev.map((item, index) => index === editingPhase ? phase : item));
+            }}
+          />
+        )}
         {/* --- MODAL COMPLETO: ADICIONAR NOVA SKILL --- */}
         <Modal visible={skillModalVisible} transparent animationType="fade">
           <View style={styles.overlayModal}>

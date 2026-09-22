@@ -1,5 +1,6 @@
 // src/context/CharacterContext.tsx
 import { SKILL_GROUPS } from "@/data/expertiseData";
+import { migrateSpecialization } from "@/utils/specializationMigration";
 import { ANCESTRIES, CULTURAL_ORIGINS } from "@/data/origins";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import React, {
@@ -180,7 +181,7 @@ export const CharacterProvider = ({ children }: { children: ReactNode }) => {
             );
           }
 
-          setCharacter(parsed);
+          setCharacter(migrateSpecialization(parsed));
         }
       } catch (e) {
         console.error("Erro ao carregar dados:", e);
@@ -310,7 +311,8 @@ export const CharacterProvider = ({ children }: { children: ReactNode }) => {
         name,
         class: className,
         skills: newClassData.skills,
-        stances: newClassData.stances,
+        specialization: prev.class === className ? prev.specialization : null,
+        stances: prev.class === className && prev.specialization ? prev.stances : newClassData.stances,
         currentStanceIndex: -1,
         grimoire: MAGIC_CLASSES.includes(className) ? prev.grimoire : [],
       }));
@@ -541,7 +543,7 @@ export const CharacterProvider = ({ children }: { children: ReactNode }) => {
         deathSaves: importedData.deathSaves || { successes: 0, failures: 0 },
       };
 
-      return migratedCharacter;
+      return migrateSpecialization(migratedCharacter);
     });
   }, []);
 
@@ -602,8 +604,9 @@ export const CharacterProvider = ({ children }: { children: ReactNode }) => {
 
   const applySpecialization = useCallback((spec: Specialization) => {
     setCharacter((prev) => {
+      if (spec.classRequired !== prev.class) return prev;
       const updated = { ...prev, specialization: spec };
-      if (spec.classRequired === "Corsário" && spec.newStances) {
+      if (spec.newStances && spec.newStances.length > 0) {
         updated.stances = spec.newStances;
         updated.currentStanceIndex = -1;
       }

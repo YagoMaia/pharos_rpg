@@ -1,4 +1,5 @@
 import { useTheme } from "@/context/ThemeContext";
+import { useCampaign } from "@/context/CampaignContext";
 import { useWebSocket } from "@/context/WebSocketContext";
 import { ActiveCondition, Combatant, ConditionName } from "@/types/rpg";
 import { CONDITION_CONFIG } from "@/utils/conditionConfig";
@@ -31,12 +32,13 @@ export const ConditionManagerModal = ({
 }: ConditionManagerModalProps) => {
   const { colors } = useTheme();
   const { sendMessage } = useWebSocket();
+  const { combatants, setCombatants, isOfflineMode } = useCampaign();
   const styles = useMemo(() => getStyles(colors), [colors]);
 
   const [selectedCondition, setSelectedCondition] = useState<ConditionName | null>(null);
   const [durationInput, setDurationInput] = useState("");
 
-  const activeConditions = combatant.conditions || [];
+  const activeConditions = combatants.find((c) => c.id === combatant.id)?.conditions ?? combatant.conditions ?? [];
 
   const handleApply = () => {
     if (!selectedCondition) return;
@@ -44,10 +46,20 @@ export const ConditionManagerModal = ({
     const config = CONDITION_CONFIG[selectedCondition];
     const duration = durationInput.trim() ? parseInt(durationInput) : undefined;
 
-    sendMessage("APPLY_CONDITION", {
+    const durationTurns = duration && Number.isFinite(duration) && duration > 0 ? duration : undefined;
+    if (isOfflineMode) {
+      const condition: ActiveCondition = {
+        id: `${Date.now()}_${Math.random()}`, name: selectedCondition,
+        durationTurns, appliedAtTurn: 0, sourceId: "GM", description: config.description,
+      };
+      setCombatants((prev) => prev.map((c) => c.id !== combatant.id ||
+        c.conditions?.some((existing) => existing.name === selectedCondition) ? c : {
+          ...c, conditions: [...(c.conditions ?? []), condition],
+        }));
+    } else sendMessage("APPLY_CONDITION", {
       combatantId: combatant.id,
       conditionName: selectedCondition,
-      durationTurns: duration && !isNaN(duration) ? duration : undefined,
+      durationTurns,
       description: config?.description || "",
     });
 
@@ -56,7 +68,11 @@ export const ConditionManagerModal = ({
   };
 
   const handleRemove = (conditionId: string) => {
-    sendMessage("REMOVE_CONDITION", {
+    if (isOfflineMode) {
+      setCombatants((prev) => prev.map((c) => c.id !== combatant.id ? c : {
+        ...c, conditions: (c.conditions ?? []).filter((cond) => cond.id !== conditionId),
+      }));
+    } else sendMessage("REMOVE_CONDITION", {
       combatantId: combatant.id,
       conditionId,
     });

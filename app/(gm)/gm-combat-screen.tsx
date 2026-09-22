@@ -23,7 +23,18 @@ import { ActiveTurnInterface } from "@/components/session/ActiveTurnInterface";
 import { ConnectionForm } from "@/components/session/ConnectionForm";
 
 export default function GMCombatScreen() {
-  const { combatants, activeTurnId, logs } = useCampaign();
+  const {
+    combatants,
+    activeTurnId,
+    logs,
+    isOfflineMode,
+    setOfflineMode,
+    nextTurn,
+    updateCombatant,
+    removeCombatant,
+    advancePhase,
+    endCombat,
+  } = useCampaign();
   const { colors } = useTheme();
   const styles = useMemo(() => getStyles(colors), [colors]);
   const { showAlert } = useAlert();
@@ -32,6 +43,7 @@ export default function GMCombatScreen() {
     useWebSocket();
 
   const [conditionModalOpen, setConditionModalOpen] = React.useState(false);
+  const [showRoster, setShowRoster] = React.useState(false);
   const [selectedConditionCombatant, setSelectedConditionCombatant] = React.useState<Combatant | null>(null);
 
   const handleConnectGM = (ip: string, code: string) => {
@@ -51,7 +63,8 @@ export default function GMCombatScreen() {
   };
 
   const handleNextTurn = () => {
-    sendMessage("END_TURN", { manual: true });
+    if (isOfflineMode) nextTurn();
+    else sendMessage("END_TURN", { manual: true });
   };
 
   const handleUpdateStat = (
@@ -59,11 +72,20 @@ export default function GMCombatScreen() {
     type: "hp" | "focus",
     value: number,
   ) => {
-    sendMessage("GM_UPDATE_COMBATANT", {
-      combatantId: id,
-      field: type === "hp" ? "hp_current" : "current_focus",
-      value: value,
-    });
+    if (isOfflineMode) {
+      const c = combatants.find((x) => x.id === id);
+      if (c)
+        updateCombatant(id, type === "hp" ? "hp" : "focus", {
+          ...c[type],
+          current: value,
+        });
+    } else {
+      sendMessage("GM_UPDATE_COMBATANT", {
+        combatantId: id,
+        field: type === "hp" ? "hp_current" : "current_focus",
+        value: value,
+      });
+    }
   };
 
   const handleRemoveCombatant = (id: string) => {
@@ -72,7 +94,10 @@ export default function GMCombatScreen() {
       {
         text: "Remover",
         style: "destructive",
-        onPress: () => sendMessage("GM_REMOVE_COMBATANT", { combatantId: id }),
+        onPress: () =>
+          isOfflineMode
+            ? removeCombatant(id)
+            : sendMessage("GM_REMOVE_COMBATANT", { combatantId: id }),
       },
     ]);
   };
@@ -85,23 +110,50 @@ export default function GMCombatScreen() {
         { text: "Cancelar", style: "cancel" },
         {
           text: "Finalizar",
-          onPress: () => sendMessage("END_COMBAT", { endCombat: true }),
+          onPress: () => isOfflineMode ? endCombat() : sendMessage("END_COMBAT", { endCombat: true }),
           style: "default",
         },
       ],
     );
   };
   const activeCombatant = combatants.find((c) => c.id === activeTurnId);
+  const handleAdvancePhase = (id: string) => {
+    const actor = combatants.find((c) => c.id === id);
+    if (!actor) return;
+    showAlert("Avançar Fase", `Avançar ${actor.name}? A vida será restaurada e a postura ficará neutra.`, [
+      { text: "Cancelar", style: "cancel" },
+      { text: "Avançar", onPress: () => isOfflineMode ? advancePhase(id) :
+        sendMessage("GM_ADVANCE_PHASE", { combatantId: id, expectedPhaseIndex: actor.currentPhaseIndex ?? 0 }) },
+    ]);
+  };
   const isNpcTurn = activeCombatant && activeCombatant.type === "npc";
 
   // 1. TELA DE LOGIN
-  if (!isConnected) {
+  if (!isConnected && !isOfflineMode) {
     return (
       <View style={{ flex: 1, backgroundColor: colors.background }}>
         <ConnectionForm
           onConnect={handleConnectGM}
           title="Painel do Mestre"
           btnLabel="CONECTAR COMO MESTRE"
+          extraButton={
+            <TouchableOpacity
+              onPress={() => setOfflineMode(true)}
+              style={{
+                backgroundColor: colors.surface,
+                borderWidth: 1,
+                borderColor: colors.primary,
+                marginTop: 12,
+                padding: 16,
+                borderRadius: 8,
+                alignItems: "center",
+              }}
+            >
+              <Text style={{ color: colors.primary, fontWeight: "bold" }}>
+                MODO OFFLINE (LOCAL)
+              </Text>
+            </TouchableOpacity>
+          }
         />
       </View>
     );
@@ -118,11 +170,23 @@ export default function GMCombatScreen() {
           </Text>
         </View>
         <View style={{ flexDirection: "row", gap: 10 }}>
+          {isNpcTurn && (
+            <TouchableOpacity onPress={() => setShowRoster((prev) => !prev)} style={styles.iconBtn}
+              accessibilityLabel={showRoster ? "Controlar NPC" : "Gerenciar combatentes"}>
+              <Ionicons name={showRoster ? "game-controller" : "list"} size={24} color={colors.primary} />
+            </TouchableOpacity>
+          )}
           <TouchableOpacity onPress={handleNextTurn} style={styles.nextTurnBtn}>
             <Text style={styles.nextTurnText}>PRÓXIMO</Text>
             <Ionicons name="play-skip-forward" size={16} color="#fff" />
           </TouchableOpacity>
-          <TouchableOpacity onPress={disconnect} style={styles.iconBtn}>
+          <TouchableOpacity
+            onPress={() => {
+              setOfflineMode(false);
+              disconnect();
+            }}
+            style={styles.iconBtn}
+          >
             <Ionicons name="close" size={24} color={colors.error} />
           </TouchableOpacity>
         </View>
@@ -130,7 +194,7 @@ export default function GMCombatScreen() {
 
       <CombatLog logs={logs} colors={colors} />
 
-      {isNpcTurn ? (
+      {isNpcTurn && !showRoster ? (
         // VEZ DO NPC (Controlador Ativo)
         <View
           style={{ flex: 1, borderTopWidth: 1, borderColor: colors.primary }}
@@ -145,6 +209,11 @@ export default function GMCombatScreen() {
             <Text style={{ color: colors.primary, fontWeight: "bold" }}>
               🎮 CONTROLANDO: {activeCombatant.name}
             </Text>
+            {(activeCombatant.currentPhaseIndex ?? 0) < (activeCombatant.phases?.length ?? 0) && (
+              <TouchableOpacity onPress={() => handleAdvancePhase(activeCombatant.id)} style={styles.nextTurnBtn}>
+                <Text style={styles.nextTurnText}>AVANÇAR FASE</Text>
+              </TouchableOpacity>
+            )}
           </View>
           <ActiveTurnInterface combatant={activeCombatant} isGm={true} />
         </View>
@@ -161,6 +230,7 @@ export default function GMCombatScreen() {
               colors={colors}
               onUpdate={handleUpdateStat}
               onRemove={handleRemoveCombatant}
+              onAdvancePhase={handleAdvancePhase}
               onManageConditions={(c) => {
                 setSelectedConditionCombatant(c);
                 setConditionModalOpen(true);
@@ -173,7 +243,7 @@ export default function GMCombatScreen() {
         />
       )}
 
-      {!isNpcTurn && (
+      {(!isNpcTurn || showRoster) && (
         <TouchableOpacity
           onPress={handleEndCombat}
           style={styles.fab}

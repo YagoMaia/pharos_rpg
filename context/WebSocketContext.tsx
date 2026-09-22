@@ -140,7 +140,7 @@ export const WebSocketProvider = ({
       setCombatants(sortedCombatants);
 
       if (typeof data.turn_index === "number") {
-        setActiveTurnId(data.turn_order[data.turn_index]);
+        setActiveTurnId(data.turn_order[data.turn_index] ?? null);
       }
 
       if (data.logs && Array.isArray(data.logs)) {
@@ -278,7 +278,8 @@ export const WebSocketProvider = ({
       case "TURN_UPDATE":
         setActiveTurnId(payload.newActiveId);
         // Reseta as ações do novo ator ativo (usa o valor do servidor ou o padrão)
-        updateCombatant(payload.newActiveId, {
+        if (payload.newActiveId) updateCombatant(payload.newActiveId, {
+          ...(payload.conditions ? { conditions: payload.conditions } : {}),
           turnActions: payload.turnActions || {
             standard: true,
             bonus: true,

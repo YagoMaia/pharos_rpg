@@ -1,4 +1,5 @@
 import { useCampaign } from "@/context/CampaignContext";
+import { stanceArmorBonus } from "@/utils/combatRules";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import React, { useMemo, useState } from "react";
 import {
@@ -41,7 +42,8 @@ interface Props {
 }
 
 const ActiveTurnInterfaceComponent = ({ combatant, isGm = false }: Props) => {
-  const { updateCombatant, combatants, activeTurnId } = useCampaign();
+  const { updateCombatant, combatants, activeTurnId, isOfflineMode, nextTurn } =
+    useCampaign();
   const { sendMessage } = useWebSocket();
   const { showAlert } = useAlert();
   const { colors, isDark } = useTheme();
@@ -67,7 +69,9 @@ const ActiveTurnInterfaceComponent = ({ combatant, isGm = false }: Props) => {
   const [conditionModalOpen, setConditionModalOpen] = useState(false);
 
   // Garante que actions existe com valores padrão
-  const turnActions = combatant.turnActions || {
+  const incapacitated = (combatant.conditions ?? []).some((c) =>
+    ["Incapacitado", "Paralisado", "Atordoado"].includes(c.name));
+  const turnActions = incapacitated ? { standard: false, bonus: false, reaction: false } : combatant.turnActions || {
     standard: true,
     bonus: true,
     reaction: true,
@@ -77,10 +81,13 @@ const ActiveTurnInterfaceComponent = ({ combatant, isGm = false }: Props) => {
 
   const handleEndTurn = () => {
     if (isEndingTurn) return;
-
     setIsEndingTurn(true);
 
-    sendMessage("END_TURN", { character_id: combatant.id });
+    if (isOfflineMode && nextTurn) {
+      nextTurn();
+    } else {
+      sendMessage("END_TURN", { character_id: combatant.id });
+    }
 
     setTimeout(() => {
       setIsEndingTurn(false);
@@ -163,10 +170,12 @@ const ActiveTurnInterfaceComponent = ({ combatant, isGm = false }: Props) => {
     }
 
     // Dispara via Socket
-    sendMessage("ROLL_DEATH_SAVE", {
-      combatantId: combatant.id,
-      rollValue: d20,
-    });
+    if (!isOfflineMode) {
+      sendMessage("ROLL_DEATH_SAVE", {
+        combatantId: combatant.id,
+        rollValue: d20,
+      });
+    }
 
     showAlert(
       hpUpdate > 0 ? "Salvo!" : died ? "Morte" : "Teste de Morte",
@@ -178,6 +187,18 @@ const ActiveTurnInterfaceComponent = ({ combatant, isGm = false }: Props) => {
 
   // --- RENDERIZAÇÃO CONDICIONAL DE MORTE ---
   if (combatant.hp.current <= 0) {
+    if (combatant.type !== "player") return (
+      <View style={{ padding: 20 }}>
+        <Text style={{ color: colors.text }}>
+          {(combatant.currentPhaseIndex ?? 0) < (combatant.phases?.length ?? 0)
+            ? "Aguardando o mestre avançar para a próxima fase."
+            : "Combatente derrotado."}
+        </Text>
+        <TouchableOpacity onPress={handleEndTurn}>
+          <Text style={{ color: colors.primary, paddingVertical: 16 }}>PASSAR TURNO</Text>
+        </TouchableOpacity>
+      </View>
+    );
     return (
       <DeathSaveMonitor
         successes={combatant.deathSaves?.successes || 0}
@@ -202,7 +223,7 @@ const ActiveTurnInterfaceComponent = ({ combatant, isGm = false }: Props) => {
   );
   const isNeutral = currentStanceIdx === -1;
   const activeStance = isNeutral ? null : stances[currentStanceIdx];
-  const stanceBonus = activeStance?.acBonus || 0;
+  const stanceBonus = stanceArmorBonus(activeStance, combatant);
 
   // --- HANDLERS DE AÇÕES (Magias, Habilidades, etc) ---
   const handleCastSpell = (spell: Spell) => {
@@ -248,7 +269,9 @@ const ActiveTurnInterfaceComponent = ({ combatant, isGm = false }: Props) => {
         healingAmount: 0,
       };
 
-      sendMessage("RESOLVE_ACTION", payload);
+      if (!isOfflineMode) {
+        sendMessage("RESOLVE_ACTION", payload);
+      }
 
       updateCombatant(
         combatant.id,
@@ -282,7 +305,9 @@ const ActiveTurnInterfaceComponent = ({ combatant, isGm = false }: Props) => {
       healingAmount: healAmount,
     };
 
-    sendMessage("RESOLVE_ACTION", payload);
+    if (!isOfflineMode) {
+      sendMessage("RESOLVE_ACTION", payload);
+    }
 
     if (target) {
       if (target.hp.current <= 0) {
@@ -409,17 +434,20 @@ const ActiveTurnInterfaceComponent = ({ combatant, isGm = false }: Props) => {
         healingAmount: 0,
       };
 
-      sendMessage("RESOLVE_ACTION", payload);
+      if (!isOfflineMode) {
+        sendMessage("RESOLVE_ACTION", payload);
+      }
       showAlert("Habilidade", `${skill.name} utilizada.`);
     }
   };
 
   const handleStanceChange = (newIndex: number) => {
+    if (incapacitated) return;
     const currentActiveStance = combatant.stances?.find(
       (s) => s.id === combatant.activeStanceId,
     );
-    const currentBonusOnServer = currentActiveStance?.acBonus || 0;
-    const safeBaseAC = (combatant.armorClass || 10) - currentBonusOnServer;
+    const currentBonusOnServer = stanceArmorBonus(currentActiveStance, combatant);
+    const safeBaseAC = combatant.armorClass - currentBonusOnServer;
 
     let nextStanceId = null;
     let nextAC = safeBaseAC;
@@ -434,7 +462,7 @@ const ActiveTurnInterfaceComponent = ({ combatant, isGm = false }: Props) => {
       }
 
       nextStanceId = newStance.id;
-      nextAC = safeBaseAC + (newStance.acBonus || 0);
+      nextAC = safeBaseAC + stanceArmorBonus(newStance, combatant);
 
       const newActions = { ...turnActions, bonus: false };
       updateCombatant(combatant.id, "turnActions", newActions);
@@ -443,11 +471,13 @@ const ActiveTurnInterfaceComponent = ({ combatant, isGm = false }: Props) => {
     updateCombatant(combatant.id, "activeStanceId", nextStanceId);
     updateCombatant(combatant.id, "armorClass", nextAC);
 
-    sendMessage("CHANGE_STANCE", {
-      combatantId: combatant.id,
-      stanceId: nextStanceId,
-      newAC: nextAC,
-    });
+    if (!isOfflineMode) {
+      sendMessage("CHANGE_STANCE", {
+        combatantId: combatant.id,
+        stanceId: nextStanceId,
+        newAC: nextAC,
+      });
+    }
   };
 
   const handleCloseModal = () => {
@@ -510,7 +540,9 @@ const ActiveTurnInterfaceComponent = ({ combatant, isGm = false }: Props) => {
     };
 
     // 1. Envia para o Servidor
-    sendMessage("RESOLVE_ACTION", payload);
+    if (!isOfflineMode) {
+      sendMessage("RESOLVE_ACTION", payload);
+    }
 
     // 2. ATUALIZAÇÃO LOCAL (Optimistic UI) — cada alvo
     targets.forEach((t) => {
@@ -613,7 +645,11 @@ const ActiveTurnInterfaceComponent = ({ combatant, isGm = false }: Props) => {
         {/* --- RASTREADOR DE AÇÕES --- */}
         <View style={styles.combatSection}>
           <Text style={styles.sectionHeader}>Ações</Text>
-          <ActionTracker turnActions={turnActions} onToggle={() => null} />
+          <ActionTracker turnActions={turnActions} onToggle={(type) => {
+            if (isOfflineMode && !incapacitated) updateCombatant(combatant.id, "turnActions", {
+              ...turnActions, [type]: !turnActions[type],
+            });
+          }} />
 
           <TouchableOpacity
             style={[
@@ -784,23 +820,7 @@ export const ActiveTurnInterface = React.memo(
   ActiveTurnInterfaceComponent,
   (prev, next) => {
     return (
-      prev.combatant.id === next.combatant.id &&
-      prev.combatant.hp?.current === next.combatant.hp?.current &&
-      prev.combatant.hp?.max === next.combatant.hp?.max &&
-      prev.combatant.focus?.current === next.combatant.focus?.current &&
-      prev.combatant.focus?.max === next.combatant.focus?.max &&
-      prev.combatant.activeStanceId === next.combatant.activeStanceId &&
-      (prev.combatant.conditions?.length ?? 0) ===
-        (next.combatant.conditions?.length ?? 0) &&
-      prev.combatant.turnActions?.standard ===
-        next.combatant.turnActions?.standard &&
-      prev.combatant.turnActions?.bonus === next.combatant.turnActions?.bonus &&
-      prev.combatant.turnActions?.reaction ===
-        next.combatant.turnActions?.reaction &&
-      prev.combatant.deathSaves?.successes ===
-        next.combatant.deathSaves?.successes &&
-      prev.combatant.deathSaves?.failures ===
-        next.combatant.deathSaves?.failures &&
+      prev.combatant === next.combatant &&
       prev.isGm === next.isGm
     );
   },

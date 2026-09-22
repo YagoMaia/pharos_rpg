@@ -1,4 +1,5 @@
 import { npcToCombatant, playerToCombatant } from "@/utils/combatantFactory";
+import { advanceCombatantPhase, advanceCombatTurn } from "@/utils/combatRules";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import React, {
     createContext,
@@ -30,9 +31,12 @@ export interface CombatantsContextType {
   updateCombatant: (id: string, fieldOrUpdates: string | Partial<Combatant>, value?: any) => void;
   sortCombat: () => void;
   clearCombat: () => void;
+  endCombat: () => void;
   setCombatants: React.Dispatch<React.SetStateAction<Combatant[]>>;
   setActiveTurnId: React.Dispatch<React.SetStateAction<string | null>>;
   endTurnCombatant: (id: string) => void;
+  advancePhase: (id: string) => void;
+  nextTurn: () => void;
 }
 
 export interface CombatLogContextType {
@@ -47,6 +51,8 @@ export interface CampaignMetaContextType {
   npcLibrary: NpcTemplate[];
   diceHistory: string[];
   isLoaded: boolean;
+  isOfflineMode: boolean;
+  setOfflineMode: React.Dispatch<React.SetStateAction<boolean>>;
   saveNpcToLibrary: (npc: Omit<NpcTemplate, "id">) => void;
   deleteNpcFromLibrary: (id: string) => void;
   updateNpcInLibrary: (id: string, npc: Partial<NpcTemplate>) => void;
@@ -62,13 +68,26 @@ const CampaignMetaContext = createContext<CampaignMetaContextType | undefined>(u
 export const CampaignContext = createContext<CampaignContextType | undefined>(undefined);
 
 export const CampaignProvider = ({ children }: { children: ReactNode }) => {
-  const [combatants, setCombatants] = useState<Combatant[]>([]);
+  const [combatState, setCombatState] = useState<{ combatants: Combatant[]; activeTurnId: string | null }>({
+    combatants: [], activeTurnId: null,
+  });
+  const { combatants, activeTurnId } = combatState;
+  const setCombatants = useCallback<React.Dispatch<React.SetStateAction<Combatant[]>>>((update) => {
+    setCombatState((prev) => ({ ...prev,
+      combatants: typeof update === "function" ? update(prev.combatants) : update,
+    }));
+  }, []);
+  const setActiveTurnId = useCallback<React.Dispatch<React.SetStateAction<string | null>>>((update) => {
+    setCombatState((prev) => ({ ...prev,
+      activeTurnId: typeof update === "function" ? update(prev.activeTurnId) : update,
+    }));
+  }, []);
   const [npcLibrary, setNpcLibrary] = useState<NpcTemplate[]>([]);
   const [diceHistory, setDiceHistory] = useState<string[]>([]);
-  const [activeTurnId, setActiveTurnId] = useState<string | null>(null);
   const [logs, setLogs] = useState<string[]>([]);
   const [isLoaded, setIsLoaded] = useState(false);
   const [lastEvent, setLastEvent] = useState<GameEvent | null>(null);
+  const [isOfflineMode, setOfflineMode] = useState(false);
 
   useEffect(() => {
     const loadData = async () => {
@@ -118,7 +137,9 @@ export const CampaignProvider = ({ children }: { children: ReactNode }) => {
         let newCombatant: Combatant;
         if (type === "player" && details?.stats) {
           newCombatant = playerToCombatant(details as Character, init);
-        } else if (type === "npc" && details?.maxHp) {
+        } else if (type === "npc" && details?.hp && details?.id) {
+          newCombatant = { ...details, initiative: init };
+        } else if (type === "npc" && details?.maxHp != null) {
           const count = prev.filter((c) => c.baseName === baseName).length;
           newCombatant = npcToCombatant(details as NpcTemplate, init, count + 1);
         } else {
@@ -149,7 +170,7 @@ export const CampaignProvider = ({ children }: { children: ReactNode }) => {
         );
       });
     },
-    [],
+    [setCombatants],
   );
 
   const updateCombatant = useCallback(
@@ -167,13 +188,13 @@ export const CampaignProvider = ({ children }: { children: ReactNode }) => {
           }
 
           // Tratamento especial para campos aninhados
-          const newHp = updates.hp
+          const newHp = updates.hp != null
             ? typeof updates.hp === "number"
               ? { ...c.hp, current: updates.hp } // updateCombatant(id, "hp", 5) → seta current
               : { ...c.hp, ...updates.hp }       // updateCombatant(id, { hp: { current: 5 } })
             : c.hp;
 
-          const newFocus = updates.focus
+          const newFocus = updates.focus != null
             ? typeof updates.focus === "number"
               ? { ...c.focus, current: updates.focus }
               : { ...c.focus, ...updates.focus }
@@ -193,7 +214,7 @@ export const CampaignProvider = ({ children }: { children: ReactNode }) => {
         }),
       );
     },
-    [],
+    [setCombatants],
   );
 
   const endTurnCombatant = useCallback(
@@ -205,15 +226,46 @@ export const CampaignProvider = ({ children }: { children: ReactNode }) => {
     [updateCombatant],
   );
 
+  const advancePhase = useCallback(
+    (id: string) => {
+      setCombatants((prev) =>
+        prev.map((c) => {
+          if (c.id !== id) return c;
+          return advanceCombatantPhase(c);
+        }),
+      );
+    },
+    [setCombatants],
+  );
+
   const removeCombatant = useCallback((id: string) => {
-    setCombatants((prev) => prev.filter((c) => c.id !== id));
+    setCombatState((prev) => ({
+      combatants: prev.combatants.filter((c) => c.id !== id),
+      activeTurnId: prev.activeTurnId === id ? null : prev.activeTurnId,
+    }));
   }, []);
 
   const sortCombat = useCallback(() => {
     setCombatants((prev) => [...prev].sort((a, b) => b.initiative - a.initiative));
+  }, [setCombatants]);
+
+  const clearCombat = useCallback(() => {
+    setCombatState({ combatants: [], activeTurnId: null });
   }, []);
 
-  const clearCombat = useCallback(() => setCombatants([]), []);
+  const endCombat = useCallback(() => {
+    setCombatState((prev) => ({
+      combatants: prev.combatants.filter((c) => c.type === "player").map((c) => ({
+        ...c, turnActions: { standard: true, bonus: true, reaction: true },
+      })),
+      activeTurnId: null,
+    }));
+    addLog("🏆 O Mestre encerrou o combate! (Modo Narrativo)");
+  }, [addLog]);
+
+  const nextTurn = useCallback(() => {
+    setCombatState((prev) => advanceCombatTurn(prev.combatants, prev.activeTurnId));
+  }, []);
 
   const deleteNpcFromLibrary = useCallback((id: string) => {
     setNpcLibrary((prev) => prev.filter((n) => n.id !== id));
@@ -253,9 +305,12 @@ export const CampaignProvider = ({ children }: { children: ReactNode }) => {
       updateCombatant,
       sortCombat,
       clearCombat,
+      endCombat,
       setCombatants,
       setActiveTurnId,
       endTurnCombatant,
+      advancePhase,
+      nextTurn,
     }),
     [
       combatants,
@@ -265,9 +320,12 @@ export const CampaignProvider = ({ children }: { children: ReactNode }) => {
       updateCombatant,
       sortCombat,
       clearCombat,
+      endCombat,
       setCombatants,
       setActiveTurnId,
       endTurnCombatant,
+      advancePhase,
+      nextTurn,
     ],
   );
 
@@ -287,6 +345,8 @@ export const CampaignProvider = ({ children }: { children: ReactNode }) => {
       npcLibrary,
       diceHistory,
       isLoaded,
+      isOfflineMode,
+      setOfflineMode,
       saveNpcToLibrary,
       deleteNpcFromLibrary,
       updateNpcInLibrary,
@@ -296,6 +356,8 @@ export const CampaignProvider = ({ children }: { children: ReactNode }) => {
       npcLibrary,
       diceHistory,
       isLoaded,
+      isOfflineMode,
+      setOfflineMode,
       saveNpcToLibrary,
       deleteNpcFromLibrary,
       updateNpcInLibrary,
