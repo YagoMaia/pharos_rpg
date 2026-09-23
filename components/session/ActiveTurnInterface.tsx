@@ -1,5 +1,5 @@
 import { useCampaign } from "@/context/CampaignContext";
-import { stanceArmorBonus } from "@/utils/combatRules";
+import { stanceArmorBonus, weaponDamageFormula } from "@/utils/combatRules";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import React, { useMemo, useState } from "react";
 import {
@@ -17,7 +17,6 @@ import { useAlert } from "@/context/AlertContext";
 import { useTheme } from "@/context/ThemeContext";
 import { useWebSocket } from "@/context/WebSocketContext";
 import {
-  ActionCostType,
   Combatant,
   ResolveActionPayload,
   Skill,
@@ -56,6 +55,7 @@ const ActiveTurnInterfaceComponent = ({ combatant, isGm = false }: Props) => {
     damage: string;
     name: string;
     cost: number;
+    actionKey: keyof Combatant["turnActions"];
   } | null>(null);
 
   const [healModalOpen, setHealModalOpen] = useState(false);
@@ -64,6 +64,7 @@ const ActiveTurnInterfaceComponent = ({ combatant, isGm = false }: Props) => {
     name: string;
     cost: number;
     modifier: number;
+    actionKey: keyof Combatant["turnActions"];
   } | null>(null);
 
   const [conditionModalOpen, setConditionModalOpen] = useState(false);
@@ -247,6 +248,7 @@ const ActiveTurnInterfaceComponent = ({ combatant, isGm = false }: Props) => {
         damage: spell.damageFormula || "1d4",
         name: spell.name,
         cost: spell.cost,
+        actionKey: actionKey ?? "standard",
       });
 
       setAttackModalOpen(true);
@@ -256,6 +258,7 @@ const ActiveTurnInterfaceComponent = ({ combatant, isGm = false }: Props) => {
         name: spell.name,
         cost: spell.cost,
         modifier: magicMod,
+        actionKey: actionKey ?? "standard",
       });
       setHealModalOpen(true);
     } else {
@@ -292,14 +295,20 @@ const ActiveTurnInterfaceComponent = ({ combatant, isGm = false }: Props) => {
 
   const handleConfirmHeal = (targetId: string, healAmount: number) => {
     if (!spellHealConfig) return;
+    const actionKey = spellHealConfig.actionKey;
+    if (incapacitated || !turnActions[actionKey] || combatant.focus.current < spellHealConfig.cost) {
+      showAlert("Ação indisponível", "Confira as ações e o foco disponíveis antes de confirmar a cura.");
+      return;
+    }
 
     const target = combatants.find((c) => c.id === targetId);
+    if (!target) return;
 
     const payload: ResolveActionPayload = {
       attackerId: combatant.id,
       targetId: targetId,
       actionName: spellHealConfig.name,
-      costType: "standard",
+      costType: actionKey,
       focusCost: spellHealConfig.cost,
       damageAmount: 0,
       healingAmount: healAmount,
@@ -307,6 +316,9 @@ const ActiveTurnInterfaceComponent = ({ combatant, isGm = false }: Props) => {
 
     if (!isOfflineMode) {
       sendMessage("RESOLVE_ACTION", payload);
+      setSpellHealConfig(null);
+      setHealModalOpen(false);
+      return; // O evento do servidor confirma PV, foco e ações.
     }
 
     if (target) {
@@ -323,10 +335,10 @@ const ActiveTurnInterfaceComponent = ({ combatant, isGm = false }: Props) => {
       Math.max(0, combatant.focus.current - spellHealConfig.cost),
     );
 
-    if (turnActions.standard) {
+    if (turnActions[actionKey]) {
       updateCombatant(combatant.id, "turnActions", {
         ...turnActions,
-        standard: false,
+        [actionKey]: false,
       });
     }
 
@@ -375,9 +387,7 @@ const ActiveTurnInterfaceComponent = ({ combatant, isGm = false }: Props) => {
         // Adiciona o dano da arma + o atributo (ex: "1d8+3")
         // Obs: Se o dano da arma no JSON já vier com o "+3" embutido, não soma de novo.
         // Assumindo que weapon.damage é só os dados (ex: "1d8")
-        const baseDmg = weaponToUse.damage.includes("+")
-          ? weaponToUse.damage
-          : `${weaponToUse.damage}${attrMod >= 0 ? `+${attrMod}` : attrMod}`;
+        const baseDmg = weaponDamageFormula(weaponToUse, attrMod);
 
         damageFormulaElements.push(baseDmg);
       }
@@ -394,6 +404,7 @@ const ActiveTurnInterfaceComponent = ({ combatant, isGm = false }: Props) => {
         cost: skill.cost,
         bonus: attackBonusString,
         damage: finalDamageFormula,
+        actionKey: actionKey ?? "standard",
       });
       setAttackModalOpen(true);
     }
@@ -406,6 +417,7 @@ const ActiveTurnInterfaceComponent = ({ combatant, isGm = false }: Props) => {
         name: skill.name,
         cost: skill.cost,
         modifier: intMod,
+        actionKey: actionKey ?? "standard",
       });
       setHealModalOpen(true);
     }
@@ -501,7 +513,11 @@ const ActiveTurnInterfaceComponent = ({ combatant, isGm = false }: Props) => {
     if (isCrit) baseActionName += " (Crítico!)";
 
     const focusCost = isSpecialAction ? spellAttackConfig.cost : 0;
-    const actionSpent: ActionCostType = "standard";
+    const actionSpent = spellAttackConfig?.actionKey ?? "standard";
+    if (incapacitated || !turnActions[actionSpent] || combatant.focus.current < focusCost) {
+      showAlert("Ação indisponível", "Confira as ações e o foco disponíveis antes de confirmar o ataque.");
+      return;
+    }
 
     // Monta lista de alvos com dano individual baseado no acerto vs CA
     const targets = targetIds
@@ -517,7 +533,7 @@ const ActiveTurnInterfaceComponent = ({ combatant, isGm = false }: Props) => {
       })
       .filter((t): t is NonNullable<typeof t> => t !== null);
 
-    const anyHit = targets.some((t) => t.damageAmount > 0);
+    if (targets.length === 0) return;
 
     // Determina o nome da ação final
     let actionName = baseActionName;
@@ -542,9 +558,12 @@ const ActiveTurnInterfaceComponent = ({ combatant, isGm = false }: Props) => {
     // 1. Envia para o Servidor
     if (!isOfflineMode) {
       sendMessage("RESOLVE_ACTION", payload);
+      setSpellAttackConfig(null);
+      setAttackModalOpen(false);
+      return; // Sem dano local antecipado para comandos que podem ser rejeitados.
     }
 
-    // 2. ATUALIZAÇÃO LOCAL (Optimistic UI) — cada alvo
+    // 2. Resolução offline — cada alvo
     targets.forEach((t) => {
       if (t.damageAmount > 0) {
         const target = combatants.find((c) => c.id === t.targetId);
@@ -555,10 +574,10 @@ const ActiveTurnInterfaceComponent = ({ combatant, isGm = false }: Props) => {
       }
     });
 
-    // Atualiza Ações do Atacante (Gasta a ação padrão)
-    if (turnActions.standard) {
+    // Consome o mesmo tipo de ação enviado ao servidor.
+    if (turnActions[actionSpent]) {
       updateCombatant(combatant.id, {
-        turnActions: { ...turnActions, standard: false },
+        turnActions: { ...turnActions, [actionSpent]: false },
       });
     }
 
@@ -619,6 +638,18 @@ const ActiveTurnInterfaceComponent = ({ combatant, isGm = false }: Props) => {
       />
 
       <View style={{ paddingHorizontal: 16 }}>
+        {((combatant.feats?.length ?? 0) > 0 || combatant.factionFeat || combatant.specialFeat) && (
+          <View style={styles.combatSection}>
+            <Text style={styles.sectionHeader}>Façanhas</Text>
+            {[...(combatant.feats ?? []), combatant.factionFeat, combatant.specialFeat].filter((feat) => !!feat).map((feat) => (
+              <View key={feat.id} style={{ marginBottom: 8 }}>
+                <Text style={{ color: colors.text, fontWeight: "bold" }}>{feat.name}</Text>
+                <Text style={{ color: colors.textSecondary }}>{feat.benefit}</Text>
+              </View>
+            ))}
+            <Text style={{ color: colors.textSecondary }}>Bônus numéricos automáticos já estão na ficha. Efeitos condicionais e façanhas customizadas são resolvidos manualmente.</Text>
+          </View>
+        )}
         {/* --- SELETOR DE POSTURA --- */}
         {combatant.stances && combatant.stances.length > 0 && (
           <StanceSelector

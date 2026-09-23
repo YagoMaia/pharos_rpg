@@ -45,16 +45,18 @@ export const CustomFeatModal = ({ visible, onClose, type }: Props) => {
   const title =
     type === "faction" ? "Façanha Faccional" : "Façanha Especial";
   const icon = type === "faction" ? "flag" : "star";
-  const description =
+  const baseDescription =
     type === "faction"
       ? "Uma façanha ligada à sua facção. Preencha com o nome, categoria e benefício."
       : "Uma façanha especial única do seu personagem. Preencha com o nome, categoria e benefício.";
+
+  const description = `${baseDescription} Os efeitos são resolvidos manualmente durante a partida.`;
 
   const handleSave = () => {
     if (!name.trim()) return;
 
     const feat: CustomFeat = {
-      id: `${type}_feat_${Date.now()}`,
+      id: currentFeat?.id ?? `${type}_feat_${Date.now()}`,
       name: name.trim(),
       category: category.trim(),
       benefit: benefit.trim(),

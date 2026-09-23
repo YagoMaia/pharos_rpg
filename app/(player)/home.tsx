@@ -1,5 +1,6 @@
 import { EditCharacterModal } from "@/components/modals/EditCharacterModal";
 import { FeatsModal } from "@/components/modals/FeatsModal";
+import { activeFeats } from "@/utils/featRules";
 import { CustomFeatModal } from "@/components/modals/CustomFeatModal";
 import { GoldModal } from "@/components/modals/GoldModal";
 import { SpecializationModal } from "@/components/modals/SpecializationModal";
@@ -350,7 +351,7 @@ export default function HomeScreen() {
             <View>
               <Text style={styles.btnTitle}>Façanhas</Text>
               <Text style={styles.btnSub}>
-                {character.feats?.length || 0} desbloqueadas
+                {activeFeats(character).length} ativas · {character.feats?.length || 0} escolhidas
               </Text>
             </View>
             <Ionicons name="trophy-outline" size={24} color={colors.text} />

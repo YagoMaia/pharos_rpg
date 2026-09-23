@@ -1,6 +1,7 @@
 // src/context/CharacterContext.tsx
 import { SKILL_GROUPS } from "@/data/expertiseData";
 import { migrateSpecialization } from "@/utils/specializationMigration";
+import { addCharacterFeat, migrateFeats, reconcileFeatBenefits, removeCharacterFeat, setFeatAttributeValue } from "@/utils/featRules";
 import { ANCESTRIES, CULTURAL_ORIGINS } from "@/data/origins";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import React, {
@@ -150,7 +151,7 @@ interface CharacterContextType {
   toggleAction: (type: "standard" | "bonus" | "reaction") => void;
   endTurn: () => void;
   applySpecialization: (spec: Specialization) => void;
-  addFeat: (feat: Feat) => void;
+  addFeat: (feat: Feat, slotLevel: number, choices?: AttributeName[]) => void;
   removeFeat: (featId: string) => void;
   setFactionFeat: (feat: CustomFeat | null) => void;
   setSpecialFeat: (feat: CustomFeat | null) => void;
@@ -181,7 +182,7 @@ export const CharacterProvider = ({ children }: { children: ReactNode }) => {
             );
           }
 
-          setCharacter(migrateSpecialization(parsed));
+          setCharacter(migrateFeats(migrateSpecialization(parsed)));
         }
       } catch (e) {
         console.error("Erro ao carregar dados:", e);
@@ -276,19 +277,7 @@ export const CharacterProvider = ({ children }: { children: ReactNode }) => {
 
   const updateAttribute = useCallback((attr: AttributeName, newValue: number) => {
     const clampedValue = Math.max(0, Math.min(newValue, 20));
-    const newModifier = Math.floor((clampedValue - 10) / 2);
-
-    setCharacter((prev) => ({
-      ...prev,
-      attributes: {
-        ...prev.attributes,
-        [attr]: {
-          ...prev.attributes[attr],
-          value: clampedValue,
-          modifier: newModifier,
-        },
-      },
-    }));
+    setCharacter((prev) => setFeatAttributeValue(prev, attr, clampedValue));
   }, []);
 
   const updateNameAndClass = useCallback(
@@ -494,11 +483,11 @@ export const CharacterProvider = ({ children }: { children: ReactNode }) => {
         }
       }
 
-      return {
+      return reconcileFeatBenefits({
         ...prev,
         level: validLevel,
         skills: updatedSkills,
-      };
+      });
     });
   }, []);
 
@@ -543,7 +532,7 @@ export const CharacterProvider = ({ children }: { children: ReactNode }) => {
         deathSaves: importedData.deathSaves || { successes: 0, failures: 0 },
       };
 
-      return migrateSpecialization(migratedCharacter);
+      return migrateFeats(migrateSpecialization(migratedCharacter));
     });
   }, []);
 
@@ -617,21 +606,12 @@ export const CharacterProvider = ({ children }: { children: ReactNode }) => {
     });
   }, []);
 
-  const addFeat = useCallback((feat: Feat) => {
-    setCharacter((prev) => {
-      if (prev.feats?.some((f) => f.id === feat.id)) return prev;
-      return {
-        ...prev,
-        feats: [...(prev.feats || []), feat],
-      };
-    });
+  const addFeat = useCallback((feat: Feat, slotLevel: number, choices?: AttributeName[]) => {
+    setCharacter((prev) => addCharacterFeat(prev, feat, slotLevel, choices));
   }, []);
 
   const removeFeat = useCallback((featId: string) => {
-    setCharacter((prev) => ({
-      ...prev,
-      feats: prev.feats?.filter((f) => f.id !== featId) || [],
-    }));
+    setCharacter((prev) => removeCharacterFeat(prev, featId));
   }, []);
 
   const setFactionFeat = useCallback((feat: CustomFeat | null) => {

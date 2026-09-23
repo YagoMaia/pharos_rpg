@@ -1,4 +1,12 @@
-import { Combatant, Stance } from "../types/rpg";
+import { Combatant, CombatWeaponData, Stance } from "../types/rpg";
+
+export function weaponDamageFormula(weapon: CombatWeaponData, attributeModifier: number): string {
+  // Fórmulas legadas com parcela fixa já eram usadas como dano total. O campo
+  // explícito permite distinguir esse caso de dados com bônus próprios da arma.
+  const includesAttribute = weapon.damageIncludesAttribute ?? /[+-]\s*\d+\s*$/.test(weapon.damage);
+  const bonus = (includesAttribute ? 0 : attributeModifier) + (weapon.damageBonus ?? 0);
+  return `${weapon.damage}${bonus > 0 ? `+${bonus}` : bonus < 0 ? bonus : ""}`;
+}
 
 export function stanceArmorBonus(stance: Stance | null | undefined, actor: Pick<Combatant, "attributes">): number {
   return (stance?.acBonus ?? 0) + (stance?.acAttribute
@@ -18,6 +26,7 @@ export function advanceCombatantPhase(actor: Combatant): Combatant {
     image: phase.image ?? actor.image,
     hp: { current: maxHp, max: maxHp },
     armorClass: phase.armorClass ?? actor.armorClass - stanceArmorBonus(stance, actor),
+    baseArmorClass: phase.armorClass ?? actor.armorClass - stanceArmorBonus(stance, actor),
     activeStanceId: null,
     stances: phase.stances ?? actor.stances,
     skills: phase.skills ?? actor.skills,

@@ -97,7 +97,8 @@ test('passivas de armadura e espada/escudo são iguais no jogador e no bestiári
   const sword = sheet(SPECIALIZATIONS.gue_espada_escudo);
   assert.equal(playerToCombatant(sword, 10).armorClass, 21);
   assert.equal(mapPlayerToNpc(sword).armorClass, 21);
-  assert.equal(playerToCombatant(sword, 10).weapons.melee.damage, '1d8+1');
+  assert.equal(playerToCombatant(sword, 10).weapons.melee.damage, '1d8');
+  assert.equal(playerToCombatant(sword, 10).weapons.melee.damageBonus, 1);
   sword.equipment.meleeWeapon.name = 'Machado';
   assert.equal(playerToCombatant(sword, 10).armorClass, 20);
   sword.equipment.meleeWeapon.name = 'Espada de duas mãos';

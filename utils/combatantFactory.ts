@@ -8,6 +8,7 @@ import {
 } from "@/types/rpg";
 import { generateSafeId } from "@/utils/stringUtils";
 import { migrateSpecialization } from "./specializationMigration";
+import { activeFeats, initiativeBonus as getInitiativeBonus } from "./featRules";
 
 const playerArmor = (char: Character) => {
   const dexMod = char.attributes["Destreza"].modifier || 0;
@@ -76,6 +77,7 @@ const extractWeaponData = (
   return {
     name: item.name || defaultName,
     damage: finalDamage,
+    damageIncludesAttribute: item.damageIncludesAttribute,
     attribute: attr,
     attackBonus: 0, // Implementar lógica de itens mágicos se houver
     range: item.range || "Corpo a Corpo",
@@ -101,7 +103,7 @@ export const playerToCombatant = (
     "1d4",
   );
 
-  if (hasSwordAndShieldBonus(char)) meleeData.damage += "+1";
+  if (hasSwordAndShieldBonus(char)) meleeData.damageBonus = 1;
 
   const baseCombatant: Combatant = {
     id: generateSafeId(char.name), // Player geralmente usa o próprio nome como ID único ou char.id
@@ -109,11 +111,15 @@ export const playerToCombatant = (
     baseName: char.name,
     type: "player",
     image: char.image,
+    feats: activeFeats(char),
+    factionFeat: char.factionFeat,
+    specialFeat: char.specialFeat,
 
     // Stats
     hp: { ...char.stats.hp },
     focus: { ...char.stats.focus },
     armorClass: playerArmor(char),
+    baseArmorClass: playerArmor(char),
     initiative: initiativeRoll,
 
     // Listas
@@ -153,12 +159,16 @@ export const npcToCombatant = (
     name: uniqueName,
     image: npc.image,
     baseName: npc.name,
+    feats: npc.feats ?? [],
+    factionFeat: npc.factionFeat,
+    specialFeat: npc.specialFeat,
     type: "npc",
 
     // Stats (Copia direta do Template)
     hp: { current: npc.maxHp, max: npc.maxHp },
     focus: { current: npc.maxFocus, max: npc.maxFocus },
     armorClass: npc.armorClass,
+    baseArmorClass: npc.armorClass,
     initiative: initiativeRoll,
 
     attributes: npc.attributes,
@@ -225,21 +235,18 @@ export function mapPlayerToNpc(player: Character): Omit<NpcTemplate, "id"> {
 
   // 4. Cálculo base de Iniciativa e CA (Ajuste a matemática conforme o seu sistema)
   // Assumindo que o atributo tem uma propriedade 'value' ou é um número direto.
-  const agiValue =
-    (player.attributes as any)?.agility?.value ||
-    (player.attributes as any)?.agility ||
-    0;
-
-  // Se o seu sistema usa modificador (ex: (Valor - 10) / 2), ajuste aqui:
-  const initiativeBonus = Number(agiValue);
+  const initiativeBonus = getInitiativeBonus(player);
 
 
   // Cálculo do AC Base
   const baseAc = playerArmor(player);
-  if (hasSwordAndShieldBonus(player)) meleeData.damage += "+1";
+  if (hasSwordAndShieldBonus(player)) meleeData.damageBonus = 1;
 
   return {
     name: `Player ${player.name}`,
+    feats: activeFeats(player),
+    factionFeat: player.factionFeat,
+    specialFeat: player.specialFeat,
     image: player.image || "",
     level: player.level || 1,
     class: player.class || "Nenhuma",
@@ -284,6 +291,7 @@ export const petToCombatant = (
     hp: { current: pet.maxHp, max: pet.maxHp },
     focus: { current: pet.maxFocus, max: pet.maxFocus },
     armorClass: pet.armorClass,
+    baseArmorClass: pet.armorClass,
     initiative: initiativeRoll,
     speed: pet.speed,
 

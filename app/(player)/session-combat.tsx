@@ -1,4 +1,5 @@
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
+import { initiativeBonus } from "@/utils/featRules";
 import React, { useEffect, useMemo, useState } from "react";
 import {
     FlatList,
@@ -114,8 +115,7 @@ export default function SessionCombatScreen() {
     setIsRolling(true);
     setTimeout(() => {
       const d20 = Math.floor(Math.random() * 20) + 1;
-      const dexMod = character.attributes["Destreza"]?.modifier || 0;
-      setInitValue(String(d20 + dexMod));
+      setInitValue(String(d20 + initiativeBonus(character)));
       setIsRolling(false);
     }, 500);
   };

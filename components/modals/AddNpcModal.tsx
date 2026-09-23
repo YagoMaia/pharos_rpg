@@ -322,6 +322,7 @@ export const AddNpcModal = ({
       // Dentro do seu objeto "data" na const handleSave
       weapons: {
         melee: {
+          ...initialData?.weapons?.melee,
           name: meleeName || "Ataque Corpo-a-Corpo",
           damage: meleeDamage || "1d4",
           attribute: (meleeAttr || "Força") as AttributeName,
@@ -329,6 +330,7 @@ export const AddNpcModal = ({
           range: meleeRange || "1.5m",
         },
         ranged: {
+          ...initialData?.weapons?.ranged,
           name: rangedName || "Ataque à Distância",
           damage: rangedDamage || "1d4",
           attribute: (rangedAttr || "Destreza") as AttributeName,

@@ -1,6 +1,7 @@
 import { useTheme } from "@/context/ThemeContext";
 import { Combatant } from "@/types/rpg";
 import { rollDiceString } from "@/utils/diceUtils";
+import { weaponDamageFormula } from "@/utils/combatRules";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import React, { useEffect, useState } from "react";
 import {
@@ -71,25 +72,20 @@ export const AttackModal = ({
       setDmgValue("");
       setIsCrit(false);
 
-      // Previsão de bônus baseada em Atributos
-      const strMod = attacker.attributes["Força"]?.modifier || 0;
-      const dexMod = attacker.attributes["Destreza"]?.modifier || 0;
-      const bestMod = Math.max(strMod, dexMod);
-
-      setAttackBonus(bestMod >= 0 ? `+${bestMod}` : `${bestMod}`);
-      setDamageFormula(`1d6+${bestMod + 2}`);
-
-      if (initialBonus && initialDamage) {
+      if (initialBonus !== undefined && initialDamage !== undefined) {
         // SE VEIO DE MAGIA: Usa o que veio
         setAttackBonus(initialBonus);
         setDamageFormula(initialDamage);
       } else {
-        // SE É ATAQUE BÁSICO: Calcula For/Des
+        // Ataque básico usa a arma equipada e seus bônus separados.
         const strMod = attacker.attributes["Força"]?.modifier || 0;
         const dexMod = attacker.attributes["Destreza"]?.modifier || 0;
         const bestMod = Math.max(strMod, dexMod);
-        setAttackBonus(bestMod >= 0 ? `+${bestMod + 2}` : `${bestMod}`);
-        setDamageFormula(`1d6+${bestMod}`);
+        const weapon = attacker.weapons?.melee ?? attacker.weapons?.ranged;
+        const modifier = weapon ? attacker.attributes[weapon.attribute]?.modifier ?? 0 : bestMod;
+        const bonus = modifier + 2 + (weapon?.attackBonus ?? 0);
+        setAttackBonus(bonus >= 0 ? `+${bonus}` : `${bonus}`);
+        setDamageFormula(weapon ? weaponDamageFormula(weapon, modifier) : `1d6${bestMod >= 0 ? "+" : ""}${bestMod}`);
       }
     }
   }, [visible, attacker, initialBonus, initialDamage]);

@@ -57,6 +57,10 @@ export const WebSocketProvider = ({
   } | null>(null);
 
   const { character } = useCharacter();
+  const characterRef = useRef(character);
+  useEffect(() => {
+    characterRef.current = character;
+  }, [character]);
   const {
     setCombatants,
     setActiveTurnId,
@@ -368,11 +372,20 @@ export const WebSocketProvider = ({
         const eventType =
           initialData.type === "gm" ? "GM_CONNECT" : "JOIN_SESSION";
         
-        const payload: any = { roomCode: sessionId, combatant: initialData };
+        // Uma reconexão automática usa a ficha atual, não o snapshot do primeiro JOIN.
+        const currentCharacter = characterRef.current;
+        const joiningCombatant = initialData.type === "player"
+          ? playerToCombatant(currentCharacter, initialData.initiative)
+          : initialData;
+        const joiningPet = initialData.type === "player"
+          ? currentCharacter.pet ? petToCombatant(currentCharacter.pet, currentCharacter.name,
+            petData?.initiative ?? Math.max(0, initialData.initiative - 1)) : null
+          : petData;
+        const payload: any = { roomCode: sessionId, combatant: joiningCombatant };
         
         // Se tem pet, envia junto
-        if (petData) {
-          payload.pet = petData;
+        if (joiningPet) {
+          payload.pet = joiningPet;
         }
 
         console.log("📤 Enviando para servidor:", eventType, "| Pet:", petData ? petData.name : "Nenhum");

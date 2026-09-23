@@ -113,6 +113,7 @@ export interface Item {
 }
 
 export interface EquipmentItem {
+  damageIncludesAttribute?: boolean;
   name: string;
   image?: string;
 
@@ -188,6 +189,9 @@ export interface Feat {
   objective: string; // O que o jogador tem que fazer
   benefit: string; // A recompensa mecânica
   prerequisite?: string;
+  slotLevel?: number | null;
+  attributeChoices?: AttributeName[];
+  manualBenefits?: boolean; // Fichas antigas podem já incluir ajustes manuais.
 }
 
 // Façanhas customizadas (preenchidas pelo jogador)
@@ -256,6 +260,7 @@ export interface Character {
   };
   specialization?: Specialization | null;
   feats: Feat[]; // Façanhas já desbloqueadas
+  featBonuses?: { attributes: Partial<Record<AttributeName, number>>; hp: number };
 
   // Façanhas customizadas
   factionFeat?: CustomFeat | null; // Façanha Faccional
@@ -311,9 +316,14 @@ export interface CombatWeaponData {
   attribute: AttributeName; // "Força" ou "Destreza"
   attackBonus: number;
   range: string; // "Corpo a Corpo" ou "30m"
+  damageBonus?: number;
+  damageIncludesAttribute?: boolean | null;
 }
 
 export interface Combatant {
+  feats?: Feat[];
+  factionFeat?: CustomFeat | null;
+  specialFeat?: CustomFeat | null;
   // Identificação
   id: string; // ID único na sessão de combate
   templateId?: string; // ID original (do Character ou NpcTemplate)
@@ -332,6 +342,7 @@ export interface Combatant {
   focus: { current: number; max: number };
   armorClass: number;
   initiative: number;
+  baseArmorClass?: number | null;
   speed?: string; // Adicionado (NPC tem, Player precisa ter)
 
   // Ações e Recursos
@@ -378,6 +389,9 @@ export type CombatantUpdate = Partial<
 };
 
 export interface NpcTemplate {
+  feats?: Feat[];
+  factionFeat?: CustomFeat | null;
+  specialFeat?: CustomFeat | null;
   id: string;
   name: string;
   image?: string;
