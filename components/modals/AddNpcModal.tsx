@@ -128,6 +128,7 @@ export const AddNpcModal = ({
 
         // CORREÇÃO DE CLASSE/ANCESTRALIDADE: Garante string vazia se for null
         setNpcClass((initialData.class as CharacterClass) || "");
+        setSpecializationId(initialData.specialization?.id || "");
         setAncestry(initialData.ancestry || "");
 
         // Outros campos com proteção contra null/undefined
@@ -177,6 +178,7 @@ export const AddNpcModal = ({
         setName("");
         setLevel("1");
         setNpcClass(undefined);
+        setSpecializationId("");
         setAncestry("");
         setSubline("");
         setHp("");
@@ -245,6 +247,10 @@ export const AddNpcModal = ({
   // NOVA FUNÇÃO: Lida com a troca de classe de forma manual e segura
   const handleClassChange = (cls: string) => {
     setNpcClass(cls);
+    setSpecializationId((current) => {
+      const currentSpec = current ? SPECIALIZATIONS[current] : undefined;
+      return currentSpec?.classRequired === cls ? current : "";
+    });
 
     // Só altera as listas automáticas se NÃO for uma edição
     // (Em edições, assumimos que o Mestre já customizou o que queria)
@@ -280,7 +286,6 @@ export const AddNpcModal = ({
         setNpcStances(autoStances);
       }
     }
-    console.log("NOVAS SKILLS: ", npcSkills);
   };
 
   const pickImage = async () => {
@@ -298,6 +303,11 @@ export const AddNpcModal = ({
     }
   };
 
+  const selectedSpecialization = () => {
+    const spec = specializationId ? SPECIALIZATIONS[specializationId] : undefined;
+    return spec?.classRequired === npcClass ? spec : null;
+  };
+
   const buildTemplate = () => {
     return {
       id: initialData?.id,
@@ -308,7 +318,7 @@ export const AddNpcModal = ({
       level: parseInt(level) || 1,
       //   hpFormula,
       class: npcClass,
-      specialization: specializationId ? SPECIALIZATIONS[specializationId] : null,
+      specialization: selectedSpecialization(),
       ancestry: ancestry,
       armorClass: Number.isNaN(parseInt(ac)) ? 10 : Math.max(0, parseInt(ac)),
       acDetail,
@@ -1113,7 +1123,7 @@ export const AddNpcModal = ({
           onSelect={addSpell}
           learnedSpells={npcSpells}
           character={{ class: npcClass,
-      specialization: specializationId ? SPECIALIZATIONS[specializationId] : null, level: parseInt(level) || 1 } as any}
+      specialization: selectedSpecialization(), level: parseInt(level) || 1 } as any}
         />
         {!phaseMode && editingPhase !== null && phaseDraft && (
           <AddNpcModal
@@ -1124,7 +1134,8 @@ export const AddNpcModal = ({
             onSave={(data) => {
               const phase: NpcPhase = {
                 name: data.name, image: data.image, maxHp: data.maxHp,
-                armorClass: data.armorClass, stances: data.stances,
+                armorClass: data.armorClass,
+                stances: data.specialization?.newStances?.length ? data.specialization.newStances : data.stances,
                 skills: data.skills, weapons: data.weapons,
               };
               setPhases((prev) => editingPhase === prev.length ? [...prev, phase] :

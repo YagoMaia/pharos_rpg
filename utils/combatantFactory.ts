@@ -50,6 +50,13 @@ const hasSwordAndShieldBonus = (char: Character) => {
     !/duas m[aã]os|2 m[aã]os/i.test(`${weapon?.name} ${weapon?.stats} ${weapon?.description}`);
 };
 
+const hasNpcSwordAndShieldBonus = (npc: NpcTemplate) => {
+  const weaponName = npc.weapons?.melee?.name ?? "";
+  return npc.specialization?.id === "gue_espada_escudo" &&
+    /espada|sabre|rapieira|florete/i.test(weaponName) &&
+    !/duas m[aã]os|2 m[aã]os/i.test(weaponName);
+};
+
 const extractWeaponData = (
   item: EquipmentItem,
   defaultName: string,
@@ -155,12 +162,22 @@ export const npcToCombatant = (
   const uniqueName = `${npc.name} #${instanceId}`;
 
   let finalArmorClass = npc.armorClass;
+  const finalWeapons = npc.weapons ? {
+    ...npc.weapons,
+    melee: npc.weapons.melee ? { ...npc.weapons.melee } : undefined,
+    ranged: npc.weapons.ranged ? { ...npc.weapons.ranged } : undefined,
+  } : undefined;
   if (Array.isArray(npc.specialization?.proficiencyChanges)) {
     for (const change of npc.specialization.proficiencyChanges) {
       if (change.mechanicType === "armor" && change.mechanicValue) {
         finalArmorClass += Number(change.mechanicValue);
       }
     }
+  }
+  const swordShieldAlreadyApplied = (finalWeapons?.melee?.damageBonus ?? 0) > 0;
+  if (hasNpcSwordAndShieldBonus(npc) && !swordShieldAlreadyApplied) {
+    finalArmorClass += 1;
+    if (finalWeapons?.melee) finalWeapons.melee.damageBonus = (finalWeapons.melee.damageBonus ?? 0) + 1;
   }
 
   return {
@@ -192,7 +209,7 @@ export const npcToCombatant = (
 
     turnActions: { standard: true, bonus: true, reaction: true },
     deathSaves: { successes: 0, failures: 0 },
-    weapons: npc.weapons || {
+    weapons: finalWeapons || {
       melee: {
         name: "Ataque Corpo-a-Corpo",
         damage: "1d4",
@@ -259,6 +276,7 @@ export function mapPlayerToNpc(player: Character): Omit<NpcTemplate, "id"> {
     image: player.image || "",
     level: player.level || 1,
     class: player.class || "Nenhuma",
+    specialization: player.specialization,
     ancestry: ancestryName,
 
     maxHp: player.stats?.hp?.max || 1,

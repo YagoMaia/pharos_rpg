@@ -5,7 +5,7 @@ const path = require('node:path');
 const ts = require('typescript');
 
 // Executa os módulos TS puros com o compilador já instalado no projeto.
-const root = path.resolve(__dirname, '..');
+const root = process.cwd();
 const cache = new Map();
 function load(file) {
   const resolved = path.resolve(root, file.endsWith('.ts') ? file : `${file}.ts`);
@@ -103,6 +103,28 @@ test('passivas de armadura e espada/escudo são iguais no jogador e no bestiári
   assert.equal(playerToCombatant(sword, 10).armorClass, 20);
   sword.equipment.meleeWeapon.name = 'Espada de duas mãos';
   assert.equal(playerToCombatant(sword, 10).armorClass, 20);
+});
+
+test('NPCs preservam especialização importada, bônus e fases especializadas', () => {
+  const corsair = sheet({ id: 'corsario_bacamarte', proficiencyChanges: 'legado', newStances: [] });
+  corsair.class = 'Corsário';
+  corsair.equipment.shield.defense = 0;
+  const importedTemplate = mapPlayerToNpc(corsair);
+  assert.equal(importedTemplate.specialization.id, 'cor_bacamarte');
+  const importedCombatant = npcToCombatant(importedTemplate, 10);
+  assert.equal(importedCombatant.stances[0].id, 'cor_queima_roupa');
+
+  const swordTemplate = mapPlayerToNpc(sheet(SPECIALIZATIONS.gue_espada_escudo));
+  const npc = npcToCombatant(swordTemplate, 10);
+  assert.equal(swordTemplate.specialization.id, 'gue_espada_escudo');
+  assert.equal(npc.armorClass, 21);
+  assert.equal(npc.weapons.melee.damage, '1d8');
+  assert.equal(npc.weapons.melee.damageBonus, 1);
+  assert.equal(npc.stances[0].id, 'gue_guarda_fechada');
+
+  const phaseCombatant = npcToCombatant({ ...swordTemplate, phases: [{ name: 'Fase 2', maxHp: 40, stances: SPECIALIZATIONS.gue_espada_escudo.newStances }] }, 10);
+  const nextPhase = advanceCombatantPhase({ ...phaseCombatant, hp: { current: 0, max: phaseCombatant.hp.max } });
+  assert.equal(nextPhase.stances[0].id, 'gue_guarda_fechada');
 });
 
 test('posturas aplicam CON e penalidade de Corpo Impossível', () => {
