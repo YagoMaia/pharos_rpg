@@ -94,7 +94,7 @@ export default function InventoryScreen() {
   const handleEditSlot = (slot: EquipSlotType, item: EquipmentItem) => {
     setSelectedSlot(slot);
     setEditName(item.name);
-    setEditStats(item.stats);
+    setEditStats(item.stats || "");
     setEditDefense(item.defense ? String(item.defense) : "0");
     setEditWeight(item.weight ? String(item.weight) : "0");
     setEditDesc(item.description || "");

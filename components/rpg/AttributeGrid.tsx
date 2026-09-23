@@ -1,5 +1,5 @@
 import { useTheme } from "@/context/ThemeContext";
-import { Attributes } from "@/types/rpg"; // Certifique-se de importar o tipo correto
+import { Attributes } from "@/types/rpg";
 import React, { useMemo } from "react";
 import { StyleSheet, Text, View } from "react-native";
 

@@ -196,7 +196,7 @@ export const CombatantCard = ({ item }: { item: Combatant }) => {
                     style={[styles.chip, item.activeStanceId === s.id && styles.activeChip, !actions.bonus && item.activeStanceId !== s.id && { opacity: 0.5 }]}
                   >
                     <Text style={[styles.chipText, item.activeStanceId === s.id && styles.activeChipText]}>
-                      {s.name} ({s.acBonus >= 0 ? `+${s.acBonus}` : s.acBonus})
+                      {s.name} ({(s.acBonus ?? 0) >= 0 ? `+${s.acBonus ?? 0}` : s.acBonus})
                     </Text>
                   </TouchableOpacity>
                 ))}

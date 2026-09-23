@@ -24,6 +24,7 @@ import {
     Item,
     ItemType,
     MAGIC_CLASSES,
+    Pet,
     ProficiencyLevel,
     Specialization,
     Spell
@@ -96,6 +97,7 @@ const INITIAL_CHARACTER: Character = {
   grimoire: [],
   silver: 0,
   backstory: "",
+  trainedSkills: [],
 
   turnActions: {
     standard: true,
@@ -668,9 +670,13 @@ export const CharacterProvider = ({ children }: { children: ReactNode }) => {
           updatedSkills = [
             ...prev.skills,
             {
+              id: "",
               name: skillName,
               level: newLevel,
               attribute: attribute,
+              cost: 0,
+              actionType: "Livre" as const,
+              description: "Perícia de personagem.",
             },
           ];
         }

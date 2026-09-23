@@ -735,10 +735,10 @@ const getStyles = (colors: any) =>
       borderWidth: 2,
       borderColor: "#B8860B",
       elevation: 5,
-      boxShadowColor: "#FFbc00",
-      boxShadowOffset: { width: 0, height: 2 },
-      boxShadowOpacity: 0.5,
-      boxShadowRadius: 4,
+      shadowColor: "#FFbc00",
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.5,
+      shadowRadius: 4,
     },
 
     // Back button

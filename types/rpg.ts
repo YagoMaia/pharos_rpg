@@ -35,6 +35,8 @@ export interface Attribute {
   modifier: number; // Ex: (Valor - 10) / 2
 }
 
+export type Attributes = Record<AttributeName, Attribute>;
+
 export type ActionType =
   | "Padrão"
   | "Movimento"
@@ -419,6 +421,8 @@ export interface NpcTemplate {
     melee?: CombatWeaponData;
     ranged?: CombatWeaponData;
   };
+  equipment?: string;
+  actions?: string;
   phases?: NpcPhase[];
 }
 

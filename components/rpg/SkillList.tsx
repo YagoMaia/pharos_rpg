@@ -84,7 +84,10 @@ export const SkillList = ({
                 const skillData = character.skills?.find(
                   (s) => s.name === skillName,
                 );
-                const currentLevel = skillData?.level || 0;
+                const currentLevel = Math.max(
+                  0,
+                  Math.min(3, skillData?.level || 0),
+                ) as ProficiencyLevel;
 
                 // Cálculo de Pharos: Modificador + (Nível * 2)
                 const skillTotal = attrMod + currentLevel * 2;
