@@ -1,4 +1,5 @@
 import { useTheme } from "@/context/ThemeContext";
+import { SPECIALIZATIONS } from "@/data/specializationsData";
 import { CLASS_DATA } from "@/data/classData";
 import { ANCESTRIES } from "@/data/origins";
 import {
@@ -58,6 +59,7 @@ export const AddNpcModal = ({
   // --- ESTADOS DO FORMULÁRIO (Copiados do NpcScreen) ---
   const [formTab, setFormTab] = useState<"general" | "details">("general");
   const [name, setName] = useState("");
+  const [specializationId, setSpecializationId] = useState<string>(initialData?.specialization?.id || "");
   const [npcClass, setNpcClass] = useState<CharacterClass | string>();
   const [level, setLevel] = useState("1");
   const [subline, setSubline] = useState("");
@@ -306,6 +308,7 @@ export const AddNpcModal = ({
       level: parseInt(level) || 1,
       //   hpFormula,
       class: npcClass,
+      specialization: specializationId ? SPECIALIZATIONS[specializationId] : null,
       ancestry: ancestry,
       armorClass: Number.isNaN(parseInt(ac)) ? 10 : Math.max(0, parseInt(ac)),
       acDetail,
@@ -571,6 +574,28 @@ export const AddNpcModal = ({
               </View>
 
               {!phaseMode && <>
+              <Text style={styles.label}>Especialização</Text>
+              <View style={styles.chipContainer}>
+                <TouchableOpacity
+                  style={[styles.chip, !specializationId && styles.chipActive]}
+                  onPress={() => setSpecializationId("")}
+                >
+                  <Text style={[styles.chipText, !specializationId && styles.chipTextActive]}>Nenhuma</Text>
+                </TouchableOpacity>
+                {Object.values(SPECIALIZATIONS).filter(s => s.classRequired === npcClass).map((spec) => {
+                  const isSelected = specializationId === spec.id;
+                  return (
+                    <TouchableOpacity
+                      key={spec.id}
+                      style={[styles.chip, isSelected && styles.chipActive]}
+                      onPress={() => setSpecializationId(spec.id)}
+                    >
+                      <Text style={[styles.chipText, isSelected && styles.chipTextActive]}>{spec.name}</Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+
               <Text style={styles.label}>Ancestralidade</Text>
               <View style={styles.chipContainer}>
                 {ANCESTRIES.map((anc) => {
@@ -1087,7 +1112,8 @@ export const AddNpcModal = ({
           onClose={() => setSpellModalVisible(false)}
           onSelect={addSpell}
           learnedSpells={npcSpells}
-          character={{ class: npcClass, level: parseInt(level) || 1 } as any}
+          character={{ class: npcClass,
+      specialization: specializationId ? SPECIALIZATIONS[specializationId] : null, level: parseInt(level) || 1 } as any}
         />
         {!phaseMode && editingPhase !== null && phaseDraft && (
           <AddNpcModal

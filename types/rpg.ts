@@ -392,6 +392,7 @@ export interface NpcTemplate {
   feats?: Feat[];
   factionFeat?: CustomFeat | null;
   specialFeat?: CustomFeat | null;
+  specialization?: Specialization | null;
   id: string;
   name: string;
   image?: string;

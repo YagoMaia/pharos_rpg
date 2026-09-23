@@ -154,6 +154,15 @@ export const npcToCombatant = (
   // Gera nome único: "Goblin #1", "Goblin #2"
   const uniqueName = `${npc.name} #${instanceId}`;
 
+  let finalArmorClass = npc.armorClass;
+  if (Array.isArray(npc.specialization?.proficiencyChanges)) {
+    for (const change of npc.specialization.proficiencyChanges) {
+      if (change.mechanicType === "armor" && change.mechanicValue) {
+        finalArmorClass += Number(change.mechanicValue);
+      }
+    }
+  }
+
   return {
     id: generateSafeId(uniqueName),
     name: uniqueName,
@@ -167,12 +176,12 @@ export const npcToCombatant = (
     // Stats (Copia direta do Template)
     hp: { current: npc.maxHp, max: npc.maxHp },
     focus: { current: npc.maxFocus, max: npc.maxFocus },
-    armorClass: npc.armorClass,
-    baseArmorClass: npc.armorClass,
+    armorClass: finalArmorClass,
+    baseArmorClass: finalArmorClass,
     initiative: initiativeRoll,
 
     attributes: npc.attributes,
-    stances: npc.stances,
+    stances: npc.specialization?.newStances?.length ? npc.specialization.newStances : (npc.stances || []),
     activeStanceId: null, // NPCs geralmente começam neutros
 
     skills: npc.skills,

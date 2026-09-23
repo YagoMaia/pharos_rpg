@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "Mythos Keeper",
-    "slug": "mythos_keeper",
+    "name": "Pharos RPG (Mestre)",
+    "slug": "pharos_rpg_mestre",
     "version": "1.5.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
@@ -22,7 +22,7 @@
       "predictiveBackGestureEnabled": false,
       "usesCleartextTraffic": true,
       "permissions": ["INTERNET"],
-      "package": "com.yagomaia.mythos_keeper"
+      "package": "com.yagomaia.pharos_rpg_mestre"
     },
     "web": {
       "output": "static",
