@@ -39,7 +39,7 @@ export default function GMCombatScreen() {
   const styles = useMemo(() => getStyles(colors), [colors]);
   const { showAlert } = useAlert();
 
-  const { isConnected, sendMessage, connectToRoute, disconnect } =
+  const { isConnected, connectionError, sendMessage, connectToRoute, disconnect } =
     useWebSocket();
 
   const [conditionModalOpen, setConditionModalOpen] = React.useState(false);
@@ -132,6 +132,9 @@ export default function GMCombatScreen() {
   if (!isConnected && !isOfflineMode) {
     return (
       <View style={{ flex: 1, backgroundColor: colors.background }}>
+        {connectionError && <Text accessibilityRole="alert" style={{ color: colors.error, padding: 12 }}>
+          {connectionError}
+        </Text>}
         <ConnectionForm
           onConnect={handleConnectGM}
           title="Painel do Mestre"

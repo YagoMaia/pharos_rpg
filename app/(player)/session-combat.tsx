@@ -32,7 +32,7 @@ export default function SessionCombatScreen() {
   const styles = useMemo(() => getStyles(colors), [colors]);
   const { showAlert } = useAlert();
 
-  const { joinSession, disconnect, isConnected } = useWebSocket();
+  const { joinSession, disconnect, isConnected, connectionError } = useWebSocket();
 
   // Estado local para o modal de Iniciativa (apenas quando entra)
   const [initValue, setInitValue] = useState("");
@@ -185,6 +185,9 @@ export default function SessionCombatScreen() {
   if (!isConnected) {
     return (
       <View style={{ flex: 1, backgroundColor: colors.background }}>
+        {connectionError && <Text accessibilityRole="alert" style={{ color: colors.error, padding: 12 }}>
+          {connectionError}
+        </Text>}
         <ConnectionForm
           onConnect={handleConnectRequest}
           title="Conectar à Sessão"

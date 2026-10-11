@@ -114,6 +114,7 @@ export const playerToCombatant = (
 
   const baseCombatant: Combatant = {
     id: generateSafeId(char.name), // Player geralmente usa o próprio nome como ID único ou char.id
+    sheetId: char.sheetId,
     name: char.name,
     baseName: char.name,
     type: "player",

@@ -1,6 +1,9 @@
 import { CampaignAuthForm } from "@/components/campaign/CampaignAuthForm";
 import { CampaignWorkspace } from "@/components/campaign/CampaignWorkspace";
 import { useTheme } from "@/context/ThemeContext";
+import { useWebSocket } from "@/context/WebSocketContext";
+import { useRouter } from "expo-router";
+import { CampaignSession as Session, useCampaignAuth } from "@/context/CampaignAuthContext";
 import {
   CampaignApiError, CampaignDetails, CampaignInvite, CampaignSummary, JournalEntry, JournalEntryInput,
   createAuthApi, createCampaignApi,
@@ -10,17 +13,14 @@ import * as Clipboard from "expo-clipboard";
 import React, { useState } from "react";
 import { ScrollView, Text, View } from "react-native";
 
-interface Session {
-  baseUrl: string;
-  token: string;
-}
-
 const EMPTY_DRAFT: JournalEntryInput = { title: "", body: "", visibility: "gm" };
 
 export default function GMCampaignsScreen() {
   const { colors } = useTheme();
+  const router = useRouter();
+  const { connectToCampaign } = useWebSocket();
   // Sem armazenamento persistente de token até existir um cofre seguro configurado.
-  const [session, setSession] = useState<Session | null>(null);
+  const [session, setSession] = useCampaignAuth();
   const [campaigns, setCampaigns] = useState<CampaignSummary[]>([]);
   const [selected, setSelected] = useState<CampaignDetails | null>(null);
   const [invite, setInvite] = useState<CampaignInvite | null>(null);
@@ -67,6 +67,11 @@ export default function GMCampaignsScreen() {
         ? await auth.register(email, displayName, password)
         : await auth.login(email, password);
       const credentials = { baseUrl: baseUrl.trim(), token: accessToken };
+      setSelected(null);
+      setEntries([]);
+      setInvite(null);
+      setDraft(EMPTY_DRAFT);
+      setEditingEntryId(null);
       setSession(credentials);
       setCampaigns(masterCampaigns(await api(credentials).listCampaigns()));
     } catch (cause) {
@@ -159,6 +164,12 @@ export default function GMCampaignsScreen() {
     run(async (credentials) => setInvite(await api(credentials).createInvite(selected.id)));
   }
 
+  function startCombat() {
+    if (!selected || !session) return;
+    connectToCampaign(selected.id, "gm");
+    router.push("/(gm)/gm-combat-screen");
+  }
+
   async function copyInvite() {
     if (!invite) return;
     try {
@@ -190,7 +201,7 @@ export default function GMCampaignsScreen() {
         entries={entries} draft={draft} editingEntry={!!editingEntryId}
         onDraftChange={setDraft} onSaveEntry={saveEntry} onEditEntry={editEntry} onCancelEdit={cancelEdit}
         onRefresh={refresh} onSelect={select} onInvite={generateInvite}
-        onCopyInvite={copyInvite} onLogout={logout} /> :
+        onCopyInvite={copyInvite} onLogout={logout} onStartCombat={startCombat} /> :
         <ScrollView contentContainerStyle={{ padding: 20, flexGrow: 1, justifyContent: "center" }}>
           <CampaignAuthForm colors={colors} busy={busy} onSubmit={authenticate} />
         </ScrollView>}

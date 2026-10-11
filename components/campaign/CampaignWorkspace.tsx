@@ -21,6 +21,7 @@ interface CampaignWorkspaceProps {
   onInvite: () => void;
   onCopyInvite: () => void;
   onLogout: () => void;
+  onStartCombat: () => void;
   onDraftChange: (draft: JournalEntryInput) => void;
   onSaveEntry: () => void;
   onEditEntry: (entry: JournalEntry) => void;
@@ -82,6 +83,8 @@ export function CampaignWorkspace(props: CampaignWorkspaceProps) {
             <Text style={{ color: colors.textSecondary, marginBottom: 12 }}>
               ID da campanha: {selected.id}
             </Text>
+            <ActionButton label="Abrir combate da campanha" disabled={busy}
+              color={colors.primary} onPress={props.onStartCombat} />
             <ActionButton label="Gerar convite (uso único, 24 horas)" disabled={busy}
               color={colors.primary} onPress={props.onInvite} />
             {invite && <View style={[styles.invite, { borderColor: colors.border }]}>

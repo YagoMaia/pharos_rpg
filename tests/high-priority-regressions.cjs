@@ -94,6 +94,12 @@ test('Espada e Escudo soma FOR e bônus passivo em habilidades e no ataque bási
   assert.equal(weaponDamageFormula(npc.weapons.melee, 3), '1d8+4');
 });
 
+test('combatente online envia identidade persistente da ficha', () => {
+  const character = sheet();
+  character.sheetId = 'sheet-bound-to-campaign';
+  assert.equal(playerToCombatant(character, 10).sheetId, character.sheetId);
+});
+
 test('fórmulas explícitas e legadas não duplicam atributo e respeitam modificadores negativos', () => {
   const weapon = playerToCombatant(sheet(), 10).weapons.melee;
   assert.equal(weaponDamageFormula(weapon, -2), '1d8-1');
@@ -178,7 +184,7 @@ test('reconexão automática monta JOIN com a ficha atual em vez do snapshot ant
     reconnectTimeout: { current: null }, socketRef: refs, intentionalClose: { current: false },
     lastConnectionRef: { current: null }, reconnectAttempts: { current: 0 }, pingInterval: { current: null },
     clientIdRef: { current: 'client-test' }, createClientId: () => 'client-test', AsyncStorage: { setItem() {} },
-    characterRef: { current }, playerToCombatant, petToCombatant, startPingInterval() {}, setIsConnected() {},
+    characterRef: { current }, playerToCombatant, petToCombatant, startPingInterval() {}, setIsConnected() {}, setConnectionError() {},
     handleServerMessage() {}, attemptReconnect() {}, console: { log() {} }, Alert: { alert() {} },
     WebSocket: class { constructor() { socket = this; } send(data) { this.payload = JSON.parse(data); } },
   }, true);
@@ -187,4 +193,30 @@ test('reconexão automática monta JOIN com a ficha atual em vez do snapshot ant
   assert.equal(socket.payload.payload.combatant.hp.max, 27);
   assert.equal(socket.payload.payload.combatant.baseArmorClass, 21);
   assert.equal(socket.payload.payload.combatant.initiative, 14);
+});
+
+test('sala de campanha envia AUTH antes de JOIN e mantém token fora da URL', () => {
+  const { campaignAuthMessage, campaignSocketUrl } = load('utils/campaignSocket');
+  const current = sheet();
+  current.sheetId = 'sheet-1';
+  const sent = [];
+  let socket;
+  const connect = expression('context/WebSocketContext.tsx', 'connectToRoute', {
+    reconnectTimeout: { current: null }, socketRef: { current: null }, intentionalClose: { current: false },
+    lastConnectionRef: { current: null }, reconnectAttempts: { current: 0 }, pingInterval: { current: null },
+    clientIdRef: { current: 'client-test' }, createClientId: () => 'client-test', AsyncStorage: { setItem() {} },
+    characterRef: { current }, playerToCombatant, petToCombatant, startPingInterval() {}, setIsConnected() {}, setConnectionError() {},
+    handleServerMessage() {}, attemptReconnect() {}, campaignAuthMessage, campaignSocketUrl,
+    console: { log() {} }, Alert: { alert() {} },
+    WebSocket: class { constructor(url) { this.url = url; socket = this; } send(data) { sent.push(JSON.parse(data)); } },
+  }, true);
+  connect('https://example.org', 'campaign-8b0bf747-6b3e-444a-b9e0-0d00f786a361',
+    playerToCombatant(current, 14), null, 'private-token');
+  socket.onopen();
+  assert.equal(sent.length, 1);
+  assert.equal(sent[0].type, 'AUTH_CAMPAIGN');
+  assert.ok(!socket.url.includes('private-token'));
+  socket.onmessage({ data: JSON.stringify({ type: 'AUTH_OK' }) });
+  assert.equal(sent[1].type, 'JOIN_SESSION');
+  assert.equal(sent[1].payload.combatant.sheetId, 'sheet-1');
 });

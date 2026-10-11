@@ -19,6 +19,7 @@ interface PlayerCampaignWorkspaceProps {
   onRefresh: () => void;
   onSelect: (campaign: CampaignSummary) => void;
   onLogout: () => void;
+  onStartCombat: () => void;
 }
 
 function CampaignButton({ label, onPress, disabled, color }: {
@@ -81,6 +82,9 @@ export function PlayerCampaignWorkspace(props: PlayerCampaignWorkspaceProps) {
         {selected.characterId !== props.characterId && <CampaignButton label="Vincular minha ficha"
           disabled={busy || !props.characterId || !!selected.characterId}
           color={colors.primary} onPress={props.onLink} />}
+        {selected.characterId === props.characterId && props.characterId &&
+          <CampaignButton label="Rolar iniciativa e abrir combate" disabled={busy}
+            color={colors.primary} onPress={props.onStartCombat} />}
         <CampaignJournalList colors={colors} entries={props.entries} />
       </View>}
     </ScrollView>

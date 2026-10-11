@@ -3,6 +3,8 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { Alert, AppState } from "react-native";
 import { Combatant, GameEvent } from "../types/rpg";
+import { useCampaignAuth } from "./CampaignAuthContext";
+import { campaignAuthMessage, campaignSocketUrl } from "@/utils/campaignSocket";
 import { useCombatants, useCombatLog } from "./CampaignContext";
 import { useCharacter } from "./CharacterContext";
 
@@ -19,6 +21,7 @@ interface WebSocketMessage {
 
 interface WebSocketContextType {
   isConnected: boolean;
+  connectionError: string | null;
   disconnect: () => void;
   joinSession: (ip: string, sessionId: string, initiative: number, petInitiative?: number) => void;
   sendMessage: (type: string, payload: any) => void;
@@ -28,6 +31,7 @@ interface WebSocketContextType {
     initialData: Combatant | any,
     petData?: Combatant | null,
   ) => void;
+  connectToCampaign: (campaignId: string, role: "gm" | "player", initiative?: number, petInitiative?: number) => void;
 }
 
 const WebSocketContext = createContext<WebSocketContextType | undefined>(
@@ -46,6 +50,8 @@ export const WebSocketProvider = ({
   children: React.ReactNode;
 }) => {
   const [isConnected, setIsConnected] = useState(false);
+  const [connectionError, setConnectionError] = useState<string | null>(null);
+  const [campaignSession] = useCampaignAuth();
   const socketRef = useRef<WebSocket | null>(null);
   const intentionalClose = useRef(false);
   const reconnectTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -59,6 +65,7 @@ export const WebSocketProvider = ({
     sessionId: string;
     initialData: any;
     petData?: Combatant | null;
+    campaignToken?: string;
   } | null>(null);
 
   const { character } = useCharacter();
@@ -124,7 +131,7 @@ export const WebSocketProvider = ({
 
     reconnectTimeout.current = setTimeout(() => {
       reconnectAttempts.current++;
-      connectToRoute(conn.ip, conn.sessionId, conn.initialData, conn.petData);
+      connectToRoute(conn.ip, conn.sessionId, conn.initialData, conn.petData, conn.campaignToken);
     }, delay);
   }, []);
 
@@ -340,6 +347,7 @@ export const WebSocketProvider = ({
     sessionId: string,
     initialData: any,
     petData?: Combatant | null,
+    campaignToken?: string,
   ) => {
     // Limpa reconexão pendente
     if (reconnectTimeout.current) {
@@ -354,9 +362,10 @@ export const WebSocketProvider = ({
     }
 
     intentionalClose.current = false;
+    setConnectionError(null);
 
     // Salva dados para reconexão futura
-    lastConnectionRef.current = { ip: inputIp, sessionId, initialData, petData };
+    lastConnectionRef.current = { ip: inputIp, sessionId, initialData, petData, campaignToken };
 
     let host = inputIp
       .trim()
@@ -368,17 +377,22 @@ export const WebSocketProvider = ({
       host = `${host}:8000`;
     }
 
-    const wsUrl = `ws://${host}/ws/${sessionId}`;
+    const wsUrl = campaignToken
+      ? campaignSocketUrl(inputIp, sessionId.slice("campaign-".length))
+      : `ws://${host}/ws/${sessionId}`;
     console.log("🔌 Conectando ao RPG Server:", wsUrl);
 
     try {
       const ws = new WebSocket(wsUrl);
       socketRef.current = ws;
+      let pendingJoin: string | null = null;
 
       ws.onopen = () => {
-        setIsConnected(true);
         reconnectAttempts.current = 0; // Reset ao conectar com sucesso
-        startPingInterval();
+        if (!campaignToken) {
+          setIsConnected(true);
+          startPingInterval();
+        }
 
         const eventType =
           initialData.type === "gm" ? "GM_CONNECT" : "JOIN_SESSION";
@@ -399,7 +413,7 @@ export const WebSocketProvider = ({
 
         const payload: any = {
           roomCode: sessionId,
-          clientId: clientIdRef.current,
+          ...(campaignToken ? {} : { clientId: clientIdRef.current }),
           combatant: joiningCombatant,
         };
         
@@ -410,26 +424,36 @@ export const WebSocketProvider = ({
 
         console.log("📤 Enviando para servidor:", eventType, "| Pet:", petData ? petData.name : "Nenhum");
         
-        ws.send(
-          JSON.stringify({
-            type: eventType,
-            payload,
-          }),
-        );
+        pendingJoin = JSON.stringify({ type: eventType, payload });
+        if (campaignToken) ws.send(JSON.stringify(campaignAuthMessage(campaignToken)));
+        else ws.send(pendingJoin);
       };
 
       ws.onmessage = (event) => {
         try {
           const message = JSON.parse(event.data);
+          if (campaignToken && message.type === "AUTH_OK") {
+            if (pendingJoin) ws.send(pendingJoin);
+            pendingJoin = null;
+            setIsConnected(true);
+            startPingInterval();
+            return;
+          }
           handleServerMessage(message);
         } catch (err) {
           console.error("Erro no Parse do WebSocket:", err);
         }
       };
 
-      ws.onclose = () => {
+      ws.onclose = (event) => {
         setIsConnected(false);
         if (pingInterval.current) clearInterval(pingInterval.current);
+        if (campaignToken && event.code === 1008) {
+          intentionalClose.current = true;
+          lastConnectionRef.current = null;
+          setConnectionError("Acesso ao combate negado. Confira a sessão e a ficha vinculada.");
+          return;
+        }
 
         // Tenta reconectar automaticamente se não foi intencional
         if (!intentionalClose.current) {
@@ -461,6 +485,7 @@ export const WebSocketProvider = ({
     lastConnectionRef.current = null;
     reconnectAttempts.current = 0;
     setIsConnected(false);
+    setConnectionError(null);
   }, []);
 
   const sendMessage = useCallback((type: string, payload: any) => {
@@ -485,13 +510,36 @@ export const WebSocketProvider = ({
     connectToRoute(ip, sessionId, combatantData, petData);
   }, [character, connectToRoute]);
 
+  const connectToCampaign = useCallback((campaignId: string, role: "gm" | "player",
+    initiative = 0, petInitiative?: number) => {
+    if (!campaignSession) return Alert.alert("Erro", "Entre na campanha antes do combate.");
+    if (role === "gm") {
+      connectToRoute(campaignSession.baseUrl, `campaign-${campaignId}`,
+        { id: "GM_ADMIN", name: "Mestre", type: "gm" }, null, campaignSession.token);
+      return;
+    }
+    if (!character.sheetId) return Alert.alert("Erro", "Vincule sua ficha antes do combate.");
+    const combatant = playerToCombatant(character, initiative);
+    const pet = character.pet ? petToCombatant(character.pet, character.name,
+      petInitiative ?? Math.max(0, initiative - 1)) : null;
+    connectToRoute(campaignSession.baseUrl, `campaign-${campaignId}`,
+      combatant, pet, campaignSession.token);
+  }, [campaignSession, character, connectToRoute]);
+
+  useEffect(() => {
+    const active = lastConnectionRef.current?.campaignToken;
+    if (active && active !== campaignSession?.token) disconnect();
+  }, [campaignSession?.token, disconnect]);
+
   const contextValue = useMemo(() => ({
     isConnected,
+    connectionError,
     disconnect,
     joinSession,
     sendMessage,
     connectToRoute,
-  }), [isConnected, disconnect, joinSession, sendMessage, connectToRoute]);
+    connectToCampaign,
+  }), [isConnected, connectionError, disconnect, joinSession, sendMessage, connectToRoute, connectToCampaign]);
 
   return (
     <WebSocketContext.Provider value={contextValue}>

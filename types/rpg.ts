@@ -324,6 +324,7 @@ export interface CombatWeaponData {
 }
 
 export interface Combatant {
+  sheetId?: string; // Ficha persistente vinculada à campanha (somente jogadores).
   feats?: Feat[];
   factionFeat?: CustomFeat | null;
   specialFeat?: CustomFeat | null;

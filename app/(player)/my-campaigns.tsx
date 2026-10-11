@@ -2,21 +2,22 @@ import { CampaignAuthForm } from "@/components/campaign/CampaignAuthForm";
 import { PlayerCampaignWorkspace } from "@/components/campaign/PlayerCampaignWorkspace";
 import { useCharacter } from "@/context/CharacterContext";
 import { useTheme } from "@/context/ThemeContext";
+import { useWebSocket } from "@/context/WebSocketContext";
+import { initiativeBonus } from "@/utils/featRules";
+import { useRouter } from "expo-router";
+import { useCampaignAuth } from "@/context/CampaignAuthContext";
 import { CampaignApiError, CampaignSummary, JournalEntry, createAuthApi, createCampaignApi } from "@/services/campaignApi";
 import { playerCampaigns } from "@/services/campaignView";
 import React, { useState } from "react";
 import { ScrollView, Text, View } from "react-native";
 
-interface Session {
-  baseUrl: string;
-  token: string;
-}
-
 export default function PlayerCampaignsScreen() {
   const { colors } = useTheme();
+  const router = useRouter();
+  const { connectToCampaign } = useWebSocket();
   const { character, isLoading } = useCharacter();
   // Token apenas em memória até existir armazenamento seguro por plataforma.
-  const [session, setSession] = useState<Session | null>(null);
+  const [session, setSession] = useCampaignAuth();
   const [campaigns, setCampaigns] = useState<CampaignSummary[]>([]);
   const [selected, setSelected] = useState<CampaignSummary | null>(null);
   const [entries, setEntries] = useState<JournalEntry[]>([]);
@@ -60,6 +61,9 @@ export default function PlayerCampaignsScreen() {
       const { accessToken } = mode === "login"
         ? await auth.login(email, password) : await auth.register(email, name, password);
       const credentials = { baseUrl: baseUrl.trim(), token: accessToken };
+      setSelected(null);
+      setEntries([]);
+      setInviteCode("");
       setSession(credentials);
       const client = createCampaignApi({ baseUrl: credentials.baseUrl, getAccessToken: () => credentials.token });
       setCampaigns(playerCampaigns(await client.listCampaigns()));
@@ -132,6 +136,16 @@ export default function PlayerCampaignsScreen() {
     });
   }
 
+  function startCombat() {
+    if (!selected || selected.characterId !== character.sheetId || isLoading || !session) return;
+    const initiative = Math.floor(Math.random() * 20) + 1 + initiativeBonus(character);
+    const petInitiative = character.pet
+      ? Math.floor(Math.random() * 20) + 1 + (character.pet.attributes?.["Destreza"]?.modifier || 0)
+      : undefined;
+    connectToCampaign(selected.id, "player", initiative, petInitiative);
+    router.push("/(player)/session-combat");
+  }
+
   async function logout() {
     const credentials = session;
     clearSession();
@@ -151,7 +165,7 @@ export default function PlayerCampaignsScreen() {
     {session ? <PlayerCampaignWorkspace colors={colors} campaigns={campaigns} selected={selected}
       entries={entries}
       inviteCode={inviteCode} onInviteChange={setInviteCode} busy={busy} onJoin={join} onLink={link}
-      onRefresh={refresh} onSelect={select} onLogout={logout}
+      onRefresh={refresh} onSelect={select} onLogout={logout} onStartCombat={startCombat}
       characterName={character.name} characterId={isLoading ? undefined : character.sheetId} /> :
       <ScrollView contentContainerStyle={{ padding: 20, flexGrow: 1, justifyContent: "center" }}>
         <CampaignAuthForm colors={colors} busy={busy} onSubmit={authenticate} />
