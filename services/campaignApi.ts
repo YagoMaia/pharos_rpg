@@ -57,6 +57,9 @@ function apiOrigin(baseUrl: string): string {
   if (!["http:", "https:"].includes(url.protocol) || url.username || url.password || url.search || url.hash) {
     throw new Error("URL da API deve ser HTTP(S) e não conter credenciais, query ou fragmento.");
   }
+  if (url.protocol === "http:" && !["localhost", "127.0.0.1", "[::1]"].includes(url.hostname)) {
+    throw new Error("HTTPS é obrigatório fora de localhost.");
+  }
   return url.toString().replace(/\/$/, "");
 }
 

@@ -41,3 +41,7 @@ test('erro de autenticação não inclui corpo de resposta sensível', async () 
   await assert.rejects(api.login('gm@example.com', 'safe-password-123'), error =>
     error.status === 401 && !error.message.includes('secret'));
 });
+
+test('não envia credenciais por HTTP fora de localhost', () => {
+  assert.throws(() => loadAuthApi().createAuthApi({ baseUrl: 'http://192.168.1.10:8000' }), /HTTPS/);
+});
