@@ -13,7 +13,7 @@ autor: agente
 
 ## Primeira entrega
 
-O cliente tipado em `services/campaignApi.ts` possui chamadas para campanhas e registro/login. Os endpoints abaixo estão implementados em `pharos_rpg_server` na branch `feat/campaign-planning`, com testes de integração usando FastAPI `TestClient` e SQLite local. A aba **Campanhas** do mestre já usa a API para cadastro/login, criação de campanhas, visualização de membros e convites. O token fica **somente em memória**, e o usuário precisa entrar novamente após fechar o app; não há armazenamento persistente de credenciais. A tela do jogador e o vínculo da ficha ainda não foram integrados.
+O cliente tipado em `services/campaignApi.ts` possui chamadas para campanhas e registro/login. Os endpoints abaixo estão implementados em `pharos_rpg_server` na branch `feat/campaign-planning`, com testes de integração usando FastAPI `TestClient` e SQLite local. A aba **Campanhas** do mestre usa a API para cadastro/login, criação de campanhas, visualização de membros e convites. O jogador acessa **Minhas campanhas** pela ficha (`/my-campaigns`), entra usando um convite e vincula explicitamente a ficha local. O token fica **somente em memória**, e o usuário precisa entrar novamente após fechar o app; não há armazenamento persistente de credenciais.
 
 | Método | Caminho | Corpo | Resposta esperada |
 | --- | --- | --- | --- |
@@ -33,9 +33,9 @@ As chamadas de campanha enviam `Authorization: Bearer <token>` obtido em registr
 1. Para login persistente, usar armazenamento seguro apropriado por plataforma; não guardar senha nem token em AsyncStorage ou logs. O botão "Sair" atual descarta o token em memória, mas ainda falta revogá-lo no servidor. Acrescentar recuperação de senha e proteção contra abuso em `/auth/login`/`/auth/register` antes de disponibilização pública. HTTP só é permitido pelo cliente para `localhost`/loopback; dispositivo remoto requer HTTPS.
 2. SQLite é adequado para protótipo de instância única; definir migrações, backup, localização de dados e banco apropriado para múltiplas instâncias antes de deploy. Redis atual guarda combate por uma hora e não é a fonte dos dados de campanha.
 3. Implementar revogação de convites e política operacional para tokens e CORS antes de deploy.
-4. Definir ID estável para personagem: o ID usado no combate atualmente deriva do nome. O servidor aceita um `characterId` informado pelo jogador e impede duplicidade dentro da campanha, mas ainda não prova posse da ficha nem salva o conteúdo da ficha.
+4. O app atribui `sheetId` estável às fichas, inclusive às fichas legadas após carregamento, e usa esse valor no vínculo; ele é independente do ID do combatente, que continua derivado do nome. O servidor impede duplicidade dentro da campanha, mas ainda não prova posse da ficha nem salva o conteúdo da ficha. Cópias/importações da mesma ficha podem carregar o mesmo `sheetId`; troca de ficha já vinculada não está disponível na UI.
 5. Vincular identidade de usuário/campanha ao WebSocket; `clientId` do WebSocket atual ainda não autentica uma pessoa. Até lá, dados de combate não herdam a segurança da API de campanhas.
-6. Construir telas do jogador e validar operações completas no navegador e em dispositivo. O painel responsivo do mestre passa no `expo export --platform web`, mas ainda precisa de validação visual/manual e teste integrado com o servidor em execução.
+6. Validar operações completas das duas telas no navegador e em dispositivo. O export web contém as rotas do mestre e do jogador, mas ainda faltam validação visual/manual e teste ponta a ponta com o servidor em execução.
 
 ## Validação
 

@@ -213,6 +213,7 @@ export interface CharacterSkill {
 }
 
 export interface Character {
+  sheetId?: string; // Identidade estável da ficha; não é o ID do combatente.
   name: string;
   level: number;
   image?: string;

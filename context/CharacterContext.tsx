@@ -1,6 +1,7 @@
 // src/context/CharacterContext.tsx
 import { SKILL_GROUPS } from "@/data/expertiseData";
 import { migrateSpecialization } from "@/utils/specializationMigration";
+import { ensureCharacterId } from "@/utils/characterIdentity";
 import { addCharacterFeat, migrateFeats, reconcileFeatBenefits, removeCharacterFeat, setFeatAttributeValue } from "@/utils/featRules";
 import { ANCESTRIES, CULTURAL_ORIGINS } from "@/data/origins";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -184,10 +185,13 @@ export const CharacterProvider = ({ children }: { children: ReactNode }) => {
             );
           }
 
-          setCharacter(migrateFeats(migrateSpecialization(parsed)));
+          setCharacter(ensureCharacterId(migrateFeats(migrateSpecialization(parsed))));
+        } else {
+          setCharacter(ensureCharacterId(INITIAL_CHARACTER));
         }
       } catch (e) {
         console.error("Erro ao carregar dados:", e);
+        setCharacter(ensureCharacterId(INITIAL_CHARACTER));
       } finally {
         setIsLoading(false);
       }
@@ -254,7 +258,7 @@ export const CharacterProvider = ({ children }: { children: ReactNode }) => {
   const resetCharacter = useCallback(async () => {
     try {
       await AsyncStorage.removeItem(STORAGE_KEY);
-      setCharacter(INITIAL_CHARACTER);
+      setCharacter(ensureCharacterId(INITIAL_CHARACTER));
     } catch (e) {
       console.error("Erro ao resetar:", e);
     }
@@ -534,7 +538,10 @@ export const CharacterProvider = ({ children }: { children: ReactNode }) => {
         deathSaves: importedData.deathSaves || { successes: 0, failures: 0 },
       };
 
-      return migrateFeats(migrateSpecialization(migratedCharacter));
+      return ensureCharacterId(migrateFeats(migrateSpecialization({
+        ...migratedCharacter,
+        sheetId: importedData.sheetId,
+      })));
     });
   }, []);
 

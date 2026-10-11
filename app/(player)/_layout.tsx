@@ -65,6 +65,7 @@ export default function TabLayout() {
           ),
         }}
       />
+      <Tabs.Screen name="my-campaigns" options={{ href: null, title: "Campanhas" }} />
       <Tabs.Screen
         name="combat"
         options={{

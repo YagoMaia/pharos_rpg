@@ -4,3 +4,8 @@ import { CampaignSummary } from "./campaignApi";
 export function masterCampaigns(campaigns: CampaignSummary[]): CampaignSummary[] {
   return campaigns.filter((campaign) => campaign.role === "gm");
 }
+
+/** O jogador não gerencia campanhas em que sua conta é mestre. */
+export function playerCampaigns(campaigns: CampaignSummary[]): CampaignSummary[] {
+  return campaigns.filter((campaign) => campaign.role === "player");
+}
