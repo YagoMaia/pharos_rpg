@@ -88,6 +88,7 @@ test('Bestiário NPC - Deve aplicar corretamente o modificador de armorClass da 
     // 14 (base) + 3 (especialização) = 17
     assert.equal(combatant.armorClass, 17);
     assert.equal(combatant.baseArmorClass, 17);
+    assert.equal(combatant.specialization.id, mockSpecialization.id);
 });
 
 test('Bestiário NPC - Deve herdar posturas (newStances) da especialização', () => {

@@ -1,4 +1,5 @@
 import { petToCombatant, playerToCombatant } from "@/utils/combatantFactory";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { Alert, AppState } from "react-native";
 import { Combatant, GameEvent } from "../types/rpg";
@@ -35,6 +36,9 @@ const WebSocketContext = createContext<WebSocketContextType | undefined>(
 
 const MAX_RECONNECT_ATTEMPTS = 5;
 const BASE_RECONNECT_DELAY = 1000; // 1 segundo
+const CLIENT_ID_KEY = "@pharos_ws_client_id";
+
+const createClientId = () => `client_${Date.now()}_${Math.random().toString(36).slice(2)}`;
 
 export const WebSocketProvider = ({
   children,
@@ -47,6 +51,7 @@ export const WebSocketProvider = ({
   const reconnectTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   const reconnectAttempts = useRef(0);
   const pingInterval = useRef<ReturnType<typeof setInterval> | null>(null);
+  const clientIdRef = useRef<string | null>(null);
 
   // Guarda os dados da última conexão para reconexão
   const lastConnectionRef = useRef<{
@@ -74,6 +79,12 @@ export const WebSocketProvider = ({
 
   // Limpa timers ao desmontar
   useEffect(() => {
+    AsyncStorage.getItem(CLIENT_ID_KEY).then((storedId) => {
+      const clientId = storedId || createClientId();
+      clientIdRef.current = clientId;
+      if (!storedId) AsyncStorage.setItem(CLIENT_ID_KEY, clientId);
+    });
+
     return () => {
       if (reconnectTimeout.current) clearTimeout(reconnectTimeout.current);
       if (pingInterval.current) clearInterval(pingInterval.current);
@@ -381,7 +392,16 @@ export const WebSocketProvider = ({
           ? currentCharacter.pet ? petToCombatant(currentCharacter.pet, currentCharacter.name,
             petData?.initiative ?? Math.max(0, initialData.initiative - 1)) : null
           : petData;
-        const payload: any = { roomCode: sessionId, combatant: joiningCombatant };
+        if (!clientIdRef.current) {
+          clientIdRef.current = createClientId();
+          AsyncStorage.setItem(CLIENT_ID_KEY, clientIdRef.current);
+        }
+
+        const payload: any = {
+          roomCode: sessionId,
+          clientId: clientIdRef.current,
+          combatant: joiningCombatant,
+        };
         
         // Se tem pet, envia junto
         if (joiningPet) {

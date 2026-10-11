@@ -326,6 +326,7 @@ export interface Combatant {
   feats?: Feat[];
   factionFeat?: CustomFeat | null;
   specialFeat?: CustomFeat | null;
+  specialization?: Specialization | null;
   // Identificação
   id: string; // ID único na sessão de combate
   templateId?: string; // ID original (do Character ou NpcTemplate)

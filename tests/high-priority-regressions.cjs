@@ -3,7 +3,7 @@ const { test } = require('node:test');
 const fs = require('node:fs');
 const path = require('node:path');
 const ts = require('typescript');
-const root = path.resolve(__dirname, '..');
+const root = process.cwd();
 const cache = new Map();
 function load(file) {
   const full = path.resolve(root, file.endsWith('.ts') ? file : `${file}.ts`);
@@ -90,6 +90,7 @@ test('Espada e Escudo soma FOR e bônus passivo em habilidades e no ataque bási
   })();
   assert.equal(formula, '1d8+4');
   const npc = npcToCombatant(mapPlayerToNpc(sheet()), 10);
+  assert.equal(npc.specialization.id, SPECIALIZATIONS.gue_espada_escudo.id);
   assert.equal(weaponDamageFormula(npc.weapons.melee, 3), '1d8+4');
 });
 
@@ -176,6 +177,7 @@ test('reconexão automática monta JOIN com a ficha atual em vez do snapshot ant
   const connect = expression('context/WebSocketContext.tsx', 'connectToRoute', {
     reconnectTimeout: { current: null }, socketRef: refs, intentionalClose: { current: false },
     lastConnectionRef: { current: null }, reconnectAttempts: { current: 0 }, pingInterval: { current: null },
+    clientIdRef: { current: 'client-test' }, createClientId: () => 'client-test', AsyncStorage: { setItem() {} },
     characterRef: { current }, playerToCombatant, petToCombatant, startPingInterval() {}, setIsConnected() {},
     handleServerMessage() {}, attemptReconnect() {}, console: { log() {} }, Alert: { alert() {} },
     WebSocket: class { constructor() { socket = this; } send(data) { this.payload = JSON.parse(data); } },

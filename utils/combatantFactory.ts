@@ -121,6 +121,7 @@ export const playerToCombatant = (
     feats: activeFeats(char),
     factionFeat: char.factionFeat,
     specialFeat: char.specialFeat,
+    specialization: char.specialization,
 
     // Stats
     hp: { ...char.stats.hp },
@@ -188,6 +189,7 @@ export const npcToCombatant = (
     feats: npc.feats ?? [],
     factionFeat: npc.factionFeat,
     specialFeat: npc.specialFeat,
+    specialization: npc.specialization,
     type: "npc",
 
     // Stats (Copia direta do Template)
