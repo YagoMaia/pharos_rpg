@@ -27,6 +27,7 @@ O diário permite ao mestre criar e editar notas privadas (`gm`) ou compartilhad
 | PUT | `/campaigns/{id}/character` | `{ characterId }` | resumo da campanha com vínculo |
 | POST | `/auth/register` | `{ email, displayName, password }` | `{ accessToken }` |
 | POST | `/auth/login` | `{ email, password }` | `{ accessToken }` |
+| POST | `/auth/logout` | — (Bearer atual) | 204; revoga apenas o token desta sessão |
 | GET | `/campaigns/{id}/entries` | — | até 100 notas visíveis ao membro, mais recentes primeiro |
 | POST | `/campaigns/{id}/entries` | `{ title, body, visibility: "gm" \| "party" }` | nota criada (somente mestre) |
 | PUT | `/campaigns/{id}/entries/{entryId}` | `{ title, body, visibility: "gm" \| "party" }` | nota editada (somente mestre) |
@@ -35,7 +36,7 @@ As chamadas de campanha enviam `Authorization: Bearer <token>` obtido em registr
 
 ## Decisões pendentes antes de ligar o cliente
 
-1. Para login persistente, usar armazenamento seguro apropriado por plataforma; não guardar senha nem token em AsyncStorage ou logs. O botão "Sair" atual descarta o token em memória, mas ainda falta revogá-lo no servidor. Acrescentar recuperação de senha e proteção contra abuso em `/auth/login`/`/auth/register` antes de disponibilização pública. HTTP só é permitido pelo cliente para `localhost`/loopback; dispositivo remoto requer HTTPS.
+1. Para login persistente, usar armazenamento seguro apropriado por plataforma; não guardar senha nem token em AsyncStorage ou logs. O botão "Sair" limpa a sessão local e revoga o token corrente no servidor; se a rede falhar, a interface informa que a revogação não foi confirmada. Acrescentar recuperação de senha e proteção contra abuso em `/auth/login`/`/auth/register` antes de disponibilização pública. HTTP só é permitido pelo cliente para `localhost`/loopback; dispositivo remoto requer HTTPS.
 2. SQLite é adequado para protótipo de instância única; definir migrações, backup, localização de dados e banco apropriado para múltiplas instâncias antes de deploy. Redis atual guarda combate por uma hora e não é a fonte dos dados de campanha.
 3. Implementar revogação de convites e política operacional para tokens e CORS antes de deploy.
 4. O app atribui `sheetId` estável às fichas, inclusive às fichas legadas após carregamento, e usa esse valor no vínculo; ele é independente do ID do combatente, que continua derivado do nome. O servidor impede duplicidade dentro da campanha, mas ainda não prova posse da ficha nem salva o conteúdo da ficha. Cópias/importações da mesma ficha podem carregar o mesmo `sheetId`; troca de ficha já vinculada não está disponível na UI.

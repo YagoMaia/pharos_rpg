@@ -168,9 +168,18 @@ export default function GMCampaignsScreen() {
     }
   }
 
-  function logout() {
+  async function logout() {
+    const credentials = session;
     clearSession();
     setError("");
+    if (!credentials) return;
+    try {
+      await api(credentials).logout();
+    } catch (cause) {
+      if (!(cause instanceof CampaignApiError && cause.status === 401)) {
+        setError("Você saiu deste dispositivo, mas a revogação no servidor não foi confirmada.");
+      }
+    }
   }
 
   return (

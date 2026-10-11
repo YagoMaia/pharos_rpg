@@ -132,12 +132,26 @@ export default function PlayerCampaignsScreen() {
     });
   }
 
+  async function logout() {
+    const credentials = session;
+    clearSession();
+    if (!credentials) return;
+    try {
+      await createCampaignApi({ baseUrl: credentials.baseUrl,
+        getAccessToken: () => credentials.token }).logout();
+    } catch (cause) {
+      if (!(cause instanceof CampaignApiError && cause.status === 401)) {
+        setError("Você saiu deste dispositivo, mas a revogação no servidor não foi confirmada.");
+      }
+    }
+  }
+
   return <View style={{ flex: 1, backgroundColor: colors.background }}>
     {!!error && <Text accessibilityRole="alert" style={{ color: colors.error, padding: 16 }}>{error}</Text>}
     {session ? <PlayerCampaignWorkspace colors={colors} campaigns={campaigns} selected={selected}
       entries={entries}
       inviteCode={inviteCode} onInviteChange={setInviteCode} busy={busy} onJoin={join} onLink={link}
-      onRefresh={refresh} onSelect={select} onLogout={clearSession}
+      onRefresh={refresh} onSelect={select} onLogout={logout}
       characterName={character.name} characterId={isLoading ? undefined : character.sheetId} /> :
       <ScrollView contentContainerStyle={{ padding: 20, flexGrow: 1, justifyContent: "center" }}>
         <CampaignAuthForm colors={colors} busy={busy} onSubmit={authenticate} />

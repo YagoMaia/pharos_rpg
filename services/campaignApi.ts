@@ -94,10 +94,12 @@ export function createCampaignApi({ baseUrl, getAccessToken, fetcher = fetch }: 
       ...(body ? { body: JSON.stringify(body) } : {}),
     });
     if (!response.ok) throw new CampaignApiError(response.status);
+    if (response.status === 204) return undefined as T;
     return response.json() as Promise<T>;
   }
 
   return {
+    logout: () => request<void>("/auth/logout", "POST"),
     createCampaign: (name: string) => request<CampaignSummary>(
       "/campaigns", "POST", { name: requiredText(name, "Nome da campanha") },
     ),

@@ -133,3 +133,18 @@ test('diário usa contrato autenticado para listar, criar e editar notas', async
   assert.deepEqual(calls.map(call => call.options.method), ['GET', 'POST', 'PUT']);
   assert.equal(calls[2].options.headers.Authorization, 'Bearer token');
 });
+
+test('logout revoga a sessão sem tentar ler JSON da resposta 204', async () => {
+  const calls = [];
+  const api = loadCampaignApi().createCampaignApi({
+    baseUrl: 'https://example.org', getAccessToken: () => 'token',
+    fetcher: async (url, options) => {
+      calls.push({ url, options });
+      return { ok: true, status: 204, json: () => { throw new Error('Sem corpo'); } };
+    },
+  });
+  assert.equal(await api.logout(), undefined);
+  assert.equal(calls[0].url, 'https://example.org/auth/logout');
+  assert.equal(calls[0].options.headers.Authorization, 'Bearer token');
+  assert.equal(calls[0].options.method, 'POST');
+});
