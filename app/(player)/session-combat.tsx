@@ -106,11 +106,6 @@ export default function SessionCombatScreen() {
     }
   };
 
-  const handleForceReconnect = (ip: string, code: string) => {
-    // Tenta reconectar sem iniciativa (o servidor deve tratar ou ignorar)
-    if (ip && code) joinSession(ip, code, -1);
-  };
-
   const rollInitiative = () => {
     setIsRolling(true);
     setTimeout(() => {
@@ -184,7 +179,7 @@ export default function SessionCombatScreen() {
         });
       }
     }
-  }, [lastEvent?.id, mySafeId, myPetSafeId]); // Monitora ID do evento
+  }, [lastEvent, mySafeId, myPetSafeId]); // Monitora ID do evento
 
   // --- TELA DE CONEXÃO ---
   if (!isConnected) {
@@ -194,20 +189,6 @@ export default function SessionCombatScreen() {
           onConnect={handleConnectRequest}
           title="Conectar à Sessão"
           btnLabel="PRÓXIMO"
-          extraButton={
-            // Pequeno "hack" para passar o force reconnect, ou você pode melhorar o componente ConnectionForm
-            <TouchableOpacity style={{ marginTop: 20 }}>
-              <Text
-                style={{
-                  color: colors.primary,
-                  textAlign: "center",
-                  textDecorationLine: "underline",
-                }}
-              >
-                Problemas de conexão?
-              </Text>
-            </TouchableOpacity>
-          }
         />
 
         {/* Modal de Iniciativa (Só aparece na primeira conexão) */}

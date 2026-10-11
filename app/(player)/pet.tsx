@@ -17,15 +17,6 @@ import { useCharacter } from "@/context/CharacterContext";
 import { useTheme } from "@/context/ThemeContext";
 import { Attribute, AttributeName, Pet, Skill } from "@/types/rpg";
 
-const DEFAULT_ATTRIBUTES: Record<AttributeName, Attribute> = {
-  Força: { name: "Força", value: 10, modifier: 0 },
-  Destreza: { name: "Destreza", value: 10, modifier: 0 },
-  Constituição: { name: "Constituição", value: 10, modifier: 0 },
-  Inteligência: { name: "Inteligência", value: 10, modifier: 0 },
-  Sabedoria: { name: "Sabedoria", value: 10, modifier: 0 },
-  Carisma: { name: "Carisma", value: 10, modifier: 0 },
-};
-
 export default function PetScreen() {
   const { character, setPet, updatePet } = useCharacter();
   const { colors } = useTheme();

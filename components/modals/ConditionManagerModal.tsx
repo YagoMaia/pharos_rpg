@@ -6,7 +6,6 @@ import { CONDITION_CONFIG } from "@/utils/conditionConfig";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import React, { useMemo, useState } from "react";
 import {
-  FlatList,
   Modal,
   ScrollView,
   StyleSheet,

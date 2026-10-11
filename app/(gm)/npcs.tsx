@@ -79,7 +79,7 @@ export default function NpcScreen() {
           },
         ],
       );
-    } catch (error) {
+    } catch {
       showAlert(
         "Erro",
         "Falha ao ler ou processar a ficha. O formato está correto?",

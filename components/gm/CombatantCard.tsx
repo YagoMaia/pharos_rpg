@@ -12,7 +12,7 @@ import { useAlert } from "@/context/AlertContext";
 import { useCampaign } from "@/context/CampaignContext";
 import { useTheme } from "@/context/ThemeContext";
 import { Combatant, Skill } from "@/types/rpg";
-import { formatMod, getActionKey } from "@/utils/rpgUtils";
+import { getActionKey } from "@/utils/rpgUtils";
 
 export const CombatantCard = ({ item }: { item: Combatant }) => {
   const [expanded, setExpanded] = useState(false);

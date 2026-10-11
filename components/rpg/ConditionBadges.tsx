@@ -5,7 +5,6 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 import React, { useMemo, useState } from "react";
 import {
   Modal,
-  ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -94,7 +93,6 @@ interface ConditionBarProps {
 
 export const ConditionBar = ({ conditions, size = "small" }: ConditionBarProps) => {
   const [detailCondition, setDetailCondition] = useState<ActiveCondition | null>(null);
-  const { colors } = useTheme();
 
   if (!conditions || conditions.length === 0) return null;
 
