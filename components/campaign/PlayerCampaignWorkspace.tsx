@@ -1,11 +1,13 @@
 import { ThemeColors } from "@/constants/theme";
-import { CampaignSummary } from "@/services/campaignApi";
+import { CampaignSummary, JournalEntry } from "@/services/campaignApi";
+import { CampaignJournalList } from "./CampaignJournal";
 import React from "react";
 import { ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 
 interface PlayerCampaignWorkspaceProps {
   colors: ThemeColors;
   campaigns: CampaignSummary[];
+  entries: JournalEntry[];
   selected: CampaignSummary | null;
   inviteCode: string;
   characterName: string;
@@ -79,6 +81,7 @@ export function PlayerCampaignWorkspace(props: PlayerCampaignWorkspaceProps) {
         {selected.characterId !== props.characterId && <CampaignButton label="Vincular minha ficha"
           disabled={busy || !props.characterId || !!selected.characterId}
           color={colors.primary} onPress={props.onLink} />}
+        <CampaignJournalList colors={colors} entries={props.entries} />
       </View>}
     </ScrollView>
   );

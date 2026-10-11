@@ -2,7 +2,7 @@ import { CampaignAuthForm } from "@/components/campaign/CampaignAuthForm";
 import { CampaignWorkspace } from "@/components/campaign/CampaignWorkspace";
 import { useTheme } from "@/context/ThemeContext";
 import {
-  CampaignApiError, CampaignDetails, CampaignInvite, CampaignSummary,
+  CampaignApiError, CampaignDetails, CampaignInvite, CampaignSummary, JournalEntry, JournalEntryInput,
   createAuthApi, createCampaignApi,
 } from "@/services/campaignApi";
 import { masterCampaigns } from "@/services/campaignView";
@@ -15,6 +15,8 @@ interface Session {
   token: string;
 }
 
+const EMPTY_DRAFT: JournalEntryInput = { title: "", body: "", visibility: "gm" };
+
 export default function GMCampaignsScreen() {
   const { colors } = useTheme();
   // Sem armazenamento persistente de token até existir um cofre seguro configurado.
@@ -23,6 +25,9 @@ export default function GMCampaignsScreen() {
   const [selected, setSelected] = useState<CampaignDetails | null>(null);
   const [invite, setInvite] = useState<CampaignInvite | null>(null);
   const [name, setName] = useState("");
+  const [entries, setEntries] = useState<JournalEntry[]>([]);
+  const [draft, setDraft] = useState<JournalEntryInput>(EMPTY_DRAFT);
+  const [editingEntryId, setEditingEntryId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
@@ -37,6 +42,9 @@ export default function GMCampaignsScreen() {
     setSelected(null);
     setCampaigns([]);
     setInvite(null);
+    setEntries([]);
+    setDraft(EMPTY_DRAFT);
+    setEditingEntryId(null);
   }
 
   function showError(cause: unknown) {
@@ -90,7 +98,12 @@ export default function GMCampaignsScreen() {
   function refresh() {
     run(async (credentials) => {
       setCampaigns(masterCampaigns(await api(credentials).listCampaigns()));
-      if (selected) setSelected(await api(credentials).getCampaign(selected.id));
+      if (!selected) return;
+      const [details, notes] = await Promise.all([
+        api(credentials).getCampaign(selected.id), api(credentials).listEntries(selected.id),
+      ]);
+      setSelected(details);
+      setEntries(notes);
     });
   }
 
@@ -99,6 +112,9 @@ export default function GMCampaignsScreen() {
       const created = await api(credentials).createCampaign(name);
       setCampaigns((previous) => [...previous, created]);
       setSelected(await api(credentials).getCampaign(created.id));
+      setEntries([]);
+      setDraft(EMPTY_DRAFT);
+      setEditingEntryId(null);
       setInvite(null);
       setName("");
     });
@@ -106,8 +122,35 @@ export default function GMCampaignsScreen() {
 
   function select(id: string) {
     run(async (credentials) => {
-      setSelected(await api(credentials).getCampaign(id));
+      const [details, notes] = await Promise.all([
+        api(credentials).getCampaign(id), api(credentials).listEntries(id),
+      ]);
+      setSelected(details);
+      setEntries(notes);
+      setDraft(EMPTY_DRAFT);
+      setEditingEntryId(null);
       setInvite(null);
+    });
+  }
+
+  function editEntry(entry: JournalEntry) {
+    setDraft({ title: entry.title, body: entry.body, visibility: entry.visibility });
+    setEditingEntryId(entry.id);
+  }
+
+  function cancelEdit() {
+    setDraft(EMPTY_DRAFT);
+    setEditingEntryId(null);
+  }
+
+  function saveEntry() {
+    if (!selected) return;
+    run(async (credentials) => {
+      const client = api(credentials);
+      if (editingEntryId) await client.updateEntry(selected.id, editingEntryId, draft);
+      else await client.createEntry(selected.id, draft);
+      setEntries(await client.listEntries(selected.id));
+      cancelEdit();
     });
   }
 
@@ -135,6 +178,8 @@ export default function GMCampaignsScreen() {
       {!!error && <Text accessibilityRole="alert" style={{ color: colors.error, padding: 16 }}>{error}</Text>}
       {session ? <CampaignWorkspace colors={colors} campaigns={campaigns} selected={selected}
         invite={invite} name={name} busy={busy} onNameChange={setName} onCreate={create}
+        entries={entries} draft={draft} editingEntry={!!editingEntryId}
+        onDraftChange={setDraft} onSaveEntry={saveEntry} onEditEntry={editEntry} onCancelEdit={cancelEdit}
         onRefresh={refresh} onSelect={select} onInvite={generateInvite}
         onCopyInvite={copyInvite} onLogout={logout} /> :
         <ScrollView contentContainerStyle={{ padding: 20, flexGrow: 1, justifyContent: "center" }}>

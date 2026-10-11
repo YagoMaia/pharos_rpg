@@ -15,6 +15,8 @@ autor: agente
 
 O cliente tipado em `services/campaignApi.ts` possui chamadas para campanhas e registro/login. Os endpoints abaixo estão implementados em `pharos_rpg_server` na branch `feat/campaign-planning`, com testes de integração usando FastAPI `TestClient` e SQLite local. A aba **Campanhas** do mestre usa a API para cadastro/login, criação de campanhas, visualização de membros e convites. O jogador acessa **Minhas campanhas** pela ficha (`/my-campaigns`), entra usando um convite e vincula explicitamente a ficha local. O token fica **somente em memória**, e o usuário precisa entrar novamente após fechar o app; não há armazenamento persistente de credenciais.
 
+O diário permite ao mestre criar e editar notas privadas (`gm`) ou compartilhadas (`party`). O servidor filtra notas privadas antes de responder aos jogadores, inclusive após uma alteração de visibilidade. O mestre edita no painel web; o jogador consulta as notas compartilhadas em `/my-campaigns`.
+
 | Método | Caminho | Corpo | Resposta esperada |
 | --- | --- | --- | --- |
 | POST | `/campaigns` | `{ name }` | `{ id, name, role: "gm" }` |
@@ -25,6 +27,9 @@ O cliente tipado em `services/campaignApi.ts` possui chamadas para campanhas e r
 | PUT | `/campaigns/{id}/character` | `{ characterId }` | resumo da campanha com vínculo |
 | POST | `/auth/register` | `{ email, displayName, password }` | `{ accessToken }` |
 | POST | `/auth/login` | `{ email, password }` | `{ accessToken }` |
+| GET | `/campaigns/{id}/entries` | — | até 100 notas visíveis ao membro, mais recentes primeiro |
+| POST | `/campaigns/{id}/entries` | `{ title, body, visibility: "gm" \| "party" }` | nota criada (somente mestre) |
+| PUT | `/campaigns/{id}/entries/{entryId}` | `{ title, body, visibility: "gm" \| "party" }` | nota editada (somente mestre) |
 
 As chamadas de campanha enviam `Authorization: Bearer <token>` obtido em registro/login. O cliente não armazena tokens, não envia fichas completas e não expõe resposta/credenciais em mensagens de erro. O endereço da API é injetado; não é derivado automaticamente do IP da sala WebSocket. O backend armazena hash do token e da senha, token expira em 7 dias e convite é de uso único, expira em 24 horas. As campanhas são persistidas em SQLite no caminho configurável `CAMPAIGN_DB_PATH` (padrão `pharos.sqlite3`, ignorado pelo Git).
 
@@ -36,6 +41,7 @@ As chamadas de campanha enviam `Authorization: Bearer <token>` obtido em registr
 4. O app atribui `sheetId` estável às fichas, inclusive às fichas legadas após carregamento, e usa esse valor no vínculo; ele é independente do ID do combatente, que continua derivado do nome. O servidor impede duplicidade dentro da campanha, mas ainda não prova posse da ficha nem salva o conteúdo da ficha. Cópias/importações da mesma ficha podem carregar o mesmo `sheetId`; troca de ficha já vinculada não está disponível na UI.
 5. Vincular identidade de usuário/campanha ao WebSocket; `clientId` do WebSocket atual ainda não autentica uma pessoa. Até lá, dados de combate não herdam a segurança da API de campanhas.
 6. Validar operações completas das duas telas no navegador e em dispositivo. O export web contém as rotas do mestre e do jogador, mas ainda faltam validação visual/manual e teste ponta a ponta com o servidor em execução.
+7. Diário: paginação, autoria, exclusão/arquivamento e gestão de migrações do esquema SQLite ficam para uma etapa posterior; a primeira versão retorna até 100 notas por campanha.
 
 ## Validação
 

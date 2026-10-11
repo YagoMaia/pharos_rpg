@@ -105,3 +105,31 @@ test('retorna erro de API sem incluir resposta ou token na mensagem', async () =
   await assert.rejects(api.listCampaigns(), error =>
     error.status === 403 && !error.message.includes('very-secret'));
 });
+
+test('diário usa contrato autenticado para listar, criar e editar notas', async () => {
+  const calls = [];
+  const entry = { id: 'entry-1', title: 'Resumo', body: 'A cidade', visibility: 'party',
+    createdAt: '2026-10-11T00:00:00Z', updatedAt: '2026-10-11T00:00:00Z' };
+  const api = loadCampaignApi().createCampaignApi({
+    baseUrl: 'https://example.org',
+    getAccessToken: () => 'token',
+    fetcher: async (url, options) => {
+      calls.push({ url, options });
+      return fakeResponse(options.method === 'GET' ? [entry] : entry);
+    },
+  });
+  assert.deepEqual(await api.listEntries('camp/1'), [entry]);
+  assert.deepEqual(await api.createEntry('camp/1', {
+    title: 'Resumo', body: 'A cidade', visibility: 'party',
+  }), entry);
+  assert.deepEqual(await api.updateEntry('camp/1', 'entry/1', {
+    title: 'Resumo', body: 'A cidade', visibility: 'party',
+  }), entry);
+  assert.deepEqual(calls.map(call => call.url), [
+    'https://example.org/campaigns/camp%2F1/entries',
+    'https://example.org/campaigns/camp%2F1/entries',
+    'https://example.org/campaigns/camp%2F1/entries/entry%2F1',
+  ]);
+  assert.deepEqual(calls.map(call => call.options.method), ['GET', 'POST', 'PUT']);
+  assert.equal(calls[2].options.headers.Authorization, 'Bearer token');
+});

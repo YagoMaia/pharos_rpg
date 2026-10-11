@@ -2,7 +2,7 @@ import { CampaignAuthForm } from "@/components/campaign/CampaignAuthForm";
 import { PlayerCampaignWorkspace } from "@/components/campaign/PlayerCampaignWorkspace";
 import { useCharacter } from "@/context/CharacterContext";
 import { useTheme } from "@/context/ThemeContext";
-import { CampaignApiError, CampaignSummary, createAuthApi, createCampaignApi } from "@/services/campaignApi";
+import { CampaignApiError, CampaignSummary, JournalEntry, createAuthApi, createCampaignApi } from "@/services/campaignApi";
 import { playerCampaigns } from "@/services/campaignView";
 import React, { useState } from "react";
 import { ScrollView, Text, View } from "react-native";
@@ -19,6 +19,7 @@ export default function PlayerCampaignsScreen() {
   const [session, setSession] = useState<Session | null>(null);
   const [campaigns, setCampaigns] = useState<CampaignSummary[]>([]);
   const [selected, setSelected] = useState<CampaignSummary | null>(null);
+  const [entries, setEntries] = useState<JournalEntry[]>([]);
   const [inviteCode, setInviteCode] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -27,6 +28,7 @@ export default function PlayerCampaignsScreen() {
     setSession(null);
     setCampaigns([]);
     setSelected(null);
+    setEntries([]);
     setInviteCode("");
     setError("");
   }
@@ -93,6 +95,19 @@ export default function PlayerCampaignsScreen() {
       const updated = playerCampaigns(await client.listCampaigns());
       setCampaigns(updated);
       setSelected((current) => updated.find((campaign) => campaign.id === current?.id) ?? null);
+      if (selected && updated.some((campaign) => campaign.id === selected.id)) {
+        setEntries(await client.listEntries(selected.id));
+      } else {
+        setEntries([]);
+      }
+    });
+  }
+
+  function select(campaign: CampaignSummary) {
+    run(async (client) => {
+      const notes = await client.listEntries(campaign.id);
+      setSelected(campaign);
+      setEntries(notes);
     });
   }
 
@@ -101,7 +116,9 @@ export default function PlayerCampaignsScreen() {
       const joined = await client.joinCampaign(inviteCode);
       setCampaigns((current) => [...current.filter((item) => item.id !== joined.id), joined]);
       setSelected(joined);
+      setEntries([]);
       setInviteCode("");
+      setEntries(await client.listEntries(joined.id));
     });
   }
 
@@ -118,8 +135,9 @@ export default function PlayerCampaignsScreen() {
   return <View style={{ flex: 1, backgroundColor: colors.background }}>
     {!!error && <Text accessibilityRole="alert" style={{ color: colors.error, padding: 16 }}>{error}</Text>}
     {session ? <PlayerCampaignWorkspace colors={colors} campaigns={campaigns} selected={selected}
+      entries={entries}
       inviteCode={inviteCode} onInviteChange={setInviteCode} busy={busy} onJoin={join} onLink={link}
-      onRefresh={refresh} onSelect={setSelected} onLogout={clearSession}
+      onRefresh={refresh} onSelect={select} onLogout={clearSession}
       characterName={character.name} characterId={isLoading ? undefined : character.sheetId} /> :
       <ScrollView contentContainerStyle={{ padding: 20, flexGrow: 1, justifyContent: "center" }}>
         <CampaignAuthForm colors={colors} busy={busy} onSubmit={authenticate} />

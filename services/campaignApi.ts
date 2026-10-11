@@ -23,6 +23,18 @@ export interface CampaignInvite {
   expiresAt: string;
 }
 
+export interface JournalEntryInput {
+  title: string;
+  body: string;
+  visibility: "gm" | "party";
+}
+
+export interface JournalEntry extends JournalEntryInput {
+  id: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface CampaignApiOptions {
   baseUrl: string;
   getAccessToken: () => string | Promise<string>;
@@ -97,6 +109,13 @@ export function createCampaignApi({ baseUrl, getAccessToken, fetcher = fetch }: 
     ),
     linkCharacter: (campaignId: string, characterId: string) => request<CampaignSummary>(
       `${campaignPath(campaignId)}/character`, "PUT", { characterId: requiredText(characterId, "ID do personagem") },
+    ),
+    listEntries: (campaignId: string) => request<JournalEntry[]>(`${campaignPath(campaignId)}/entries`),
+    createEntry: (campaignId: string, entry: JournalEntryInput) => request<JournalEntry>(
+      `${campaignPath(campaignId)}/entries`, "POST", entry,
+    ),
+    updateEntry: (campaignId: string, entryId: string, entry: JournalEntryInput) => request<JournalEntry>(
+      `${campaignPath(campaignId)}/entries/${encodeURIComponent(requiredText(entryId, "ID da nota"))}`, "PUT", entry,
     ),
   };
 }

@@ -1,5 +1,6 @@
 import { ThemeColors } from "@/constants/theme";
-import { CampaignDetails, CampaignInvite, CampaignSummary } from "@/services/campaignApi";
+import { CampaignDetails, CampaignInvite, CampaignSummary, JournalEntry, JournalEntryInput } from "@/services/campaignApi";
+import { CampaignJournalEditor, CampaignJournalList } from "./CampaignJournal";
 import React from "react";
 import { ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, useWindowDimensions, View } from "react-native";
 
@@ -10,6 +11,9 @@ interface CampaignWorkspaceProps {
   invite: CampaignInvite | null;
   name: string;
   busy: boolean;
+  entries: JournalEntry[];
+  draft: JournalEntryInput;
+  editingEntry: boolean;
   onNameChange: (name: string) => void;
   onCreate: () => void;
   onRefresh: () => void;
@@ -17,6 +21,10 @@ interface CampaignWorkspaceProps {
   onInvite: () => void;
   onCopyInvite: () => void;
   onLogout: () => void;
+  onDraftChange: (draft: JournalEntryInput) => void;
+  onSaveEntry: () => void;
+  onEditEntry: (entry: JournalEntry) => void;
+  onCancelEdit: () => void;
 }
 
 function ActionButton({ label, onPress, disabled, color }: {
@@ -90,6 +98,10 @@ export function CampaignWorkspace(props: CampaignWorkspaceProps) {
                 {member.characterId ? ` · Personagem: ${member.characterId}` : " · Sem personagem vinculado"}
               </Text>
             </View>)}
+            <CampaignJournalEditor colors={colors} draft={props.draft} editing={props.editingEntry}
+              busy={busy} onChange={props.onDraftChange} onSave={props.onSaveEntry}
+              onCancel={props.onCancelEdit} />
+            <CampaignJournalList colors={colors} entries={props.entries} onEdit={props.onEditEntry} />
           </>}
         </View>
       </View>
