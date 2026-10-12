@@ -1,0 +1,10 @@
+node_modules
+.expo
+dist
+.git
+.gitignore
+*.log
+android
+ios
+.vscode
+tests

@@ -13,16 +13,20 @@ interface CampaignAuthFormProps {
 
 const webPointer = Platform.OS === "web" ? ({ cursor: "pointer" } as const) : {};
 
+const DEFAULT_SERVER_URL =
+  process.env.EXPO_PUBLIC_API_URL || "https://pharos-server.yagomaia.com.br";
+
 /** O PIN permanece apenas no formulário até o envio e é apagado depois. */
 export function CampaignAuthForm({ colors, busy, role, onSubmit }: CampaignAuthFormProps) {
-  const [baseUrl, setBaseUrl] = useState("");
+  const [baseUrl, setBaseUrl] = useState(DEFAULT_SERVER_URL);
   const [name, setName] = useState<string | null>(null);
   const [pin, setPin] = useState("");
 
   async function submit() {
     try {
       if (!name) return;
-      await onSubmit(baseUrl, name, pin);
+      const targetUrl = baseUrl.trim() || DEFAULT_SERVER_URL;
+      await onSubmit(targetUrl, name, pin);
     } finally {
       setPin("");
     }
@@ -93,7 +97,7 @@ export function CampaignAuthForm({ colors, busy, role, onSubmit }: CampaignAuthF
           accessibilityLabel="URL da API"
           value={baseUrl}
           onChangeText={setBaseUrl}
-          placeholder="http://localhost:8000"
+          placeholder={DEFAULT_SERVER_URL}
           placeholderTextColor={colors.textSecondary}
           autoCapitalize="none"
           autoCorrect={false}
@@ -101,22 +105,22 @@ export function CampaignAuthForm({ colors, busy, role, onSubmit }: CampaignAuthF
           style={inputStyle}
         />
 
-        {/* Atalhos rápidos para web / rede local */}
+        {/* Atalhos rápidos para web / nuvem / rede local */}
         <View style={styles.quickChips}>
           <Text style={[styles.quickText, { color: colors.textSecondary }]}>Atalhos:</Text>
+          <TouchableOpacity
+            accessibilityRole="button"
+            onPress={() => setBaseUrl("https://pharos-server.yagomaia.com.br")}
+            style={[styles.chip, { borderColor: colors.primary, backgroundColor: colors.inputBg }, webPointer]}
+          >
+            <Text style={[styles.chipText, { color: colors.primary, fontWeight: "600" }]}>pharos-server</Text>
+          </TouchableOpacity>
           <TouchableOpacity
             accessibilityRole="button"
             onPress={() => setBaseUrl("http://localhost:8000")}
             style={[styles.chip, { borderColor: colors.border, backgroundColor: colors.inputBg }, webPointer]}
           >
             <Text style={[styles.chipText, { color: colors.text }]}>localhost:8000</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            accessibilityRole="button"
-            onPress={() => setBaseUrl("http://127.0.0.1:8000")}
-            style={[styles.chip, { borderColor: colors.border, backgroundColor: colors.inputBg }, webPointer]}
-          >
-            <Text style={[styles.chipText, { color: colors.text }]}>127.0.0.1:8000</Text>
           </TouchableOpacity>
         </View>
       </View>
