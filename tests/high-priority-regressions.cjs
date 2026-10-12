@@ -220,3 +220,57 @@ test('sala de campanha envia AUTH antes de JOIN e mantém token fora da URL', ()
   assert.equal(sent[1].type, 'JOIN_SESSION');
   assert.equal(sent[1].payload.combatant.sheetId, 'sheet-1');
 });
+
+test('pet companheiro converte para combatente e entra no combate online', () => {
+  const current = sheet();
+  current.name = 'Herói';
+  current.pet = {
+    id: 'pet-1',
+    name: 'Fenrir',
+    species: 'Lobo',
+    level: 3,
+    maxHp: 18,
+    armorClass: 14,
+    maxFocus: 4,
+    attributes: current.attributes,
+    stances: [],
+    skills: [],
+    spells: [],
+    initiativeBonus: 2,
+    speed: '12m',
+  };
+
+  const petCombatant = petToCombatant(current.pet, current.name, 12);
+  assert.equal(petCombatant.type, 'pet');
+  assert.equal(petCombatant.baseName, 'Fenrir');
+  assert.equal(petCombatant.name, '🐾 Fenrir');
+  assert.equal(petCombatant.armorClass, 14);
+  assert.equal(petCombatant.hp.current, 18);
+  assert.equal(petCombatant.hp.max, 18);
+  assert.equal(petCombatant.initiative, 12);
+  assert.equal(petCombatant.speed, '12m');
+  assert.ok(petCombatant.weapons.melee);
+
+  let socket;
+  const sent = [];
+  const connect = expression('context/WebSocketContext.tsx', 'connectToRoute', {
+    reconnectTimeout: { current: null }, socketRef: { current: null }, intentionalClose: { current: false },
+    lastConnectionRef: { current: null }, reconnectAttempts: { current: 0 }, pingInterval: { current: null },
+    clientIdRef: { current: 'client-test' }, createClientId: () => 'client-test', AsyncStorage: { setItem() {} },
+    characterRef: { current }, playerToCombatant, petToCombatant, startPingInterval() {}, setIsConnected() {}, setConnectionError() {},
+    handleServerMessage() {}, attemptReconnect() {},
+    console: { log() {} }, Alert: { alert() {} },
+    WebSocket: class { constructor(url) { this.url = url; socket = this; } send(data) { sent.push(JSON.parse(data)); } },
+  }, true);
+
+  connect('localhost', 'room', playerToCombatant(current, 15), petCombatant);
+  socket.onopen();
+
+  assert.equal(sent.length, 1);
+  assert.equal(sent[0].type, 'JOIN_SESSION');
+  assert.equal(sent[0].payload.combatant.name, 'Herói');
+  assert.equal(sent[0].payload.pet.name, '🐾 Fenrir');
+  assert.equal(sent[0].payload.pet.initiative, 12);
+  assert.equal(sent[0].payload.pet.hp.max, 18);
+});
+
