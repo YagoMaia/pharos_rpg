@@ -12,6 +12,7 @@ export interface CampaignMember {
   name: string;
   role: CampaignRole;
   characterId: string | null;
+  hasSheet?: boolean;
 }
 
 export interface CampaignDetails extends CampaignSummary {
@@ -33,6 +34,46 @@ export interface JournalEntry extends JournalEntryInput {
   id: string;
   createdAt: string;
   updatedAt: string;
+}
+
+export type SessionStatus = "planned" | "active" | "completed";
+
+export interface CampaignSessionInput {
+  sessionNumber: number;
+  title: string;
+  summary?: string;
+  scheduledAt?: string | null;
+  status: SessionStatus;
+}
+
+export interface CampaignSession extends CampaignSessionInput {
+  id: string;
+  campaignId: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type QuestStatus = "active" | "completed" | "failed";
+export type QuestVisibility = "party" | "gm";
+
+export interface CampaignQuestInput {
+  title: string;
+  description?: string;
+  reward?: string;
+  visibility: QuestVisibility;
+  status: QuestStatus;
+}
+
+export interface CampaignQuest extends CampaignQuestInput {
+  id: string;
+  campaignId: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface MemberSheetResponse {
+  characterId: string | null;
+  characterData: any | null;
 }
 
 export interface CampaignApiOptions {
@@ -143,11 +184,40 @@ export function createCampaignApi({ baseUrl, getAccessToken, fetcher = fetch }: 
     joinCampaign: (inviteCode: string) => request<CampaignSummary>(
       "/campaigns/join", "POST", { inviteCode: requiredText(inviteCode, "Código do convite") },
     ),
-    linkCharacter: (campaignId: string, characterId: string) => request<CampaignSummary>(
-      `${campaignPath(campaignId)}/character`, "PUT", { characterId: requiredText(characterId, "ID do personagem") },
+    linkCharacter: (campaignId: string, characterId: string, characterData?: object) => request<CampaignSummary>(
+      `${campaignPath(campaignId)}/character`, "PUT", {
+        characterId: requiredText(characterId, "ID do personagem"),
+        ...(characterData ? { characterData } : {}),
+      },
+    ),
+    syncCharacterSheet: (campaignId: string, characterData: object) => request<CampaignSummary>(
+      `${campaignPath(campaignId)}/character/sheet`, "PUT", { characterData },
+    ),
+    getMemberSheet: (campaignId: string, memberId: string) => request<MemberSheetResponse>(
+      `${campaignPath(campaignId)}/members/${encodeURIComponent(requiredText(memberId, "ID do membro"))}/sheet`,
     ),
     unlinkCharacter: (campaignId: string) => request<CampaignSummary>(
       `${campaignPath(campaignId)}/character`, "DELETE",
+    ),
+    listSessions: (campaignId: string) => request<CampaignSession[]>(`${campaignPath(campaignId)}/sessions`),
+    createSession: (campaignId: string, session: CampaignSessionInput) => request<CampaignSession>(
+      `${campaignPath(campaignId)}/sessions`, "POST", session,
+    ),
+    updateSession: (campaignId: string, sessionId: string, session: CampaignSessionInput) => request<CampaignSession>(
+      `${campaignPath(campaignId)}/sessions/${encodeURIComponent(requiredText(sessionId, "ID da sessão"))}`, "PUT", session,
+    ),
+    deleteSession: (campaignId: string, sessionId: string) => request<void>(
+      `${campaignPath(campaignId)}/sessions/${encodeURIComponent(requiredText(sessionId, "ID da sessão"))}`, "DELETE",
+    ),
+    listQuests: (campaignId: string) => request<CampaignQuest[]>(`${campaignPath(campaignId)}/quests`),
+    createQuest: (campaignId: string, quest: CampaignQuestInput) => request<CampaignQuest>(
+      `${campaignPath(campaignId)}/quests`, "POST", quest,
+    ),
+    updateQuest: (campaignId: string, questId: string, quest: CampaignQuestInput) => request<CampaignQuest>(
+      `${campaignPath(campaignId)}/quests/${encodeURIComponent(requiredText(questId, "ID da missão"))}`, "PUT", quest,
+    ),
+    deleteQuest: (campaignId: string, questId: string) => request<void>(
+      `${campaignPath(campaignId)}/quests/${encodeURIComponent(requiredText(questId, "ID da missão"))}`, "DELETE",
     ),
     listEntries: (campaignId: string) => request<JournalEntry[]>(`${campaignPath(campaignId)}/entries`),
     createEntry: (campaignId: string, entry: JournalEntryInput) => request<JournalEntry>(

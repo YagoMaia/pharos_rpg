@@ -1,8 +1,21 @@
 import { ThemeColors } from "@/constants/theme";
-import { CampaignDetails, CampaignInvite, CampaignSummary, JournalEntry, JournalEntryInput } from "@/services/campaignApi";
+import {
+  CampaignDetails,
+  CampaignInvite,
+  CampaignMember,
+  CampaignQuest,
+  CampaignQuestInput,
+  CampaignSession,
+  CampaignSessionInput,
+  CampaignSummary,
+  JournalEntry,
+  JournalEntryInput,
+} from "@/services/campaignApi";
 import { CampaignJournalEditor, CampaignJournalList } from "./CampaignJournal";
+import { CampaignSessions } from "./CampaignSessions";
+import { CampaignQuests } from "./CampaignQuests";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
-import React from "react";
+import React, { useState } from "react";
 import { Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, useWindowDimensions, View } from "react-native";
 
 interface CampaignWorkspaceProps {
@@ -15,6 +28,8 @@ interface CampaignWorkspaceProps {
   entries: JournalEntry[];
   draft: JournalEntryInput;
   editingEntry: boolean;
+  sessions?: CampaignSession[];
+  quests?: CampaignQuest[];
   onNameChange: (name: string) => void;
   onCreate: () => void;
   onRefresh: () => void;
@@ -29,6 +44,13 @@ interface CampaignWorkspaceProps {
   onCancelEdit: () => void;
   onDeleteEntry?: (entry: JournalEntry) => void;
   onDeleteDraft?: () => void;
+  onCreateSession?: (session: CampaignSessionInput) => void;
+  onUpdateSession?: (sessionId: string, session: CampaignSessionInput) => void;
+  onDeleteSession?: (sessionId: string) => void;
+  onCreateQuest?: (quest: CampaignQuestInput) => void;
+  onUpdateQuest?: (questId: string, quest: CampaignQuestInput) => void;
+  onDeleteQuest?: (questId: string) => void;
+  onInspectMember?: (member: CampaignMember) => void;
 }
 
 const webPointer = Platform.OS === "web" ? ({ cursor: "pointer" } as const) : {};
@@ -75,6 +97,7 @@ export function CampaignWorkspace(props: CampaignWorkspaceProps) {
   const { colors, campaigns, selected, invite, busy } = props;
   const { width } = useWindowDimensions();
   const isDesktop = width >= 920;
+  const [tab, setTab] = useState<"members" | "sessions" | "quests" | "journal">("members");
 
   return (
     <ScrollView style={{ backgroundColor: colors.background }} contentContainerStyle={styles.content}>
@@ -294,92 +317,244 @@ export function CampaignWorkspace(props: CampaignWorkspaceProps) {
                 )}
               </View>
 
-              {/* Card de Membros */}
-              <View style={[styles.panel, { backgroundColor: colors.surface, borderColor: colors.border, marginTop: 14 }]}>
-                <View style={styles.cardHeader}>
-                  <Ionicons name="people-outline" size={18} color={colors.primary} />
-                  <Text style={[styles.cardTitle, { color: colors.text }]}>Membros da Mesa</Text>
-                  <View style={[styles.countBadge, { backgroundColor: colors.inputBg, borderColor: colors.border }]}>
-                    <Text style={[styles.countText, { color: colors.textSecondary }]}>
-                      {selected.members.length}
-                    </Text>
-                  </View>
-                </View>
+              {/* Barra de Abas da Campanha */}
+              <View style={[styles.campaignTabsRow, { borderBottomColor: colors.border }]}>
+                <TouchableOpacity
+                  accessibilityRole="tab"
+                  accessibilityState={{ selected: tab === "members" }}
+                  onPress={() => setTab("members")}
+                  style={[
+                    styles.campaignTab,
+                    tab === "members" && { borderBottomColor: colors.primary, borderBottomWidth: 3 },
+                    webPointer,
+                  ]}
+                >
+                  <Ionicons
+                    name="people-outline"
+                    size={16}
+                    color={tab === "members" ? colors.primary : colors.textSecondary}
+                  />
+                  <Text
+                    style={[
+                      styles.campaignTabText,
+                      { color: tab === "members" ? colors.primary : colors.textSecondary },
+                    ]}
+                  >
+                    Membros ({selected.members.length})
+                  </Text>
+                </TouchableOpacity>
 
-                <View style={styles.memberList}>
-                  {selected.members.map((member) => {
-                    const isGm = member.role === "gm";
-                    return (
-                      <View
-                        key={member.id}
-                        style={[
-                          styles.memberCard,
-                          { borderColor: colors.border, backgroundColor: colors.inputBg },
-                        ]}
-                      >
-                        <View style={styles.memberLeft}>
-                          <View
-                            style={[
-                              styles.memberAvatar,
-                              { backgroundColor: isGm ? colors.primary : colors.secondary || colors.info },
-                            ]}
-                          >
-                            <Text style={styles.memberAvatarText}>
-                              {member.name.slice(0, 2).toUpperCase()}
-                            </Text>
-                          </View>
-                          <View>
-                            <Text style={[styles.memberName, { color: colors.text }]}>{member.name}</Text>
-                            <View style={styles.memberStatusRow}>
-                              <View
-                                style={[
-                                  styles.rolePill,
-                                  {
-                                    backgroundColor: isGm
-                                      ? "rgba(187, 134, 252, 0.15)"
-                                      : "rgba(3, 218, 198, 0.15)",
-                                  },
-                                ]}
-                              >
-                                <Text
-                                  style={[
-                                    styles.rolePillText,
-                                    { color: isGm ? colors.primary : colors.secondary || colors.info },
-                                  ]}
-                                >
-                                  {isGm ? "Mestre" : "Jogador"}
-                                </Text>
-                              </View>
-                              <Text style={[styles.sheetStatus, { color: colors.textSecondary }]}>
-                                {member.characterId ? `Ficha vinculada` : "Sem ficha vinculada"}
-                              </Text>
-                            </View>
-                          </View>
-                        </View>
-                      </View>
-                    );
-                  })}
-                </View>
+                <TouchableOpacity
+                  accessibilityRole="tab"
+                  accessibilityState={{ selected: tab === "sessions" }}
+                  onPress={() => setTab("sessions")}
+                  style={[
+                    styles.campaignTab,
+                    tab === "sessions" && { borderBottomColor: colors.primary, borderBottomWidth: 3 },
+                    webPointer,
+                  ]}
+                >
+                  <MaterialCommunityIcons
+                    name="calendar-clock"
+                    size={16}
+                    color={tab === "sessions" ? colors.primary : colors.textSecondary}
+                  />
+                  <Text
+                    style={[
+                      styles.campaignTabText,
+                      { color: tab === "sessions" ? colors.primary : colors.textSecondary },
+                    ]}
+                  >
+                    Sessões ({props.sessions?.length || 0})
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  accessibilityRole="tab"
+                  accessibilityState={{ selected: tab === "quests" }}
+                  onPress={() => setTab("quests")}
+                  style={[
+                    styles.campaignTab,
+                    tab === "quests" && { borderBottomColor: colors.primary, borderBottomWidth: 3 },
+                    webPointer,
+                  ]}
+                >
+                  <MaterialCommunityIcons
+                    name="target"
+                    size={16}
+                    color={tab === "quests" ? colors.primary : colors.textSecondary}
+                  />
+                  <Text
+                    style={[
+                      styles.campaignTabText,
+                      { color: tab === "quests" ? colors.primary : colors.textSecondary },
+                    ]}
+                  >
+                    Missões ({props.quests?.length || 0})
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  accessibilityRole="tab"
+                  accessibilityState={{ selected: tab === "journal" }}
+                  onPress={() => setTab("journal")}
+                  style={[
+                    styles.campaignTab,
+                    tab === "journal" && { borderBottomColor: colors.primary, borderBottomWidth: 3 },
+                    webPointer,
+                  ]}
+                >
+                  <Ionicons
+                    name="book-outline"
+                    size={16}
+                    color={tab === "journal" ? colors.primary : colors.textSecondary}
+                  />
+                  <Text
+                    style={[
+                      styles.campaignTabText,
+                      { color: tab === "journal" ? colors.primary : colors.textSecondary },
+                    ]}
+                  >
+                    Diário ({props.entries.length})
+                  </Text>
+                </TouchableOpacity>
               </View>
 
-              {/* Editor e Lista de Diário */}
-              <CampaignJournalEditor
-                colors={colors}
-                draft={props.draft}
-                editing={props.editingEntry}
-                busy={busy}
-                onChange={props.onDraftChange}
-                onSave={props.onSaveEntry}
-                onCancel={props.onCancelEdit}
-                onDelete={props.onDeleteDraft}
-              />
+              {/* Aba: Membros da Mesa */}
+              {tab === "members" && (
+                <View style={[styles.panel, { backgroundColor: colors.surface, borderColor: colors.border, marginTop: 14 }]}>
+                  <View style={styles.cardHeader}>
+                    <Ionicons name="people-outline" size={18} color={colors.primary} />
+                    <Text style={[styles.cardTitle, { color: colors.text }]}>Membros da Mesa</Text>
+                    <View style={[styles.countBadge, { backgroundColor: colors.inputBg, borderColor: colors.border }]}>
+                      <Text style={[styles.countText, { color: colors.textSecondary }]}>
+                        {selected.members.length}
+                      </Text>
+                    </View>
+                  </View>
 
-              <CampaignJournalList
-                colors={colors}
-                entries={props.entries}
-                onEdit={props.onEditEntry}
-                onDelete={props.onDeleteEntry}
-              />
+                  <View style={styles.memberList}>
+                    {selected.members.map((member) => {
+                      const isGm = member.role === "gm";
+                      const hasSheet = Boolean(member.characterId || member.hasSheet);
+                      return (
+                        <View
+                          key={member.id}
+                          style={[
+                            styles.memberCard,
+                            { borderColor: colors.border, backgroundColor: colors.inputBg },
+                          ]}
+                        >
+                          <View style={styles.memberLeft}>
+                            <View
+                              style={[
+                                styles.memberAvatar,
+                                { backgroundColor: isGm ? colors.primary : colors.secondary || colors.info },
+                              ]}
+                            >
+                              <Text style={styles.memberAvatarText}>
+                                {member.name.slice(0, 2).toUpperCase()}
+                              </Text>
+                            </View>
+                            <View>
+                              <Text style={[styles.memberName, { color: colors.text }]}>{member.name}</Text>
+                              <View style={styles.memberStatusRow}>
+                                <View
+                                  style={[
+                                    styles.rolePill,
+                                    {
+                                      backgroundColor: isGm
+                                        ? "rgba(187, 134, 252, 0.15)"
+                                        : "rgba(3, 218, 198, 0.15)",
+                                    },
+                                  ]}
+                                >
+                                  <Text
+                                    style={[
+                                      styles.rolePillText,
+                                      { color: isGm ? colors.primary : colors.secondary || colors.info },
+                                    ]}
+                                  >
+                                    {isGm ? "Mestre" : "Jogador"}
+                                  </Text>
+                                </View>
+                                <Text style={[styles.sheetStatus, { color: colors.textSecondary }]}>
+                                  {hasSheet ? "Ficha vinculada" : "Sem ficha vinculada"}
+                                </Text>
+                              </View>
+                            </View>
+                          </View>
+
+                          {!isGm && hasSheet && props.onInspectMember && (
+                            <TouchableOpacity
+                              accessibilityRole="button"
+                              accessibilityLabel={`Inspecionar ficha de ${member.name}`}
+                              onPress={() => props.onInspectMember?.(member)}
+                              style={[styles.inspectButton, { backgroundColor: colors.primary }, webPointer]}
+                            >
+                              <Ionicons name="eye-outline" size={14} color="#fff" />
+                              <Text style={styles.inspectButtonText}>Inspecionar Ficha</Text>
+                            </TouchableOpacity>
+                          )}
+                        </View>
+                      );
+                    })}
+                  </View>
+                </View>
+              )}
+
+              {/* Aba: Sessões */}
+              {tab === "sessions" && (
+                <View style={[styles.panel, { backgroundColor: colors.surface, borderColor: colors.border, marginTop: 14 }]}>
+                  <CampaignSessions
+                    colors={colors}
+                    sessions={props.sessions || []}
+                    isGm={true}
+                    busy={busy}
+                    onCreateSession={props.onCreateSession}
+                    onUpdateSession={props.onUpdateSession}
+                    onDeleteSession={props.onDeleteSession}
+                  />
+                </View>
+              )}
+
+              {/* Aba: Missões (Quests) */}
+              {tab === "quests" && (
+                <View style={[styles.panel, { backgroundColor: colors.surface, borderColor: colors.border, marginTop: 14 }]}>
+                  <CampaignQuests
+                    colors={colors}
+                    quests={props.quests || []}
+                    isGm={true}
+                    busy={busy}
+                    onCreateQuest={props.onCreateQuest}
+                    onUpdateQuest={props.onUpdateQuest}
+                    onDeleteQuest={props.onDeleteQuest}
+                  />
+                </View>
+              )}
+
+              {/* Aba: Diário */}
+              {tab === "journal" && (
+                <>
+                  <CampaignJournalEditor
+                    colors={colors}
+                    draft={props.draft}
+                    editing={props.editingEntry}
+                    busy={busy}
+                    onChange={props.onDraftChange}
+                    onSave={props.onSaveEntry}
+                    onCancel={props.onCancelEdit}
+                    onDelete={props.onDeleteDraft}
+                  />
+
+                  <CampaignJournalList
+                    colors={colors}
+                    entries={props.entries}
+                    onEdit={props.onEditEntry}
+                    onDelete={props.onDeleteEntry}
+                  />
+                </>
+              )}
             </View>
           )}
         </View>
@@ -674,5 +849,36 @@ const styles = StyleSheet.create({
   },
   sheetStatus: {
     fontSize: 12,
+  },
+  campaignTabsRow: {
+    flexDirection: "row",
+    borderBottomWidth: 1,
+    marginTop: 16,
+    gap: 8,
+    flexWrap: "wrap",
+  },
+  campaignTab: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+  },
+  campaignTabText: {
+    fontSize: 13,
+    fontWeight: "600",
+  },
+  inspectButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+  },
+  inspectButtonText: {
+    color: "#fff",
+    fontSize: 11,
+    fontWeight: "bold",
   },
 });
