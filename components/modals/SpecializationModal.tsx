@@ -1,6 +1,6 @@
 import { useCharacter } from "@/context/CharacterContext";
 import { useTheme } from "@/context/ThemeContext";
-import { SPECIALIZATIONS } from "@/data/progression";
+import { SPECIALIZATIONS } from "@/data/specializationsData";
 import { Ionicons } from "@expo/vector-icons";
 import React, { useMemo } from "react";
 import {
@@ -24,7 +24,9 @@ export const SpecializationModal = ({ visible, onClose }: Props) => {
 
   // Filtra as especializações disponíveis para a classe do personagem
   const availableSpecs = useMemo(() => {
-    return SPECIALIZATIONS.filter((s) => s.classRequired === character.class);
+    return Object.values(SPECIALIZATIONS).filter(
+      (s) => s.classRequired === character.class
+    );
   }, [character.class]);
 
   const handleSelect = (spec: any) => {
@@ -114,11 +116,18 @@ export const SpecializationModal = ({ visible, onClose }: Props) => {
                 </View>
                 <Text style={styles.itemDesc}>{spec.description}</Text>
 
-                {/* Aviso específico para Corsários */}
-                {spec.proficiencyChanges && (
-                  <Text style={styles.warning}>
-                    ⚠️ {spec.proficiencyChanges}
-                  </Text>
+                {/* Exibe as modificações de proficiência */}
+                {spec.proficiencyChanges && spec.proficiencyChanges.length > 0 && (
+                  <View style={{ marginTop: 8 }}>
+                    <Text style={{ fontSize: 12, color: colors.primary, fontWeight: 'bold' }}>
+                      Modificações de Proficiência:
+                    </Text>
+                    {spec.proficiencyChanges.map((change: any, idx: number) => (
+                      <Text key={idx} style={styles.warning}>
+                        • {change.name}: {change.description}
+                      </Text>
+                    ))}
+                  </View>
                 )}
               </TouchableOpacity>
             ))}

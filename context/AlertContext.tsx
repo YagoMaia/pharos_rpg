@@ -38,7 +38,7 @@ export const AlertProvider = ({ children }: { children: ReactNode }) => {
   const showAlert = (
     title: string,
     message: string = "",
-    buttons: AlertButton[] = []
+    buttons: AlertButton[] = [],
   ) => {
     // Se não passar botões, cria um "OK" padrão
     const finalButtons =

@@ -35,6 +35,8 @@ export interface Attribute {
   modifier: number; // Ex: (Valor - 10) / 2
 }
 
+export type Attributes = Record<AttributeName, Attribute>;
+
 export type ActionType =
   | "Padrão"
   | "Movimento"
@@ -73,6 +75,31 @@ export interface Stance {
   maneuver: string; // Manobra de Postura
   recovery?: string; // Recuperação (Opcional)
   acBonus?: number;
+  acAttribute?: AttributeName;
+}
+
+// --- SISTEMA DE CONDIÇÕES ---
+export type ConditionName =
+  | "Cego"
+  | "Surdo"
+  | "Prostrado"
+  | "Confuso"
+  | "Amedrontado"
+  | "Intimidado"
+  | "Incapacitado"
+  | "Paralisado"
+  | "Envenenado"
+  | "Agarrado"
+  | "Lento"
+  | "Atordoado";
+
+export interface ActiveCondition {
+  id: string; // ID único da aplicação da condição
+  name: ConditionName;
+  appliedAtTurn: number; // Turno em que foi aplicada (para controle de duração)
+  durationTurns?: number; // Quantos turnos resta (undefined = permanente até remoção manual)
+  sourceId: string; // ID do combatente que aplicou
+  description: string; // Efeito mecânico (ex: "Desvantagem em ataques e testes de Percepção")
 }
 
 export type ItemType = "consumable" | "equipment" | "key";
@@ -88,6 +115,7 @@ export interface Item {
 }
 
 export interface EquipmentItem {
+  damageIncludesAttribute?: boolean;
   name: string;
   image?: string;
 
@@ -138,14 +166,20 @@ interface Origin {
   languages: string[];
 }
 
+export interface ProficiencyChange {
+  name: string;
+  description: string;
+  mechanicType?: "armor" | "weapon_damage" | "immunity" | "passive";
+  mechanicValue?: number | string;
+}
+
 export interface Specialization {
   id: string;
   name: string;
   classRequired: CharacterClass;
   description: string;
-  // Para o Corsário, a especialização altera as posturas
-  newStances?: Stance[];
-  proficiencyChanges?: string; // Texto descrevendo a mudança
+  newStances: Stance[];
+  proficiencyChanges: ProficiencyChange[];
 }
 
 export type FeatCategory = "Geral" | "Marcial" | "Social" | "Mágico";
@@ -157,9 +191,29 @@ export interface Feat {
   objective: string; // O que o jogador tem que fazer
   benefit: string; // A recompensa mecânica
   prerequisite?: string;
+  slotLevel?: number | null;
+  attributeChoices?: AttributeName[];
+  manualBenefits?: boolean; // Fichas antigas podem já incluir ajustes manuais.
+}
+
+// Façanhas customizadas (preenchidas pelo jogador)
+export interface CustomFeat {
+  id: string;
+  name: string;
+  category: string;
+  benefit: string;
+}
+
+export type ProficiencyLevel = 0 | 1 | 2 | 3; // 0: Nenhum, 1: Treinado, 2: Especialista, 3: Expert
+
+export interface CharacterSkill {
+  name: string;
+  attribute: AttributeName;
+  level: ProficiencyLevel; // O nível atual de treinamento
 }
 
 export interface Character {
+  sheetId?: string; // Identidade estável da ficha; não é o ID do combatente.
   name: string;
   level: number;
   image?: string;
@@ -209,6 +263,54 @@ export interface Character {
   };
   specialization?: Specialization | null;
   feats: Feat[]; // Façanhas já desbloqueadas
+  featBonuses?: { attributes: Partial<Record<AttributeName, number>>; hp: number };
+
+  // Façanhas customizadas
+  factionFeat?: CustomFeat | null; // Façanha Faccional
+  specialFeat?: CustomFeat | null; // Façanha Especial
+
+  // Pet / Monstro Companheiro
+  pet?: Pet | null;
+}
+
+// --- PET / MONSTRO COMPANHEIRO ---
+export interface Pet {
+  id: string;
+  name: string;
+  image?: string;
+
+  level: number;
+  species: string; // Ex: "Lobo Sombrio", "Golem de Pedra"
+
+  maxHp: number;
+  armorClass: number;
+  maxFocus: number;
+
+  attributes: Record<AttributeName, Attribute>;
+
+  stances: Stance[];
+  skills: Skill[];
+  spells: Spell[];
+
+  initiativeBonus: number;
+  speed: string;
+  weapons?: {
+    melee?: CombatWeaponData;
+    ranged?: CombatWeaponData;
+  };
+}
+
+export interface NpcPhase {
+  name?: string;
+  image?: string;
+  maxHp?: number; // Se redefinir a vida total
+  armorClass?: number;
+  stances?: Stance[];
+  skills?: Skill[];
+  weapons?: {
+    melee?: CombatWeaponData;
+    ranged?: CombatWeaponData;
+  };
 }
 
 export interface CombatWeaponData {
@@ -217,22 +319,35 @@ export interface CombatWeaponData {
   attribute: AttributeName; // "Força" ou "Destreza"
   attackBonus: number;
   range: string; // "Corpo a Corpo" ou "30m"
+  damageBonus?: number;
+  damageIncludesAttribute?: boolean | null;
 }
 
 export interface Combatant {
+  sheetId?: string; // Ficha persistente vinculada à campanha (somente jogadores).
+  feats?: Feat[];
+  factionFeat?: CustomFeat | null;
+  specialFeat?: CustomFeat | null;
+  specialization?: Specialization | null;
   // Identificação
   id: string; // ID único na sessão de combate
   templateId?: string; // ID original (do Character ou NpcTemplate)
   name: string;
   baseName?: string;
-  type: "player" | "npc" | "gm";
+  type: "player" | "npc" | "gm" | "pet";
+  ownerId?: string; // ID do player dono (para pets)
   image?: string; // Útil para o avatar no combate
+
+  // Suporte a Bosses de Múltiplas Fases
+  phases?: NpcPhase[];
+  currentPhaseIndex?: number;
 
   // Stats Vitais (Obrigatórios para o combate)
   hp: { current: number; max: number };
   focus: { current: number; max: number };
   armorClass: number;
   initiative: number;
+  baseArmorClass?: number | null;
   speed?: string; // Adicionado (NPC tem, Player precisa ter)
 
   // Ações e Recursos
@@ -263,9 +378,26 @@ export interface Combatant {
 
   equipmentSummary?: string;
   actionsDescription?: string;
+
+  // Condições ativas (ex: Cego, Prostrado, Confuso)
+  conditions: ActiveCondition[];
 }
 
+export type CombatantUpdate = Partial<
+  Omit<Combatant, "hp" | "focus" | "turnActions" | "deathSaves" | "conditions">
+> & {
+  hp?: Partial<Combatant["hp"]>;
+  focus?: Partial<Combatant["focus"]>;
+  turnActions?: Partial<Combatant["turnActions"]>;
+  deathSaves?: Partial<Combatant["deathSaves"]>;
+  conditions?: ActiveCondition[];
+};
+
 export interface NpcTemplate {
+  feats?: Feat[];
+  factionFeat?: CustomFeat | null;
+  specialFeat?: CustomFeat | null;
+  specialization?: Specialization | null;
   id: string;
   name: string;
   image?: string;
@@ -286,11 +418,15 @@ export interface NpcTemplate {
   skills: Skill[];
   spells: Spell[];
 
-  equipment: string;
-  actions: string;
-
   initiativeBonus: number;
   speed: string;
+  weapons?: {
+    melee?: CombatWeaponData;
+    ranged?: CombatWeaponData;
+  };
+  equipment?: string;
+  actions?: string;
+  phases?: NpcPhase[];
 }
 
 // Exemplo de tipos para o futuro WebSocket
@@ -312,15 +448,24 @@ export type ActionCostType = "standard" | "bonus" | "reaction" | "free";
 export interface ResolveActionPayload {
   attackerId: string;
   targetId?: string | null;
+  targets?: Array<{ targetId: string; damageAmount: number; healingAmount: number }>;
   actionName: string;
 
   // Custos
   costType: ActionCostType;
   focusCost: number;
 
-  // Efeitos
+  // Efeitos (single-target)
   damageAmount: number;
   healingAmount: number;
+
+  // Condições a aplicar nos alvos
+  appliedConditions?: Array<{
+    targetId: string;
+    conditionName: ConditionName;
+    durationTurns?: number; // undefined = permanente
+    description: string;
+  }>;
 }
 
 export interface GameEvent {

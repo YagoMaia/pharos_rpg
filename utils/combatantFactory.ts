@@ -1,11 +1,14 @@
 import {
-  Character,
-  Combatant,
-  CombatWeaponData,
-  EquipmentItem,
-  NpcTemplate,
+    Character,
+    Combatant,
+    CombatWeaponData,
+    EquipmentItem,
+    NpcTemplate,
+    Pet
 } from "@/types/rpg";
 import { generateSafeId } from "@/utils/stringUtils";
+import { migrateSpecialization } from "./specializationMigration";
+import { activeFeats, initiativeBonus as getInitiativeBonus } from "./featRules";
 
 const playerArmor = (char: Character) => {
   const dexMod = char.attributes["Destreza"].modifier || 0;
@@ -24,7 +27,34 @@ const playerArmor = (char: Character) => {
   }
   ac += shieldDef;
 
+  const spec = char.specialization;
+  if (Array.isArray(spec?.proficiencyChanges)) {
+    for (const change of spec.proficiencyChanges) {
+      if (change.mechanicType === "armor" &&
+        (spec.id !== "gue_encouracado" || armorDef >= 16)) {
+        const bonus = Number(change.mechanicValue);
+        if (Number.isFinite(bonus)) ac += bonus;
+      }
+    }
+  }
+  if (hasSwordAndShieldBonus(char)) ac += 1;
+
   return ac;
+};
+
+const hasSwordAndShieldBonus = (char: Character) => {
+  const weapon = char.equipment?.meleeWeapon;
+  return char.specialization?.id === "gue_espada_escudo" &&
+    (char.equipment?.shield?.defense ?? 0) > 0 &&
+    /espada|sabre|rapieira|florete/i.test(weapon?.name ?? "") &&
+    !/duas m[aã]os|2 m[aã]os/i.test(`${weapon?.name} ${weapon?.stats} ${weapon?.description}`);
+};
+
+const hasNpcSwordAndShieldBonus = (npc: NpcTemplate) => {
+  const weaponName = npc.weapons?.melee?.name ?? "";
+  return npc.specialization?.id === "gue_espada_escudo" &&
+    /espada|sabre|rapieira|florete/i.test(weaponName) &&
+    !/duas m[aã]os|2 m[aã]os/i.test(weaponName);
 };
 
 const extractWeaponData = (
@@ -54,6 +84,7 @@ const extractWeaponData = (
   return {
     name: item.name || defaultName,
     damage: finalDamage,
+    damageIncludesAttribute: item.damageIncludesAttribute,
     attribute: attr,
     attackBonus: 0, // Implementar lógica de itens mágicos se houver
     range: item.range || "Corpo a Corpo",
@@ -65,8 +96,8 @@ export const playerToCombatant = (
   char: Character,
   initiativeRoll: number,
 ): Combatant => {
+  char = migrateSpecialization(char);
   // Cria um resumo do equipamento para mostrar no combate
-  console.log("AAAAAAAAAAAA: ", char.equipment.meleeWeapon);
   const meleeData = extractWeaponData(
     char.equipment.meleeWeapon,
     "Soco",
@@ -79,17 +110,25 @@ export const playerToCombatant = (
     "1d4",
   );
 
-  return {
+  if (hasSwordAndShieldBonus(char)) meleeData.damageBonus = 1;
+
+  const baseCombatant: Combatant = {
     id: generateSafeId(char.name), // Player geralmente usa o próprio nome como ID único ou char.id
+    sheetId: char.sheetId,
     name: char.name,
     baseName: char.name,
     type: "player",
     image: char.image,
+    feats: activeFeats(char),
+    factionFeat: char.factionFeat,
+    specialFeat: char.specialFeat,
+    specialization: char.specialization,
 
     // Stats
     hp: { ...char.stats.hp },
     focus: { ...char.stats.focus },
     armorClass: playerArmor(char),
+    baseArmorClass: playerArmor(char),
     initiative: initiativeRoll,
 
     // Listas
@@ -98,7 +137,7 @@ export const playerToCombatant = (
     activeStanceId: null, // Player começa sem postura ou usa char.currentStanceIndex se quiser persistir
 
     // Mapeamentos importantes
-    skills: char.skills,
+    skills: char.skills.filter((s) => !!s.id),
     spells: char.grimoire || [], // Mapeia Grimório para Spells
 
     // Inicializa estado de turno
@@ -109,8 +148,10 @@ export const playerToCombatant = (
       melee: meleeData,
       ranged: rangedData,
     },
-    // actionsDescription: "Ações do Jogador...", // Pode deixar vazio ou automatizar
+    conditions: [],
   };
+
+  return baseCombatant;
 };
 
 // --- CONVERSOR: NPC -> COMBATANT ---
@@ -122,31 +163,193 @@ export const npcToCombatant = (
   // Gera nome único: "Goblin #1", "Goblin #2"
   const uniqueName = `${npc.name} #${instanceId}`;
 
+  let finalArmorClass = npc.armorClass;
+  const finalWeapons = npc.weapons ? {
+    ...npc.weapons,
+    melee: npc.weapons.melee ? { ...npc.weapons.melee } : undefined,
+    ranged: npc.weapons.ranged ? { ...npc.weapons.ranged } : undefined,
+  } : undefined;
+  if (Array.isArray(npc.specialization?.proficiencyChanges)) {
+    for (const change of npc.specialization.proficiencyChanges) {
+      if (change.mechanicType === "armor" && change.mechanicValue) {
+        finalArmorClass += Number(change.mechanicValue);
+      }
+    }
+  }
+  const swordShieldAlreadyApplied = (finalWeapons?.melee?.damageBonus ?? 0) > 0;
+  if (hasNpcSwordAndShieldBonus(npc) && !swordShieldAlreadyApplied) {
+    finalArmorClass += 1;
+    if (finalWeapons?.melee) finalWeapons.melee.damageBonus = (finalWeapons.melee.damageBonus ?? 0) + 1;
+  }
+
   return {
     id: generateSafeId(uniqueName),
     name: uniqueName,
     image: npc.image,
     baseName: npc.name,
+    feats: npc.feats ?? [],
+    factionFeat: npc.factionFeat,
+    specialFeat: npc.specialFeat,
+    specialization: npc.specialization,
     type: "npc",
 
     // Stats (Copia direta do Template)
     hp: { current: npc.maxHp, max: npc.maxHp },
     focus: { current: npc.maxFocus, max: npc.maxFocus },
-    armorClass: npc.armorClass,
+    armorClass: finalArmorClass,
+    baseArmorClass: finalArmorClass,
     initiative: initiativeRoll,
 
     attributes: npc.attributes,
-    stances: npc.stances,
+    stances: npc.specialization?.newStances?.length ? npc.specialization.newStances : (npc.stances || []),
     activeStanceId: null, // NPCs geralmente começam neutros
 
     skills: npc.skills,
     spells: npc.spells,
 
+    phases: npc.phases,
+    currentPhaseIndex: npc.phases && npc.phases.length > 0 ? 0 : undefined,
+
     turnActions: { standard: true, bonus: true, reaction: true },
     deathSaves: { successes: 0, failures: 0 },
-    weapons: {},
+    weapons: finalWeapons || {
+      melee: {
+        name: "Ataque Corpo-a-Corpo",
+        damage: "1d4",
+        attribute: "Força", // <--- Propriedade obrigatória
+        attackBonus: 0, // <--- Propriedade obrigatória
+        range: "1.5m", // <--- Propriedade obrigatória
+      },
+      ranged: {
+        name: "Ataque à Distância",
+        damage: "1d4",
+        attribute: "Destreza", // <--- Propriedade obrigatória
+        attackBonus: 0, // <--- Propriedade obrigatória
+        range: "9m", // <--- Propriedade obrigatória
+      },
+    },
 
-    equipmentSummary: npc.equipment, // Já é string no NPC
-    actionsDescription: npc.actions,
+    conditions: [],
+    // actionsDescription: npc.actions,
+  };
+};
+
+// Função pura para converter a ficha do Jogador para o formato do Bestiário
+export function mapPlayerToNpc(player: Character): Omit<NpcTemplate, "id"> {
+  player = migrateSpecialization(player);
+  // 1. Tratamento da Ancestralidade (Objeto -> String)
+  const ancestryName = player.ancestry?.name || "Desconhecida";
+
+  // 2. Sumarização de Equipamentos
+
+  const meleeData = extractWeaponData(
+    player.equipment.meleeWeapon,
+    "Soco",
+    "1d4", // Dano base desarmado
+  );
+
+  const rangedData = extractWeaponData(
+    player.equipment.rangedWeapon,
+    "Pedra",
+    "1d4",
+  );
+
+  // 3. Condensação de Façanhas e Especialização no campo de "Ações"
+  // const specText = player.specialization
+  //   ? `Especialização: ${player.specialization.name}`
+  //   : "";
+  // const featsText = player.feats?.length
+  //   ? `Façanhas: ${player.feats.map((f) => f.name).join(", ")}`
+  //   : "";
+
+  // 4. Cálculo base de Iniciativa e CA (Ajuste a matemática conforme o seu sistema)
+  // Assumindo que o atributo tem uma propriedade 'value' ou é um número direto.
+  const initiativeBonus = getInitiativeBonus(player);
+
+
+  // Cálculo do AC Base
+  const baseAc = playerArmor(player);
+  if (hasSwordAndShieldBonus(player)) meleeData.damageBonus = 1;
+
+  return {
+    name: `Player ${player.name}`,
+    feats: activeFeats(player),
+    factionFeat: player.factionFeat,
+    specialFeat: player.specialFeat,
+    image: player.image || "",
+    level: player.level || 1,
+    class: player.class || "Nenhuma",
+    specialization: player.specialization,
+    ancestry: ancestryName,
+
+    maxHp: player.stats?.hp?.max || 1,
+    maxFocus: player.stats?.focus?.max || 0,
+
+    armorClass: baseAc,
+    acDetail: player.equipment?.armor?.name || "Sem armadura",
+    speed: "9m",
+    initiativeBonus: initiativeBonus,
+
+    attributes: player.attributes,
+    stances: player.stances || [],
+    skills: player.skills || [],
+    spells: player.spells || [],
+
+    weapons: {
+      melee: meleeData,
+      ranged: rangedData,
+    },
+  };
+}
+
+// --- CONVERSOR: PET -> COMBATANT ---
+export const petToCombatant = (
+  pet: Pet,
+  ownerName: string,
+  initiativeRoll: number,
+): Combatant => {
+  const ownerId = generateSafeId(ownerName);
+
+  return {
+    id: generateSafeId(`${ownerName}_pet_${pet.name}`),
+    name: `🐾 ${pet.name}`,
+    baseName: pet.name,
+    type: "pet",
+    ownerId, // Vincula ao dono
+    image: pet.image,
+
+    hp: { current: pet.maxHp, max: pet.maxHp },
+    focus: { current: pet.maxFocus, max: pet.maxFocus },
+    armorClass: pet.armorClass,
+    baseArmorClass: pet.armorClass,
+    initiative: initiativeRoll,
+    speed: pet.speed,
+
+    attributes: pet.attributes,
+    stances: pet.stances,
+    activeStanceId: null,
+
+    skills: pet.skills,
+    spells: pet.spells,
+
+    turnActions: { standard: true, bonus: true, reaction: true },
+    deathSaves: { successes: 0, failures: 0 },
+    weapons: pet.weapons || {
+      melee: {
+        name: "Mordida",
+        damage: "1d6",
+        attribute: "Força",
+        attackBonus: 0,
+        range: "1.5m",
+      },
+      ranged: {
+        name: "Investida",
+        damage: "1d4",
+        attribute: "Destreza",
+        attackBonus: 0,
+        range: "4.5m",
+      },
+    },
+    conditions: [],
   };
 };

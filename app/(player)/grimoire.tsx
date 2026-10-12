@@ -66,20 +66,16 @@ export default function GrimoireScreen() {
   };
 
   const handleCastLogic = (spell: Spell) => {
-    // 1. Validação de Foco (O SpellCard já faz visualmente, mas é bom garantir)
     if (character.stats.focus.current < spell.cost) {
       showAlert("Sem Foco", "Você não tem foco suficiente.");
       return;
     }
 
-    // 2. Atualiza Foco
     updateStat("focus", -spell.cost);
 
-    // 3. Consome Ação (Se houver custo de ação)
     const key = getActionKey(spell.actionType || "standard");
     if (key) toggleAction(key);
 
-    // 4. Feedback
     showAlert("Magia", `${spell.name} conjurada!`);
   };
 
@@ -171,7 +167,7 @@ export default function GrimoireScreen() {
       <SpellSelectorModal
         visible={learnModalVisible}
         onClose={() => setLearnModalVisible(false)}
-        onSelect={addSpell}
+        onSelect={handleLearnSpell}
         learnedSpells={character.spells}
         character={character}
       />

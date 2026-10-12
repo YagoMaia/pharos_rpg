@@ -1,13 +1,14 @@
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
+import { initiativeBonus } from "@/utils/featRules";
 import React, { useEffect, useMemo, useState } from "react";
 import {
-  FlatList,
-  Modal,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
+    FlatList,
+    Modal,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
 } from "react-native";
 
 // Contextos e Utilidades
@@ -18,12 +19,11 @@ import { useTheme } from "@/context/ThemeContext";
 import { useWebSocket } from "@/context/WebSocketContext";
 import { generateSafeId } from "@/utils/stringUtils";
 
-// Componentes Refatorados
-import { ActiveTurnInterface } from "@/components/session/ActiveTurnInterface"; // Sua interface de turno
+import { ActiveTurnInterface } from "@/components/session/ActiveTurnInterface";
 import { CombatNotification } from "@/components/session/CombatNotification";
-import { ConnectionForm } from "@/components/session/ConnectionForm"; // O novo componente
-import { ReactionOverlay } from "@/components/session/ReactionOverlay"; // Sua barra de reação
-import { SpectatorCard } from "@/components/session/SpectatorCard"; // O novo componente
+import { ConnectionForm } from "@/components/session/ConnectionForm";
+import { ReactionOverlay } from "@/components/session/ReactionOverlay";
+import { SpectatorCard } from "@/components/session/SpectatorCard";
 
 export default function SessionCombatScreen() {
   const { combatants, activeTurnId, logs, lastEvent } = useCampaign();
@@ -32,12 +32,14 @@ export default function SessionCombatScreen() {
   const styles = useMemo(() => getStyles(colors), [colors]);
   const { showAlert } = useAlert();
 
-  const { joinSession, disconnect, isConnected } = useWebSocket();
+  const { joinSession, disconnect, isConnected, connectionError } = useWebSocket();
 
   // Estado local para o modal de Iniciativa (apenas quando entra)
   const [initValue, setInitValue] = useState("");
+  const [petInitValue, setPetInitValue] = useState("");
   const [showInitModal, setShowInitModal] = useState(false);
   const [isRolling, setIsRolling] = useState(false);
+  const [isPetRolling, setIsPetRolling] = useState(false);
   const [showVictoryModal, setShowVictoryModal] = useState(false);
 
   // Guardar temporariamente os dados de conexão para usar após rolar iniciativa
@@ -56,10 +58,17 @@ export default function SessionCombatScreen() {
 
   // ID Seguro para comparação
   const mySafeId = generateSafeId(character.name);
+  const myPetSafeId = character.pet
+    ? generateSafeId(`${character.name}_pet_${character.pet.name}`)
+    : null;
 
   // Verifica quem está agindo
   const currentActor = combatants.find((c) => c.id === activeTurnId);
   const isMyTurn = currentActor ? currentActor.id === mySafeId : false;
+  const isPetTurn = currentActor && myPetSafeId
+    ? currentActor.id === myPetSafeId
+    : false;
+  const isMyControl = isMyTurn || isPetTurn;
 
   // Pega os dados sincronizados
   const myCombatantData = combatants.find((c) => c.id === mySafeId) || {
@@ -97,18 +106,22 @@ export default function SessionCombatScreen() {
     }
   };
 
-  const handleForceReconnect = (ip: string, code: string) => {
-    // Tenta reconectar sem iniciativa (o servidor deve tratar ou ignorar)
-    if (ip && code) joinSession(ip, code, -1);
-  };
-
   const rollInitiative = () => {
     setIsRolling(true);
     setTimeout(() => {
       const d20 = Math.floor(Math.random() * 20) + 1;
-      const dexMod = character.attributes["Destreza"]?.modifier || 0;
-      setInitValue(String(d20 + dexMod));
+      setInitValue(String(d20 + initiativeBonus(character)));
       setIsRolling(false);
+    }, 500);
+  };
+
+  const rollPetInitiative = () => {
+    setIsPetRolling(true);
+    setTimeout(() => {
+      const d20 = Math.floor(Math.random() * 20) + 1;
+      const petDexMod = character.pet?.attributes?.["Destreza"]?.modifier || 0;
+      setPetInitValue(String(d20 + petDexMod));
+      setIsPetRolling(false);
     }, 500);
   };
 
@@ -119,8 +132,19 @@ export default function SessionCombatScreen() {
       return;
     }
 
+    // Se tem pet, valida a iniciativa do pet
+    let petInit: number | undefined;
+    if (character.pet) {
+      const parsedPetInit = parseInt(petInitValue);
+      if (isNaN(parsedPetInit)) {
+        showAlert("Erro", "Iniciativa do pet inválida.");
+        return;
+      }
+      petInit = parsedPetInit;
+    }
+
     if (tempConnection) {
-      joinSession(tempConnection.ip, tempConnection.code, finalInit);
+      joinSession(tempConnection.ip, tempConnection.code, finalInit, petInit);
       setShowInitModal(false);
       setTempConnection(null);
     }
@@ -139,43 +163,35 @@ export default function SessionCombatScreen() {
   useEffect(() => {
     if (!lastEvent) return;
 
-    // Verifica se o alvo sou eu
-    if (lastEvent.target_id === mySafeId) {
+    // Verifica se o alvo sou eu OU meu pet
+    const isTargetMe = lastEvent.target_id === mySafeId;
+    const isTargetMyPet = myPetSafeId && lastEvent.target_id === myPetSafeId;
+
+    if (isTargetMe || isTargetMyPet) {
       // Se for Dano OU Cura
       if (lastEvent.type === "damage" || lastEvent.type === "heal") {
         setNotification({
           visible: true,
           type: lastEvent.type, // Passa "damage" ou "heal" direto do backend
           source: lastEvent.attacker_name || "Origem desconhecida",
-          skill: lastEvent.skill_name || "Ação",
+          skill: `${isTargetMyPet ? "🐾 " : ""}${lastEvent.skill_name || "Ação"}`,
           value: lastEvent.value || 0,
         });
       }
     }
-  }, [lastEvent?.id, mySafeId]); // Monitora ID do evento
+  }, [lastEvent, mySafeId, myPetSafeId]); // Monitora ID do evento
 
   // --- TELA DE CONEXÃO ---
   if (!isConnected) {
     return (
       <View style={{ flex: 1, backgroundColor: colors.background }}>
+        {connectionError && <Text accessibilityRole="alert" style={{ color: colors.error, padding: 12 }}>
+          {connectionError}
+        </Text>}
         <ConnectionForm
           onConnect={handleConnectRequest}
           title="Conectar à Sessão"
           btnLabel="PRÓXIMO"
-          extraButton={
-            // Pequeno "hack" para passar o force reconnect, ou você pode melhorar o componente ConnectionForm
-            <TouchableOpacity style={{ marginTop: 20 }}>
-              <Text
-                style={{
-                  color: colors.primary,
-                  textAlign: "center",
-                  textDecorationLine: "underline",
-                }}
-              >
-                Problemas de conexão?
-              </Text>
-            </TouchableOpacity>
-          }
         />
 
         {/* Modal de Iniciativa (Só aparece na primeira conexão) */}
@@ -227,6 +243,42 @@ export default function SessionCombatScreen() {
                 placeholderTextColor={colors.textSecondary}
               />
 
+              {/* Seção de Iniciativa do Pet */}
+              {character.pet && (
+                <View style={{ marginTop: 10, paddingTop: 10, borderTopWidth: 1, borderColor: colors.border }}>
+                  <Text style={[styles.label, { marginBottom: 10 }]}>
+                    🐾 INICIATIVA DO PET ({character.pet.name})
+                  </Text>
+
+                  <TouchableOpacity
+                    style={[styles.rollBtn, { backgroundColor: "#6B4EAA" }]}
+                    onPress={rollPetInitiative}
+                    disabled={isPetRolling}
+                  >
+                    <MaterialCommunityIcons
+                      name="dice-d20"
+                      size={20}
+                      color="#fff"
+                    />
+                    <Text style={styles.rollBtnText}>
+                      {isPetRolling ? "Rolando..." : "Rolar para Pet"}
+                    </Text>
+                  </TouchableOpacity>
+
+                  <TextInput
+                    style={[
+                      styles.input,
+                      { textAlign: "center", fontSize: 20, fontWeight: "bold", marginTop: 8 },
+                    ]}
+                    keyboardType="numeric"
+                    value={petInitValue}
+                    onChangeText={setPetInitValue}
+                    placeholder="0"
+                    placeholderTextColor={colors.textSecondary}
+                  />
+                </View>
+              )}
+
               <View style={{ flexDirection: "row", gap: 10, marginTop: 10 }}>
                 <TouchableOpacity
                   style={[styles.modalBtn, { backgroundColor: colors.inputBg }]}
@@ -268,30 +320,41 @@ export default function SessionCombatScreen() {
       <View
         style={[
           styles.turnBanner,
-          isMyTurn
+          isMyControl
             ? { backgroundColor: colors.success }
             : { backgroundColor: colors.surface },
         ]}
       >
         <View style={{ flex: 1 }}>
-          <Text style={[styles.turnBannerText, isMyTurn && { color: "#fff" }]}>
+          <Text style={[styles.turnBannerText, isMyControl && { color: "#fff" }]}>
             {isMyTurn
               ? "SUA VEZ DE AGIR"
-              : `VEZ DE: ${currentActor?.name?.toUpperCase() || "AGUARDANDO..."}`}
+              : isPetTurn
+                ? `🐾 VEZ DO SEU PET: ${currentActor?.name?.toUpperCase()}`
+                : `VEZ DE: ${currentActor?.name?.toUpperCase() || "AGUARDANDO..."}`}
           </Text>
         </View>
         <TouchableOpacity onPress={disconnect} style={styles.disconnectBtn}>
           <Ionicons
             name="close-circle"
             size={24}
-            color={isMyTurn ? "#fff" : colors.error}
+            color={isMyControl ? "#fff" : colors.error}
           />
         </TouchableOpacity>
       </View>
 
       {/* Área Principal */}
-      {isMyTurn ? (
-        <ActiveTurnInterface combatant={myCombatantData as any} />
+      {isMyControl ? (
+        <View style={{ flex: 1 }}>
+          {isPetTurn && (
+            <View style={{ padding: 8, backgroundColor: colors.primary + "20", alignItems: "center" }}>
+              <Text style={{ color: colors.primary, fontWeight: "bold" }}>
+                🐾 CONTROLANDO: {currentActor?.name}
+              </Text>
+            </View>
+          )}
+          <ActiveTurnInterface combatant={(isMyTurn ? myCombatantData : currentActor) as any} />
+        </View>
       ) : (
         <FlatList
           data={combatants}
@@ -312,7 +375,7 @@ export default function SessionCombatScreen() {
       )}
 
       {/* Overlay de Reação */}
-      {!isMyTurn && myCombatantData && (
+      {!isMyControl && myCombatantData && (
         <ReactionOverlay combatant={myCombatantData as any} />
       )}
 

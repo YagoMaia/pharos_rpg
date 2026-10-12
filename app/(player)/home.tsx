@@ -1,5 +1,7 @@
 import { EditCharacterModal } from "@/components/modals/EditCharacterModal";
 import { FeatsModal } from "@/components/modals/FeatsModal";
+import { activeFeats } from "@/utils/featRules";
+import { CustomFeatModal } from "@/components/modals/CustomFeatModal";
 import { GoldModal } from "@/components/modals/GoldModal";
 import { SpecializationModal } from "@/components/modals/SpecializationModal";
 import { AttributeGrid } from "@/components/rpg/AttributeGrid";
@@ -11,6 +13,7 @@ import { useAlert } from "@/context/AlertContext";
 import { useCharacter } from "@/context/CharacterContext";
 import { useTheme } from "@/context/ThemeContext";
 import { Ionicons } from "@expo/vector-icons";
+import { useRouter } from "expo-router";
 import * as Clipboard from "expo-clipboard";
 import React, { useMemo, useState } from "react";
 import {
@@ -24,6 +27,7 @@ import {
 } from "react-native";
 
 export default function HomeScreen() {
+  const router = useRouter();
   const {
     character,
     updateStat,
@@ -44,6 +48,8 @@ export default function HomeScreen() {
   const [specModalVisible, setSpecModalVisible] = useState(false);
   const [featsModalVisible, setFeatsModalVisible] = useState(false);
   const [isMoneyModalVisible, setMoneyModalVisible] = useState(false);
+  const [factionFeatModalVisible, setFactionFeatModalVisible] = useState(false);
+  const [specialFeatModalVisible, setSpecialFeatModalVisible] = useState(false);
 
   // Estados da Imagem por URL
   const [isImageModalVisible, setImageModalVisible] = useState(false);
@@ -60,7 +66,7 @@ export default function HomeScreen() {
         "Ficha Copiada!",
         "Os dados do personagem foram copiados para a área de transferência.\n\nAgora abra o aplicativo novo (Mestre) e use o botão de Importar.",
       );
-    } catch (error) {
+    } catch {
       showAlert("Erro", "Falha ao copiar dados para a área de transferência.");
     }
   };
@@ -133,7 +139,7 @@ export default function HomeScreen() {
           },
         ],
       );
-    } catch (error) {
+    } catch {
       showAlert(
         "Erro",
         "Falha ao ler ou processar a ficha. O formato está correto?",
@@ -219,6 +225,10 @@ export default function HomeScreen() {
         <View style={styles.topBar}>
           <Text style={styles.screenTitle}>Ficha</Text>
           <View style={{ flexDirection: "row", gap: 10 }}>
+            <TouchableOpacity accessibilityRole="button" accessibilityLabel="Minhas campanhas"
+              onPress={() => router.push("/(player)/my-campaigns")} style={styles.iconBtn}>
+              <Ionicons name="map-outline" size={24} color={colors.primary} />
+            </TouchableOpacity>
             <TouchableOpacity onPress={handleImport} style={styles.iconBtn}>
               <Ionicons
                 name="download-outline"
@@ -347,10 +357,40 @@ export default function HomeScreen() {
             <View>
               <Text style={styles.btnTitle}>Façanhas</Text>
               <Text style={styles.btnSub}>
-                {character.feats?.length || 0} desbloqueadas
+                {activeFeats(character).length} ativas · {character.feats?.length || 0} escolhidas
               </Text>
             </View>
             <Ionicons name="trophy-outline" size={24} color={colors.text} />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.progressionBtn}
+            onPress={() => setFactionFeatModalVisible(true)}
+          >
+            <View>
+              <Text style={styles.btnTitle}>Façanha Faccional</Text>
+              <Text style={styles.btnSub}>
+                {character.factionFeat
+                  ? character.factionFeat.name
+                  : "Toque para definir"}
+              </Text>
+            </View>
+            <Ionicons name="flag-outline" size={24} color={colors.text} />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.progressionBtn}
+            onPress={() => setSpecialFeatModalVisible(true)}
+          >
+            <View>
+              <Text style={styles.btnTitle}>Façanha Especial</Text>
+              <Text style={styles.btnSub}>
+                {character.specialFeat
+                  ? character.specialFeat.name
+                  : "Toque para definir"}
+              </Text>
+            </View>
+            <Ionicons name="star-outline" size={24} color={colors.text} />
           </TouchableOpacity>
         </View>
 
@@ -541,6 +581,18 @@ export default function HomeScreen() {
       <FeatsModal
         visible={featsModalVisible}
         onClose={() => setFeatsModalVisible(false)}
+      />
+
+      <CustomFeatModal
+        visible={factionFeatModalVisible}
+        onClose={() => setFactionFeatModalVisible(false)}
+        type="faction"
+      />
+
+      <CustomFeatModal
+        visible={specialFeatModalVisible}
+        onClose={() => setSpecialFeatModalVisible(false)}
+        type="special"
       />
 
       {/* --- MODAL DA IMAGEM (URL) --- */}

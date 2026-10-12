@@ -1,7 +1,8 @@
 import { Combatant } from "@/types/rpg";
-import { Ionicons } from "@expo/vector-icons";
-import React from "react";
+import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
+import React, { useCallback, useEffect, useRef } from "react";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { ConditionBar } from "../rpg/ConditionBadges";
 import { AvatarPortrait } from "../ui/AvatarPortrait";
 
 interface GMCombatantCardProps {
@@ -10,16 +11,38 @@ interface GMCombatantCardProps {
   colors: any;
   onUpdate: (id: string, type: "hp" | "focus", value: number) => void;
   onRemove: (id: string) => void;
+  onManageConditions?: (item: Combatant) => void;
+  onAdvancePhase?: (id: string) => void;
 }
 
-export const GMCombatantCard = ({
+const GMCombatantCardComponent = ({
   item,
   isActive,
   colors,
   onUpdate,
   onRemove,
+  onManageConditions,
+  onAdvancePhase,
 }: GMCombatantCardProps) => {
   const isPlayer = item.type === "player";
+
+  const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+    };
+  }, []);
+
+  const debouncedUpdate = useCallback(
+    (id: string, type: "hp" | "focus", val: number) => {
+      if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+      debounceTimerRef.current = setTimeout(() => {
+        onUpdate(id, type, val);
+      }, 300);
+    },
+    [onUpdate],
+  );
 
   return (
     <View
@@ -83,15 +106,40 @@ export const GMCombatantCard = ({
                 "Ativa"}
             </Text>
           )}
+          {item.conditions && item.conditions.length > 0 && (
+            <View style={{ marginTop: 4 }}>
+              <ConditionBar conditions={item.conditions} size="small" />
+            </View>
+          )}
         </View>
 
-        {/* Botão Remover */}
-        <TouchableOpacity
-          onPress={() => onRemove(item.id)}
-          style={styles.removeBtn}
-        >
-          <Ionicons name="trash-outline" size={20} color={colors.error} />
-        </TouchableOpacity>
+        <View style={styles.actionButtons}>
+          {item.phases && item.currentPhaseIndex !== undefined && item.currentPhaseIndex < item.phases.length && onAdvancePhase && (
+            <TouchableOpacity
+              onPress={() => onAdvancePhase(item.id)}
+              style={styles.actionBtn}
+            >
+              <MaterialCommunityIcons name="chevron-double-up" size={24} color={"#9c27b0"} />
+            </TouchableOpacity>
+          )}
+
+          {onManageConditions && (
+            <TouchableOpacity
+              onPress={() => onManageConditions(item)}
+              style={styles.actionBtn}
+            >
+              <MaterialCommunityIcons name="shield-alert" size={20} color={"#ff7043"} />
+            </TouchableOpacity>
+          )}
+
+          {/* Botão Remover */}
+          <TouchableOpacity
+            onPress={() => onRemove(item.id)}
+            style={styles.actionBtn}
+          >
+            <Ionicons name="trash-outline" size={20} color={colors.error} />
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* --- CONTROLES DE HP E FOCO --- */}
@@ -99,7 +147,7 @@ export const GMCombatantCard = ({
         {/* HP Control */}
         <View style={styles.statControl}>
           <TouchableOpacity
-            onPress={() => onUpdate(item.id, "hp", item.hp.current - 1)}
+            onPress={() => debouncedUpdate(item.id, "hp", item.hp.current - 1)}
           >
             <Ionicons name="remove-circle" size={32} color={colors.error} />
           </TouchableOpacity>
@@ -112,7 +160,7 @@ export const GMCombatantCard = ({
             </Text>
           </View>
           <TouchableOpacity
-            onPress={() => onUpdate(item.id, "hp", item.hp.current + 1)}
+            onPress={() => debouncedUpdate(item.id, "hp", item.hp.current + 1)}
           >
             <Ionicons name="add-circle" size={32} color={colors.success} />
           </TouchableOpacity>
@@ -126,7 +174,11 @@ export const GMCombatantCard = ({
         <View style={styles.statControl}>
           <TouchableOpacity
             onPress={() =>
-              onUpdate(item.id, "focus", Math.max(0, item.focus.current - 1))
+              debouncedUpdate(
+                item.id,
+                "focus",
+                Math.max(0, item.focus.current - 1),
+              )
             }
           >
             <Ionicons
@@ -145,7 +197,7 @@ export const GMCombatantCard = ({
           </View>
           <TouchableOpacity
             onPress={() =>
-              onUpdate(
+              debouncedUpdate(
                 item.id,
                 "focus",
                 Math.min(item.focus.max, item.focus.current + 1),
@@ -163,6 +215,23 @@ export const GMCombatantCard = ({
     </View>
   );
 };
+
+export const GMCombatantCard = React.memo(
+  GMCombatantCardComponent,
+  (prev, next) => {
+    return (
+      prev.item === next.item &&
+      prev.isActive === next.isActive &&
+      prev.colors === next.colors &&
+      prev.onUpdate === next.onUpdate &&
+      prev.onRemove === next.onRemove &&
+      prev.onAdvancePhase === next.onAdvancePhase &&
+      prev.onManageConditions === next.onManageConditions
+    );
+  },
+);
+
+export default GMCombatantCard;
 
 const styles = StyleSheet.create({
   card: {
@@ -197,7 +266,8 @@ const styles = StyleSheet.create({
   name: { fontSize: 16, fontWeight: "bold" },
   typeLabel: { fontSize: 11, fontWeight: "bold", marginTop: 2 },
 
-  removeBtn: { padding: 8 },
+  actionButtons: { flexDirection: "row", alignItems: "center" },
+  actionBtn: { padding: 8 },
 
   statsRow: {
     flexDirection: "row",

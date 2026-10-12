@@ -15,20 +15,21 @@ export const CLASS_DATA: Record<CharacterClass, ClassDefaultData> = {
         id: "gue_defensor",
         name: "Postura: Defensor",
         benefit:
-          "+1 na CA. Se usar escudo, usa Reação para impor Desvantagem em ataque contra aliado adjacente.",
+          "+1 na CA. Se estiver usando escudo, pode usar Reação para impor Desvantagem em ataque contra aliado adjacente.",
         restriction:
-          'Deslocamento reduzido à metade. Não pode usar ação "Correr".',
+          'Deslocamento reduzido à metade. Não pode realizar a ação de "Correr".',
         maneuver:
-          "Gaste 2 Focos para reduzir (1d10 + CON) de dano de um ataque contra você.",
+          "Como Reação, gaste 2 Focos para reduzir (1d8 + Constituição) o dano de um ataque contra você.",
         acBonus: 1,
       },
       {
         id: "gue_ofensiva",
         name: "Postura: Ofensiva",
-        benefit: "Dobra bônus de Proficiência ao acerto de ataque.",
-        restriction: '-2 na CA. Não pode usar ação "Esquivar".',
+        benefit:
+          "Dobra bônus de Proficiência ao acerto de ataque corpo-a-corpo.",
+        restriction: '-2 na CA. Não pode usar a ação de "Esquivar".',
         maneuver: "Gaste 2 Focos para ganhar Vantagem em um ataque.",
-        recovery: "Ao reduzir inimigo a 0 PV, recupera 1d4 de Foco.",
+        recovery: "Ao reduzir inimigo a 0 PV nesta postura, recupera 1d4 de Foco.",
         acBonus: -2,
       },
     ],
@@ -43,21 +44,21 @@ export const CLASS_DATA: Record<CharacterClass, ClassDefaultData> = {
         benefit:
           "Ataques corpo-a-corpo ganham alcance extra (se a arma permitir).",
         restriction:
-          "Não pode usar armas de fogo nem se movimentar voluntariamente.",
+          "Não pode usar armas de fogo nesta postura e nem se movimentar voluntariamente.",
         maneuver:
-          "1x/turno inimigos que entram no alcance provocam Ataque de Oportunidade.",
+          "Como Reação, inimigos que entrarem no seu alcance provocam um Ataque de Oportunidade.",
         recovery:
-          "Ao reduzir a 0 PV inimigo que entrou no alcance, recupera 1d4 de Foco.",
+          "Ao reduzir a 0 PV um inimigo que se aproximou (entrou no alcance), recupera 1d4 de Foco.",
       },
       {
         id: "van_mista",
         name: "Postura: Tática Mista",
         benefit:
-          "Sem Desvantagem em armas de fogo à queima-roupa. Ação bônus para recarregar.",
+          "Sem Desvantagem ao disparar armas de fogo à queima-roupa (adjacente). Pode usar Ação Bônus para recarregar.",
         restriction:
-          "Perde alcance extra da haste. Desvantagem em ataques corpo-a-corpo.",
+          "Perde o benefício de alcance da arma de haste. Desvantagem em ataques corpo-a-corpo.",
         maneuver:
-          "Após acertar corpo-a-corpo, gaste 2 Focos para disparar como Ação Bônus.",
+          "Após acertar um ataque corpo-a-corpo, gaste 2 Focos para realizar um disparo como Ação Bônus.",
       },
     ],
     skills: MARTIAL_SKILLS,
@@ -68,18 +69,20 @@ export const CLASS_DATA: Record<CharacterClass, ClassDefaultData> = {
       {
         id: "mag_canalizador",
         name: "Postura: Canalizador",
-        benefit: "Aumenta a CD das magias em +1.",
+        benefit:
+          "Escolha um efeito passivo para suas magias: +2 na CD ou +1 Dado de Dano em todas as magias lançadas.",
         restriction: "Não consegue recuperar foco.",
         maneuver:
-          "Gaste 2 Focos para aumentar CD em +2 ou adicionar dado extra de dano.",
+          "Contra-Magia (Reação): Ao ver criatura a até 18m conjurando, gaste Foco igual ao Círculo da magia (mín. 2). Teste oposto de Inteligência (Arcanismo). Se vencer, a magia falha e o foco do inimigo é gasto.",
       },
       {
         id: "mag_recuperacao",
         name: "Postura: Recuperação",
         benefit: "Vantagem em testes de Concentração.",
-        restriction: "Não pode lançar magias de dano direto.",
+        restriction:
+          "Não pode lançar magias que causem dano direto nesta postura.",
         maneuver:
-          "Gaste Ação para regenerar (2d4 + CON) de Foco se não sofreu dano.",
+          "Gaste sua Ação para regenerar (2d4 + Constituição) de Foco no início do seu turno, caso não tenha sofrido dano.",
       },
     ],
     skills: [],
@@ -91,19 +94,21 @@ export const CLASS_DATA: Record<CharacterClass, ClassDefaultData> = {
         id: "apo_caos",
         name: "Postura: Caos Esperado",
         benefit:
-          'Role 1d4 extra ao lançar magia para definir a "Qualidade do Caos" na tabela d100.',
+          "Caos Mágico: Ao lançar qualquer magia, role 1d4 extra. 1 = Catástrofe (2d100, menor), 2 = Calmaria (nada acontece), 3 = Fluxo (1d100 normal), 4 = Perfeição (2d100, maior).",
         restriction:
-          "Sujeito aos efeitos da Tabela de Caos (Catástrofe, Instabilidade, Fluxo, Perfeição).",
+          "Sujeito aos efeitos da Tabela de Caos Arcano (d100) conforme o resultado do d4.",
         maneuver:
-          "Gaste 2 Focos para rerrolar o d4 de Caos ou o d100 da Tabela.",
+          "Após rolar o d4 de Caos ou o d100 da Tabela, gaste 2 Focos para rerrolar o dado.",
       },
       {
         id: "apo_cacofonia",
         name: "Postura: Cacofonia de Espíritos",
-        benefit: "Imune a detecção mágica. Vantagem em Furtividade.",
-        restriction: "Não pode lançar magias (quebra a postura).",
+        benefit:
+          "Imune a magias de detecção (como Detectar Magia). Vantagem em testes de Furtividade.",
+        restriction:
+          "Não pode lançar magias. Se lançar qualquer magia, a postura é quebrada imediatamente.",
         maneuver:
-          "Ação: Sorteie 1 de 4 criaturas próximas. Ela sofre 1d4 necrótico e você recupera Foco igual ao dano.",
+          "Ação: Escolha as 4 criaturas mais próximas em 9m, atribua números 1-4. Role 1d4: a criatura sorteada sofre 1d4 necrótico (sem teste) e você recupera Foco igual ao dano.",
       },
     ],
     skills: [],
@@ -114,18 +119,20 @@ export const CLASS_DATA: Record<CharacterClass, ClassDefaultData> = {
       {
         id: "ati_franco",
         name: "Postura: Franco-atirador",
-        benefit: "Dobra bônus de proficiência no ataque e dobra alcance.",
-        restriction: "Deslocamento 0. Postura quebra se movido/derrubado.",
+        benefit:
+          "Dobra bônus de proficiência nas jogadas de ataque à distância e dobra o alcance.",
+        restriction:
+          "Deslocamento torna-se 0. Se for movido à força ou derrubado, a postura é quebrada imediatamente.",
         maneuver:
-          "Gaste 3 Focos antes de atacar para ignorar cobertura e armadura (ataca contra CA 10 + DES).",
-        recovery: "Ao matar nesta postura, recupera 1d4 de Foco.",
+          "Antes de atacar, gaste 4 Focos para ignorar qualquer cobertura (exceto total) e armadura do inimigo (ataca contra CA 10 + Destreza do alvo).",
+        recovery: "Ao matar alguém nesta postura, recupera 1d4 de Foco.",
       },
       {
         id: "ati_barragem",
         name: "Postura: Barragem",
         benefit:
-          'Ignora "Recarga". Pode fazer ataque adicional como Ação Bônus ao atacar.',
-        restriction: "-2 em todas as jogadas de ataque.",
+          "Ignora propriedade \"Recarga\" (recarregar torna-se ação livre). Ao atacar, pode fazer ataque adicional como Ação Bônus.",
+        restriction: "Perde proficiência em jogadas de ataque.",
         maneuver:
           "Gaste 2 Focos ao atacar para dobrar a quantidade de ataques daquela ação.",
       },
@@ -139,21 +146,23 @@ export const CLASS_DATA: Record<CharacterClass, ClassDefaultData> = {
         id: "ora_inspiracao",
         name: "Postura: Inspiração",
         benefit:
-          "1x/turno: Aliado a 3m ganha Vantagem em uma rolagem até seu próximo turno.",
-        restriction: 'Deve falar e ser ouvido. Não pode usar "Esconder-se".',
+          "Como Ação Bônus, escolha um aliado a até 3m. Ele ganha Vantagem em qualquer rolagem (ataque, teste de habilidade ou resistência) até o início do seu próximo turno.",
+        restriction:
+          "Deve ser capaz de falar alto e ser ouvido. Se silenciado, postura quebra. Não pode usar \"Esconder-se\".",
         maneuver:
-          "Gaste 2 Focos: Aliado usa Reação para atacar ou mover metade do deslocamento.",
+          "Gaste 2 Focos: Comande um aliado que possa te ouvir. Ele usa Reação para atacar ou mover metade do deslocamento.",
         recovery:
-          "Se aliados matarem 2+ inimigos com sua Vantagem, recupera 1d4 de Foco.",
+          "Se aliados matarem 2+ inimigos usando a Vantagem concedida, recupera 1d4 de Foco.",
       },
       {
         id: "ora_intimidar",
         name: "Postura: Intimidador",
         benefit:
-          "1x/turno: Inimigo a 3m sofre Desvantagem em uma rolagem até seu próximo turno.",
-        restriction: "Não pode usar Cobertura (alvo ostensivo).",
+          "Como Ação Bônus, escolha um inimigo a até 3m. Ele sofre Desvantagem em uma rolagem (ataque, teste de habilidade ou resistência) até o início do seu próximo turno.",
+        restriction:
+          "Alvo prioritário e ostensivo. Não pode se beneficiar de Cobertura enquanto nesta postura.",
         maneuver:
-          "Gaste 2 Focos ao interagir/atacar: Alvo faz teste de SAB ou fica Amedrontado.",
+          "Ao atingir inimigo com ataque ou interação social, gaste 2 Focos para forçar teste de Sabedoria. Se falhar, fica Amedrontado.",
       },
     ],
     skills: ORATORY_SKILLS,
@@ -164,22 +173,25 @@ export const CLASS_DATA: Record<CharacterClass, ClassDefaultData> = {
       {
         id: "cor_danca",
         name: "Postura: Dança",
-        benefit: '+2 na CA vs corpo-a-corpo. "Desengajar" como Ação Bônus.',
-        restriction: "Deve sempre se mover no turno ou postura quebra.",
+        benefit:
+          "+2 na CA contra ataques corpo a corpo. Pode realizar \"Desengajar\" como Ação Bônus.",
+        restriction:
+          "Deve sempre se manter em movimento. Se não se mover no turno, a postura é quebrada.",
         maneuver:
-          "Reação ao ser atingido (Gaste 1 Foco): Reduz dano em 1d8+DES. Se zerar, faz Ataque de Oportunidade.",
-        recovery: "3 turnos sem ser atingido? Recupere 1d4 de Foco.",
+          "Reação ao ser atingido corpo a corpo: Gaste 2 Focos para reduzir dano em 1d8 + Destreza. Se o dano for reduzido a 0, pode fazer Ataque de Oportunidade contra o atacante.",
+        recovery: "3 turnos sem ser atingido? Recupere 1d4 de Foco ao entrar nesta postura.",
         acBonus: 2,
       },
       {
         id: "cor_explosao",
         name: "Postura: Explosão",
         benefit:
-          "Dano de armas de fogo/explosivos sobe um passo (d6->d8) a até 3m.",
+          "Dado de dano de armas de fogo sobe 2 passos a até 6m (d6→d10, d8→d12, d10→d12+1, d12→d12+2). Recarregar é Ação Livre. Impacto Explosivo: ao rolar dano máximo, criaturas a 1,5m do alvo sofrem 1d6 de fogo.",
         restriction:
-          "-2 na CA. Inimigos têm Vantagem em Oportunidade contra você.",
+          "-2 na CA. Inimigos têm Vantagem em Ataques de Oportunidade contra você. Não pode se beneficiar de Cobertura.",
         maneuver:
-          "Gaste 4 Focos ao acertar: Dano máximo + 1 dado extra. Arma trava e precisa de limpeza (2 Ações).",
+          "Carga Dupla: Gaste 3 Focos ao atacar com arma de fogo. Escolha ponto a até 9m, explosão em cone de 4,5m. Alvos fazem Salvaguarda de DES (CD 8 + Proficiência + DES). Falha = dano total, sucesso = metade. Arma entope (Ação Bônus para limpar).",
+        recovery: "Se matar 2+ inimigos com um único ataque (Impacto Explosivo ou Carga Dupla), recupera 1d4 de Foco.",
         acBonus: -2,
       },
     ],

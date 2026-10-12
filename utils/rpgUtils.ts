@@ -1,37 +1,3 @@
-// export const playerToCombatant = (
-//   char: Character,
-//   forcedId: string,
-//   rolledInitiative: number,
-// ): Combatant => {
-//   // Calcula CA total (Base + Escudo + Des) - Simplificado
-
-//   return {
-//     id: forcedId,
-//     name: char.name,
-//     baseName: char.name,
-//     type: "player",
-//     hp: { current: char.stats.hp.current, max: char.stats.hp.max },
-//     initiative: rolledInitiative,
-//     armorClass: playerArmor(char),
-//     currentFocus: char.stats.focus.current,
-//     maxFocus: char.stats.focus.max,
-//     attributes: char.attributes,
-//     equipment: Object.values(char.equipment || {})
-//       .map((e) => e.name)
-//       .join(", "), // Resumo
-//     actions: "", // Pode preencher com ataques básicos se quiser
-//     stances: char.stances || [],
-//     skills: char.skills || [],
-//     activeStanceId: null, // Começa neutro
-//     turnActions: {
-//       standard: true,
-//       bonus: true,
-//       reaction: true,
-//     },
-//     spells: char.grimoire || [],
-//   };
-// };
-
 const getMod = (val: number) => Math.floor((val - 10) / 2);
 export const formatMod = (val: number) => {
   const mod = getMod(val);

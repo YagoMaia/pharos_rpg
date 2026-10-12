@@ -1,145 +1,9 @@
 import { Feat, Specialization, Stance } from "@/types/rpg";
 
-// --- DADOS DO CORSÁRIO (POSTURAS NOVAS) ---
-const SWORD_PATH_STANCES: Stance[] = [
-  {
-    id: "duelo",
-    name: "Duelo",
-    acBonus: 3, // +3 CA vs corpo a corpo (simplificado para geral ou condicional no componente)
-    benefit:
-      "+3 CA vs Corpo a Corpo. Ação Bônus: Desengajar (atravessa inimigos).",
-    restriction: "Mover min 3m/turno. Sem armas de duas mãos.",
-    maneuver:
-      "Reduzir dano em 1d10+DES. Se 0, contra-ataque com Vantagem. (2 Focos - Reação)",
-    recovery: "3 turnos sem ser atingido: recupere 1d4 Focos.",
-  },
-  {
-    id: "corte_fantasma",
-    name: "Corte Fantasma",
-    acBonus: 0,
-    benefit:
-      "Ataque adicional na Ação de Ataque. +2 Dano fixo com armas elegantes.",
-    restriction:
-      "Inimigos têm Vantagem em Ataque de Oportunidade. Apenas 1 arma elegante.",
-    maneuver:
-      "Redemoinho de Aço: Ataque único contra todos adjacentes. Move 1,5m por acerto. (4 Focos - Ação)",
-    recovery: "Reduzir 2+ inimigos a 0 PV no turno: recupere 1d4 Focos.",
-  },
-];
-
-const GUN_PATH_STANCES: Stance[] = [
-  {
-    id: "queima_roupa",
-    name: "Queima-Roupa",
-    acBonus: 0, // O bônus é CON, calculado dinamicamente no componente de combate
-    benefit: "Sem desvantagem à distância corpo-a-corpo. Soma CON na CA.",
-    restriction: "Movimento máx metade do deslocamento.",
-    maneuver:
-      "O Troco: Ao ser atingido corpo-a-corpo, atira (sem gastar munição). 1d10 Fogo + Empurrão 1,5m. (2 Focos - Reação)",
-    recovery: "Matar inimigo a até 1,5m: recupere 1d4 Focos.",
-  },
-  {
-    id: "terra_arrasada",
-    name: "Terra Arrasada",
-    acBonus: -2,
-    benefit:
-      "Ignora Resistência a Perfurante. Bacamarte causa dano total no alcance máximo.",
-    restriction: "-2 CA. Empurrado 1,5m para trás a cada disparo.",
-    maneuver:
-      "Chuva de Chumbo: Cone de 4,5m. Salvaguarda de DES. Falha: Dano da arma + Dano extra. (4 Focos - Ação)",
-    recovery: "Atingir 3+ inimigos com um ataque/manobra: recupere 1d4 Focos.",
-  },
-];
-
-// --- LISTA DE ESPECIALIZAÇÕES ---
-export const SPECIALIZATIONS: Specialization[] = [
-  // GUERREIRO
-  {
-    id: "guerreiro_encouracado",
-    name: "Encouraçado",
-    classRequired: "Guerreiro",
-    description: "Foco total em defesa e proteção.",
-  },
-  {
-    id: "guerreiro_encantado",
-    name: "Guerreiro Encantado",
-    classRequired: "Guerreiro",
-    description: "Usa magia para aprimorar armas e armaduras.",
-  },
-  {
-    id: "guerreiro_espada_escudo",
-    name: "Espada e Escudo",
-    classRequired: "Guerreiro",
-    description: "Mestre na combinação clássica.",
-  },
-
-  // VANGUARDA
-  {
-    id: "vanguarda_flanqueador",
-    name: "Flanqueador",
-    classRequired: "Vanguarda",
-    description: "Especialista em punir inimigos fora de posição.",
-  },
-  {
-    id: "vanguarda_lanceiro",
-    name: "Lanceiro",
-    classRequired: "Vanguarda",
-    description: "Mestre em alcance e manter a linha.",
-  },
-  {
-    id: "vanguarda_distraidor",
-    name: "Distraidor",
-    classRequired: "Vanguarda",
-    description: "Atrai a atenção para criar aberturas.",
-  },
-
-  // MAGO
-  {
-    id: "mago_glifista",
-    name: "Glifista",
-    classRequired: "Mago",
-    description: "Especialista em runas e preparo de campo.",
-  },
-  {
-    id: "mago_alquimista",
-    name: "Alquimista",
-    classRequired: "Mago",
-    description: "Poções, elixires e explosivos.",
-  },
-  {
-    id: "mago_artificista",
-    name: "Artificista",
-    classRequired: "Mago",
-    description: "Canaliza magia através de objetos e vapor.",
-  },
-
-  // CORSÁRIO (COM LÓGICA ESPECIAL)
-  {
-    id: "corsario_espada",
-    name: "Caminho da Espada",
-    classRequired: "Corsário",
-    description:
-      "Mestre da lâmina, perde proficiência com armas de fogo curtas.",
-    newStances: SWORD_PATH_STANCES,
-    proficiencyChanges:
-      "Perde: Armas de Fogo Curtas. Ganha: Novas Posturas de Espadachim.",
-  },
-  {
-    id: "corsario_bacamarte",
-    name: "Caminho do Bacamarte",
-    classRequired: "Corsário",
-    description: "Artilharia móvel, perde proficiência com armas elegantes.",
-    newStances: GUN_PATH_STANCES,
-    proficiencyChanges:
-      "Perde: Armas Elegantes. Ganha: Recarga como Ação Bônus e Novas Posturas.",
-  },
-
-  // ... Adicionar Apóstata, Atirador e Orador conforme o texto ...
-];
 
 // --- LISTA DE FAÇANHAS ---
 export const FEATS_DATA: Feat[] = [
-  // GERAIS
+  // --- GERAIS ---
   {
     id: "habilidoso",
     name: "Habilidoso",
@@ -176,7 +40,7 @@ export const FEATS_DATA: Feat[] = [
     benefit: "Gastar 3 Focos para re-rolar um d20 (1/descanso).",
   },
 
-  // MARCIAIS
+  // --- MARCIAIS ---
   {
     id: "matador_mago",
     name: "Matador de Mago",
@@ -214,7 +78,7 @@ export const FEATS_DATA: Feat[] = [
     benefit: "Ignora 'Recarga'. 1 Foco (Bônus): Destravar ou criar munição.",
   },
 
-  // SOCIAIS
+  // --- SOCIAIS ---
   {
     id: "ator",
     name: "Ator",
@@ -238,7 +102,7 @@ export const FEATS_DATA: Feat[] = [
       "Compra -20%, Venda +20%. Habilidade: Suborno automático (1/descanso).",
   },
 
-  // MÁGICOS
+  // --- MÁGICOS E MENTAIS ---
   {
     id: "poliglota",
     name: "Poliglota",
@@ -260,6 +124,15 @@ export const FEATS_DATA: Feat[] = [
     category: "Mágico",
     objective: "Estudo obsessivo ou sobreviver a dano elemental massivo.",
     benefit:
-      "Ignora Resistência ao elemento escolhido. Rola novamente dados '1' de dano.",
+      "Ignora Resistência ao elemento escolhido. Pode rolar novamente qualquer dado de dano dessa escola.",
+  },
+  {
+    id: "memoria_fotografica",
+    name: "Memória Fotográfica",
+    category: "Mágico",
+    objective:
+      "Tarefa de dedução impossível (Crítico) ou transcrever tomo antigo sem dormir.",
+    benefit:
+      "+4 Slots de Memória (Magias). Por 3 Focos (Descanso Longo): Recordar qualquer memória de 30 dias perfeitamente.",
   },
 ];

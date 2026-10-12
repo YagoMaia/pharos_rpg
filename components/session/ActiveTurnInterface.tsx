@@ -1,6 +1,7 @@
 import { useCampaign } from "@/context/CampaignContext";
+import { stanceArmorBonus, weaponDamageFormula } from "@/utils/combatRules";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
-import { useMemo, useState } from "react";
+import React, { useMemo, useState } from "react";
 import {
   FlatList,
   Modal,
@@ -16,7 +17,6 @@ import { useAlert } from "@/context/AlertContext";
 import { useTheme } from "@/context/ThemeContext";
 import { useWebSocket } from "@/context/WebSocketContext";
 import {
-  ActionCostType,
   Combatant,
   ResolveActionPayload,
   Skill,
@@ -25,6 +25,7 @@ import {
 import { getActionKey } from "@/utils/rpgUtils";
 
 import { AttackModal } from "../modals/AttackModal";
+import { ConditionManagerModal } from "../modals/ConditionManagerModal";
 import { HealModal } from "../modals/HealModal";
 import { ActionTracker } from "../rpg/ActionTracker";
 import { CombatHud } from "../rpg/CombatHud";
@@ -39,8 +40,9 @@ interface Props {
   isGm?: boolean;
 }
 
-export const ActiveTurnInterface = ({ combatant, isGm = false }: Props) => {
-  const { updateCombatant, combatants, activeTurnId } = useCampaign();
+const ActiveTurnInterfaceComponent = ({ combatant, isGm = false }: Props) => {
+  const { updateCombatant, combatants, activeTurnId, isOfflineMode, nextTurn } =
+    useCampaign();
   const { sendMessage } = useWebSocket();
   const { showAlert } = useAlert();
   const { colors, isDark } = useTheme();
@@ -53,6 +55,7 @@ export const ActiveTurnInterface = ({ combatant, isGm = false }: Props) => {
     damage: string;
     name: string;
     cost: number;
+    actionKey: keyof Combatant["turnActions"];
   } | null>(null);
 
   const [healModalOpen, setHealModalOpen] = useState(false);
@@ -61,17 +64,35 @@ export const ActiveTurnInterface = ({ combatant, isGm = false }: Props) => {
     name: string;
     cost: number;
     modifier: number;
+    actionKey: keyof Combatant["turnActions"];
   } | null>(null);
 
+  const [conditionModalOpen, setConditionModalOpen] = useState(false);
+
   // Garante que actions existe com valores padrão
-  const turnActions = combatant.turnActions || {
+  const incapacitated = (combatant.conditions ?? []).some((c) =>
+    ["Incapacitado", "Paralisado", "Atordoado"].includes(c.name));
+  const turnActions = incapacitated ? { standard: false, bonus: false, reaction: false } : combatant.turnActions || {
     standard: true,
     bonus: true,
     reaction: true,
   };
 
+  const [isEndingTurn, setIsEndingTurn] = useState(false);
+
   const handleEndTurn = () => {
-    sendMessage("END_TURN", { character_id: combatant.id });
+    if (isEndingTurn) return;
+    setIsEndingTurn(true);
+
+    if (isOfflineMode && nextTurn) {
+      nextTurn();
+    } else {
+      sendMessage("END_TURN", { character_id: combatant.id });
+    }
+
+    setTimeout(() => {
+      setIsEndingTurn(false);
+    }, 2000);
   };
 
   // --- LÓGICA DE DEATH SAVES ---
@@ -150,10 +171,12 @@ export const ActiveTurnInterface = ({ combatant, isGm = false }: Props) => {
     }
 
     // Dispara via Socket
-    sendMessage("ROLL_DEATH_SAVE", {
-      combatantId: combatant.id,
-      rollValue: d20,
-    });
+    if (!isOfflineMode) {
+      sendMessage("ROLL_DEATH_SAVE", {
+        combatantId: combatant.id,
+        rollValue: d20,
+      });
+    }
 
     showAlert(
       hpUpdate > 0 ? "Salvo!" : died ? "Morte" : "Teste de Morte",
@@ -165,6 +188,18 @@ export const ActiveTurnInterface = ({ combatant, isGm = false }: Props) => {
 
   // --- RENDERIZAÇÃO CONDICIONAL DE MORTE ---
   if (combatant.hp.current <= 0) {
+    if (combatant.type !== "player") return (
+      <View style={{ padding: 20 }}>
+        <Text style={{ color: colors.text }}>
+          {(combatant.currentPhaseIndex ?? 0) < (combatant.phases?.length ?? 0)
+            ? "Aguardando o mestre avançar para a próxima fase."
+            : "Combatente derrotado."}
+        </Text>
+        <TouchableOpacity onPress={handleEndTurn}>
+          <Text style={{ color: colors.primary, paddingVertical: 16 }}>PASSAR TURNO</Text>
+        </TouchableOpacity>
+      </View>
+    );
     return (
       <DeathSaveMonitor
         successes={combatant.deathSaves?.successes || 0}
@@ -189,7 +224,7 @@ export const ActiveTurnInterface = ({ combatant, isGm = false }: Props) => {
   );
   const isNeutral = currentStanceIdx === -1;
   const activeStance = isNeutral ? null : stances[currentStanceIdx];
-  const stanceBonus = activeStance?.acBonus || 0;
+  const stanceBonus = stanceArmorBonus(activeStance, combatant);
 
   // --- HANDLERS DE AÇÕES (Magias, Habilidades, etc) ---
   const handleCastSpell = (spell: Spell) => {
@@ -213,6 +248,7 @@ export const ActiveTurnInterface = ({ combatant, isGm = false }: Props) => {
         damage: spell.damageFormula || "1d4",
         name: spell.name,
         cost: spell.cost,
+        actionKey: actionKey ?? "standard",
       });
 
       setAttackModalOpen(true);
@@ -222,6 +258,7 @@ export const ActiveTurnInterface = ({ combatant, isGm = false }: Props) => {
         name: spell.name,
         cost: spell.cost,
         modifier: magicMod,
+        actionKey: actionKey ?? "standard",
       });
       setHealModalOpen(true);
     } else {
@@ -235,7 +272,9 @@ export const ActiveTurnInterface = ({ combatant, isGm = false }: Props) => {
         healingAmount: 0,
       };
 
-      sendMessage("RESOLVE_ACTION", payload);
+      if (!isOfflineMode) {
+        sendMessage("RESOLVE_ACTION", payload);
+      }
 
       updateCombatant(
         combatant.id,
@@ -256,20 +295,31 @@ export const ActiveTurnInterface = ({ combatant, isGm = false }: Props) => {
 
   const handleConfirmHeal = (targetId: string, healAmount: number) => {
     if (!spellHealConfig) return;
+    const actionKey = spellHealConfig.actionKey;
+    if (incapacitated || !turnActions[actionKey] || combatant.focus.current < spellHealConfig.cost) {
+      showAlert("Ação indisponível", "Confira as ações e o foco disponíveis antes de confirmar a cura.");
+      return;
+    }
 
     const target = combatants.find((c) => c.id === targetId);
+    if (!target) return;
 
     const payload: ResolveActionPayload = {
       attackerId: combatant.id,
       targetId: targetId,
       actionName: spellHealConfig.name,
-      costType: "standard",
+      costType: actionKey,
       focusCost: spellHealConfig.cost,
       damageAmount: 0,
       healingAmount: healAmount,
     };
 
-    sendMessage("RESOLVE_ACTION", payload);
+    if (!isOfflineMode) {
+      sendMessage("RESOLVE_ACTION", payload);
+      setSpellHealConfig(null);
+      setHealModalOpen(false);
+      return; // O evento do servidor confirma PV, foco e ações.
+    }
 
     if (target) {
       if (target.hp.current <= 0) {
@@ -285,10 +335,10 @@ export const ActiveTurnInterface = ({ combatant, isGm = false }: Props) => {
       Math.max(0, combatant.focus.current - spellHealConfig.cost),
     );
 
-    if (turnActions.standard) {
+    if (turnActions[actionKey]) {
       updateCombatant(combatant.id, "turnActions", {
         ...turnActions,
-        standard: false,
+        [actionKey]: false,
       });
     }
 
@@ -337,9 +387,7 @@ export const ActiveTurnInterface = ({ combatant, isGm = false }: Props) => {
         // Adiciona o dano da arma + o atributo (ex: "1d8+3")
         // Obs: Se o dano da arma no JSON já vier com o "+3" embutido, não soma de novo.
         // Assumindo que weapon.damage é só os dados (ex: "1d8")
-        const baseDmg = weaponToUse.damage.includes("+")
-          ? weaponToUse.damage
-          : `${weaponToUse.damage}${attrMod >= 0 ? `+${attrMod}` : attrMod}`;
+        const baseDmg = weaponDamageFormula(weaponToUse, attrMod);
 
         damageFormulaElements.push(baseDmg);
       }
@@ -356,6 +404,7 @@ export const ActiveTurnInterface = ({ combatant, isGm = false }: Props) => {
         cost: skill.cost,
         bonus: attackBonusString,
         damage: finalDamageFormula,
+        actionKey: actionKey ?? "standard",
       });
       setAttackModalOpen(true);
     }
@@ -368,6 +417,7 @@ export const ActiveTurnInterface = ({ combatant, isGm = false }: Props) => {
         name: skill.name,
         cost: skill.cost,
         modifier: intMod,
+        actionKey: actionKey ?? "standard",
       });
       setHealModalOpen(true);
     }
@@ -396,17 +446,20 @@ export const ActiveTurnInterface = ({ combatant, isGm = false }: Props) => {
         healingAmount: 0,
       };
 
-      sendMessage("RESOLVE_ACTION", payload);
+      if (!isOfflineMode) {
+        sendMessage("RESOLVE_ACTION", payload);
+      }
       showAlert("Habilidade", `${skill.name} utilizada.`);
     }
   };
 
   const handleStanceChange = (newIndex: number) => {
+    if (incapacitated) return;
     const currentActiveStance = combatant.stances?.find(
       (s) => s.id === combatant.activeStanceId,
     );
-    const currentBonusOnServer = currentActiveStance?.acBonus || 0;
-    const safeBaseAC = (combatant.armorClass || 10) - currentBonusOnServer;
+    const currentBonusOnServer = stanceArmorBonus(currentActiveStance, combatant);
+    const safeBaseAC = combatant.armorClass - currentBonusOnServer;
 
     let nextStanceId = null;
     let nextAC = safeBaseAC;
@@ -421,7 +474,7 @@ export const ActiveTurnInterface = ({ combatant, isGm = false }: Props) => {
       }
 
       nextStanceId = newStance.id;
-      nextAC = safeBaseAC + (newStance.acBonus || 0);
+      nextAC = safeBaseAC + stanceArmorBonus(newStance, combatant);
 
       const newActions = { ...turnActions, bonus: false };
       updateCombatant(combatant.id, "turnActions", newActions);
@@ -430,11 +483,13 @@ export const ActiveTurnInterface = ({ combatant, isGm = false }: Props) => {
     updateCombatant(combatant.id, "activeStanceId", nextStanceId);
     updateCombatant(combatant.id, "armorClass", nextAC);
 
-    sendMessage("CHANGE_STANCE", {
-      combatantId: combatant.id,
-      stanceId: nextStanceId,
-      newAC: nextAC,
-    });
+    if (!isOfflineMode) {
+      sendMessage("CHANGE_STANCE", {
+        combatantId: combatant.id,
+        stanceId: nextStanceId,
+        newAC: nextAC,
+      });
+    }
   };
 
   const handleCloseModal = () => {
@@ -443,69 +498,119 @@ export const ActiveTurnInterface = ({ combatant, isGm = false }: Props) => {
   };
 
   const handleConfirmAttack = (
-    targetId: string,
+    targetIds: string[],
     hitTotal: number,
     damageTotal: number,
     isCrit: boolean,
   ) => {
-    const target = combatants.find((c) => c.id === targetId);
-    if (!target) {
-      showAlert("Erro", "Alvo não encontrado.");
+    if (targetIds.length === 0) {
+      showAlert("Erro", "Nenhum alvo selecionado.");
       return;
     }
 
-    const isHit = isCrit || hitTotal >= target.armorClass;
-    const finalDamage = isHit ? damageTotal : 0;
-
     const isSpecialAction = !!spellAttackConfig;
-    let actionName = isSpecialAction ? spellAttackConfig.name : "Ataque Básico";
-    if (isCrit) actionName += " (Crítico!)";
-    else if (!isHit) actionName += " (Errou)";
-
-    // let actionName = isSpecialAction ? spellAttackConfig.name : "Ataque Básico";
-    // if (isCrit) actionName += " (Crítico!)";
-    // else if (!isHit) actionName += " (Errou)";
+    let baseActionName = isSpecialAction ? spellAttackConfig.name : "Ataque Básico";
+    if (isCrit) baseActionName += " (Crítico!)";
 
     const focusCost = isSpecialAction ? spellAttackConfig.cost : 0;
-    let actionSpent: ActionCostType = "standard";
+    const actionSpent = spellAttackConfig?.actionKey ?? "standard";
+    if (incapacitated || !turnActions[actionSpent] || combatant.focus.current < focusCost) {
+      showAlert("Ação indisponível", "Confira as ações e o foco disponíveis antes de confirmar o ataque.");
+      return;
+    }
+
+    // Monta lista de alvos com dano individual baseado no acerto vs CA
+    const targets = targetIds
+      .map((tid) => {
+        const t = combatants.find((c) => c.id === tid);
+        if (!t) return null;
+        const isHit = isCrit || hitTotal >= t.armorClass;
+        return {
+          targetId: tid,
+          damageAmount: isHit ? damageTotal : 0,
+          healingAmount: 0,
+        };
+      })
+      .filter((t): t is NonNullable<typeof t> => t !== null);
+
+    if (targets.length === 0) return;
+
+    // Determina o nome da ação final
+    let actionName = baseActionName;
+    if (!isCrit && targetIds.length === 1) {
+      const singleTarget = combatants.find((c) => c.id === targetIds[0]);
+      if (singleTarget && hitTotal < singleTarget.armorClass) {
+        actionName = baseActionName.replace(" (Crítico!)", "") + " (Errou)";
+      }
+    }
 
     const payload: ResolveActionPayload = {
       attackerId: combatant.id,
-      targetId: targetId,
+      targetId: targetIds.length === 1 ? targetIds[0] : null,
+      targets: targets,
       actionName: actionName,
       costType: actionSpent,
       focusCost: focusCost,
-      damageAmount: finalDamage,
+      damageAmount: targetIds.length === 1 ? targets[0]?.damageAmount ?? 0 : 0,
       healingAmount: 0,
     };
 
-    sendMessage("RESOLVE_ACTION", payload);
+    // 1. Envia para o Servidor
+    if (!isOfflineMode) {
+      sendMessage("RESOLVE_ACTION", payload);
+      setSpellAttackConfig(null);
+      setAttackModalOpen(false);
+      return; // Sem dano local antecipado para comandos que podem ser rejeitados.
+    }
 
-    if (turnActions.standard) {
-      updateCombatant(combatant.id, "turnActions", {
-        ...turnActions,
-        standard: false,
+    // 2. Resolução offline — cada alvo
+    targets.forEach((t) => {
+      if (t.damageAmount > 0) {
+        const target = combatants.find((c) => c.id === t.targetId);
+        if (target) {
+          const newHp = Math.max(0, target.hp.current - t.damageAmount);
+          updateCombatant(t.targetId, { hp: { ...target.hp, current: newHp } });
+        }
+      }
+    });
+
+    // Consome o mesmo tipo de ação enviado ao servidor.
+    if (turnActions[actionSpent]) {
+      updateCombatant(combatant.id, {
+        turnActions: { ...turnActions, [actionSpent]: false },
       });
     }
 
+    // Atualiza Foco do Atacante
     if (focusCost > 0) {
-      updateCombatant(
-        combatant.id,
-        "focus",
-        Math.max(0, combatant.focus.current - focusCost),
-      );
+      const newFocus = Math.max(0, combatant.focus.current - focusCost);
+      updateCombatant(combatant.id, {
+        focus: { ...combatant.focus, current: newFocus },
+      });
     }
 
     setSpellAttackConfig(null);
+    setAttackModalOpen(false);
 
-    showAlert(
-      isHit ? "Sucesso" : "Errou",
-      isHit
-        ? `Causou ${finalDamage} de dano!`
-        : isGm
-          ? `Não superou a CA ${target.armorClass}.`
-          : `O ataque não superou a defesa do alvo.`,
-    );
+    // Feedback
+    if (targetIds.length === 1) {
+      const singleTarget = combatants.find((c) => c.id === targetIds[0]);
+      const isHit = isCrit || (singleTarget && hitTotal >= singleTarget.armorClass);
+      showAlert(
+        isHit ? "Sucesso" : "Errou",
+        isHit
+          ? `Causou ${damageTotal} de dano!`
+          : isGm
+            ? `Não superou a CA ${singleTarget?.armorClass}.`
+            : `O ataque não superou a defesa do alvo.`,
+      );
+    } else {
+      const hitCount = targets.filter((t) => t.damageAmount > 0).length;
+      showAlert(
+        "Ataque em Área",
+        `${hitCount} de ${targetIds.length} alvos atingidos!${hitCount > 0 ? ` (${damageTotal} de dano cada)` : ""}`,
+      );
+    }
   };
 
   // --- RENDERIZAÇÃO NORMAL (Combate Ativo) ---
@@ -529,9 +634,22 @@ export const ActiveTurnInterface = ({ combatant, isGm = false }: Props) => {
         focus={combatant.focus}
         armorClass={combatant.armorClass}
         stanceMod={stanceBonus}
+        conditions={combatant.conditions || []}
       />
 
       <View style={{ paddingHorizontal: 16 }}>
+        {((combatant.feats?.length ?? 0) > 0 || combatant.factionFeat || combatant.specialFeat) && (
+          <View style={styles.combatSection}>
+            <Text style={styles.sectionHeader}>Façanhas</Text>
+            {[...(combatant.feats ?? []), combatant.factionFeat, combatant.specialFeat].filter((feat) => !!feat).map((feat) => (
+              <View key={feat.id} style={{ marginBottom: 8 }}>
+                <Text style={{ color: colors.text, fontWeight: "bold" }}>{feat.name}</Text>
+                <Text style={{ color: colors.textSecondary }}>{feat.benefit}</Text>
+              </View>
+            ))}
+            <Text style={{ color: colors.textSecondary }}>Bônus numéricos automáticos já estão na ficha. Efeitos condicionais e façanhas customizadas são resolvidos manualmente.</Text>
+          </View>
+        )}
         {/* --- SELETOR DE POSTURA --- */}
         {combatant.stances && combatant.stances.length > 0 && (
           <StanceSelector
@@ -542,10 +660,27 @@ export const ActiveTurnInterface = ({ combatant, isGm = false }: Props) => {
           />
         )}
 
+        {/* --- BOTÃO GERENCIAR CONDIÇÕES (GM) --- */}
+        {isGm && (
+          <TouchableOpacity
+            style={styles.conditionBtn}
+            onPress={() => setConditionModalOpen(true)}
+          >
+            <MaterialCommunityIcons name="shield-alert" size={18} color={colors.text} />
+            <Text style={[styles.battlefieldBtnText, { color: colors.text }]}>
+              GERENCIAR CONDIÇÕES{combatant.conditions?.length ? ` (${combatant.conditions.length})` : ""}
+            </Text>
+          </TouchableOpacity>
+        )}
+
         {/* --- RASTREADOR DE AÇÕES --- */}
         <View style={styles.combatSection}>
           <Text style={styles.sectionHeader}>Ações</Text>
-          <ActionTracker turnActions={turnActions} onToggle={() => null} />
+          <ActionTracker turnActions={turnActions} onToggle={(type) => {
+            if (isOfflineMode && !incapacitated) updateCombatant(combatant.id, "turnActions", {
+              ...turnActions, [type]: !turnActions[type],
+            });
+          }} />
 
           <TouchableOpacity
             style={[
@@ -615,8 +750,14 @@ export const ActiveTurnInterface = ({ combatant, isGm = false }: Props) => {
           </View>
         )}
 
-        <TouchableOpacity style={styles.endTurnBtnBig} onPress={handleEndTurn}>
-          <Text style={styles.endTurnText}>ENCERRAR MEU TURNO</Text>
+        <TouchableOpacity
+          style={[styles.endTurnBtnBig, isEndingTurn && { opacity: 0.5 }]}
+          onPress={handleEndTurn}
+          disabled={isEndingTurn}
+        >
+          <Text style={styles.endTurnText}>
+            {isEndingTurn ? "ENCERRANDO..." : "ENCERRAR MEU TURNO"}
+          </Text>
         </TouchableOpacity>
       </View>
 
@@ -695,9 +836,28 @@ export const ActiveTurnInterface = ({ combatant, isGm = false }: Props) => {
           />
         </View>
       </Modal>
+
+      {/* --- MODAL GERENCIAR CONDIÇÕES --- */}
+      <ConditionManagerModal
+        visible={conditionModalOpen}
+        onClose={() => setConditionModalOpen(false)}
+        combatant={combatant}
+      />
     </ScrollView>
   );
 };
+
+export const ActiveTurnInterface = React.memo(
+  ActiveTurnInterfaceComponent,
+  (prev, next) => {
+    return (
+      prev.combatant === next.combatant &&
+      prev.isGm === next.isGm
+    );
+  },
+);
+
+export default ActiveTurnInterface;
 
 // ESTILOS LIMPOS (Sem rastros do antigo menu de Death Saves)
 const getStyles = (colors: any, isDark: any) =>
@@ -766,6 +926,18 @@ const getStyles = (colors: any, isDark: any) =>
       fontSize: 12,
       textTransform: "uppercase",
       letterSpacing: 1,
+    },
+    conditionBtn: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+      backgroundColor: colors.surface,
+      padding: 10,
+      borderRadius: 8,
+      borderWidth: 1,
+      borderColor: "#ff7043" + "60",
+      gap: 8,
+      marginBottom: 12,
     },
 
     // MODAL

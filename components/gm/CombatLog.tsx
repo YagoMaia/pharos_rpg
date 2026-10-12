@@ -6,7 +6,7 @@ interface CombatLogProps {
   colors: any; // Poderia usar useTheme internamente, mas aqui recebe props
 }
 
-export const CombatLog = ({ logs, colors }: CombatLogProps) => {
+const CombatLogComponent = ({ logs, colors }: CombatLogProps) => {
   const flatListRef = useRef<FlatList>(null);
 
   useEffect(() => {
@@ -46,6 +46,17 @@ export const CombatLog = ({ logs, colors }: CombatLogProps) => {
     </View>
   );
 };
+
+export const CombatLog = React.memo(CombatLogComponent, (prev, next) => {
+  return (
+    prev.colors === next.colors &&
+    prev.logs.length === next.logs.length &&
+    (prev.logs.length === 0 ||
+      prev.logs[prev.logs.length - 1] === next.logs[next.logs.length - 1])
+  );
+});
+
+export default CombatLog;
 
 const styles = StyleSheet.create({
   logContainer: {

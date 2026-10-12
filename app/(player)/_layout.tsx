@@ -31,7 +31,7 @@ export default function TabLayout() {
           backgroundColor: colors.background, // Fundo do cabeçalho
           // No Android, remove a sombra "feia" padrão se quiser um visual flat:
           elevation: 0,
-          shadowOpacity: 0,
+          // shadowOpacity: 0,
           borderBottomWidth: 1,
           borderBottomColor: colors.border,
         },
@@ -65,6 +65,7 @@ export default function TabLayout() {
           ),
         }}
       />
+      <Tabs.Screen name="my-campaigns" options={{ href: null, title: "Campanhas" }} />
       <Tabs.Screen
         name="combat"
         options={{
@@ -117,6 +118,15 @@ export default function TabLayout() {
           title: "Turnos",
           tabBarIcon: ({ color }) => (
             <Ionicons name="wifi" size={24} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="pet"
+        options={{
+          title: "Pet",
+          tabBarIcon: ({ color }) => (
+            <Ionicons name="paw" size={24} color={color} />
           ),
         }}
       />

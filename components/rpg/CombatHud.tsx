@@ -1,8 +1,10 @@
 import { StatBar } from "@/components/ui/StatBar";
 import { useTheme } from "@/context/ThemeContext";
+import { ActiveCondition } from "@/types/rpg";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import React, { useMemo } from "react";
 import { StyleSheet, Text, View } from "react-native";
+import { ConditionBar } from "./ConditionBadges";
 
 interface Resource {
   current: number;
@@ -14,6 +16,7 @@ interface CombatHudProps {
   focus: Resource;
   armorClass: number; // Valor Total
   stanceMod?: number; // Modificador da Postura (opcional, para exibir a setinha)
+  conditions?: ActiveCondition[]; // Condições ativas
 }
 
 export const CombatHud = ({
@@ -21,6 +24,7 @@ export const CombatHud = ({
   focus,
   armorClass,
   stanceMod = 0,
+  conditions = [],
 }: CombatHudProps) => {
   const { colors } = useTheme();
   const styles = useMemo(() => getStyles(colors), [colors]);
@@ -118,6 +122,13 @@ export const CombatHud = ({
           height={10}
         />
       </View>
+
+      {/* --- CONDIÇÕES ATIVAS --- */}
+      {conditions.length > 0 && (
+        <View style={styles.conditionsRow}>
+          <ConditionBar conditions={conditions} size="medium" />
+        </View>
+      )}
     </View>
   );
 };
@@ -141,6 +152,11 @@ const getStyles = (colors: any) =>
     },
     healthContainer: { flex: 1, marginRight: 16 },
     bottomRow: { width: "100%" },
+    conditionsRow: {
+      paddingTop: 8,
+      borderTopWidth: 1,
+      borderTopColor: colors.border + "40",
+    },
     verticalSeparator: {
       width: 1,
       height: 40,

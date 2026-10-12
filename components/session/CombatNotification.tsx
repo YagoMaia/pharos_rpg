@@ -1,6 +1,6 @@
 import { useTheme } from "@/context/ThemeContext";
 import { Ionicons } from "@expo/vector-icons";
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Animated, StyleSheet, Text, View } from "react-native";
 
 interface CombatNotificationProps {
@@ -22,6 +22,8 @@ export const CombatNotification = ({
 }: CombatNotificationProps) => {
   const { colors } = useTheme();
   const slideAnim = useRef(new Animated.Value(-100)).current;
+  const onHideRef = useRef(onHide);
+  onHideRef.current = onHide;
   const [shouldRender, setShouldRender] = useState(false);
 
   // --- CONFIGURAÇÃO VISUAL DINÂMICA ---
@@ -52,7 +54,7 @@ export const CombatNotification = ({
     }
   }, [type, colors]);
 
-  const handleClose = () => {
+  const handleClose = useCallback(() => {
     Animated.timing(slideAnim, {
       toValue: -150,
       duration: 300,
@@ -60,10 +62,10 @@ export const CombatNotification = ({
     }).start(({ finished }) => {
       if (finished) {
         setShouldRender(false);
-        onHide();
+        onHideRef.current();
       }
     });
-  };
+  }, [slideAnim]);
 
   useEffect(() => {
     if (visible) {
@@ -86,7 +88,7 @@ export const CombatNotification = ({
     } else {
       handleClose();
     }
-  }, [visible]);
+  }, [visible, slideAnim, handleClose]);
 
   if (!shouldRender) return null;
 

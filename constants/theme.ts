@@ -14,6 +14,7 @@ export const lightTheme = {
     error: '#e53935',
     success: '#2e7d32',
     warning: '#f9a825',
+    info: '#1e88e5',
     
     // Cores específicas de RPG
     hp: '#e53935',
@@ -40,6 +41,7 @@ export const darkTheme = {
     error: '#cf6679',
     success: '#81c784',
     warning: '#ffd54f',
+    info: '#42a5f5',
 
     // Cores específicas de RPG
     hp: '#ef5350',           // Vermelho mais claro
@@ -54,3 +56,7 @@ export const darkTheme = {
 
 // Tipo para ajudar no TypeScript
 export type ThemeColors = typeof lightTheme.colors;
+export const Colors = {
+  light: lightTheme.colors,
+  dark: darkTheme.colors,
+};

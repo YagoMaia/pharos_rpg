@@ -1,49 +1,59 @@
 import { Combatant, Skill } from "../types/rpg";
-import { rollDiceString } from "./diceUtils"; // Certifique-se de importar sua função de dados
+import { rollDiceString } from "./diceUtils";
+
+export interface SkillExecutionResult {
+  total: number;
+  formula: string;
+  log: string;
+  type: "damage" | "healing";
+}
 
 export const calculateSkillDamage = (
   skill: Skill,
   attacker: Combatant,
-  // O argumento 'equippedWeapon' foi removido pois já está dentro de 'attacker.weapons'
-): { total: number; formula: string; log: string } => {
-  let totalDamage = 0;
+): SkillExecutionResult => {
+  let totalValue = 0;
   let formulaParts: string[] = [];
   let logDetails: string[] = [];
 
-  // 1. Dano Base da Arma (se a skill usar)
+  // 1. Lógica de Cura
+  if (skill.isHealing && skill.healFormula) {
+    const healRoll = rollDiceString(skill.healFormula, false, attacker.attributes);
+    return {
+      total: healRoll.total,
+      formula: skill.healFormula,
+      log: `Cura: ${healRoll.total} [${healRoll.detailedLog || skill.healFormula}]`,
+      type: "healing",
+    };
+  }
+
+  // 2. Dano Base da Arma (se a skill usar)
   if (skill.usesWeaponDamage) {
-    // A. Seleciona a arma correta baseada na Skill
-    let selectedWeapon = attacker.weapons?.melee; // Padrão: Melee
+    let selectedWeapon = attacker.weapons?.melee;
 
     if (skill.weaponType === "ranged") {
-      // Se a skill exige ataque à distância, tenta pegar a arma ranged
-      // Se não tiver (undefined), mantém undefined para cair no fallback ou erro
       selectedWeapon = attacker.weapons?.ranged;
     }
 
-    // B. Calcula o Dano se houver arma válida
     if (selectedWeapon) {
-      // Rola o dado da arma (ex: "1d8")
-      const weaponRoll = rollDiceString(selectedWeapon.damage);
-
-      // Pega o modificador do atributo que JÁ foi definido no Factory (Força ou Destreza)
+      const weaponRoll = rollDiceString(selectedWeapon.damage, false, attacker.attributes);
       const attrName = selectedWeapon.attribute;
       const attrMod = attacker.attributes[attrName]?.modifier || 0;
+      const attackBonus = selectedWeapon.attackBonus || 0;
 
-      // Soma tudo: Dado + Atributo + Bônus Mágico (se houver)
-      totalDamage += weaponRoll.total + attrMod + selectedWeapon.attackBonus;
+      totalValue += weaponRoll.total + attrMod + attackBonus;
 
-      // Logs para feedback visual
       formulaParts.push(selectedWeapon.damage);
-      formulaParts.push(`${attrName.substring(0, 3).toUpperCase()}`); // "FOR", "DES"
+      formulaParts.push(`${attrName.substring(0, 3).toUpperCase()}`);
+      if (attackBonus !== 0) formulaParts.push(attackBonus.toString());
 
       logDetails.push(`${selectedWeapon.name} (${weaponRoll.total})`);
       logDetails.push(`${attrName.substring(0, 3).toUpperCase()} (${attrMod})`);
+      if (attackBonus !== 0) logDetails.push(`Bônus (${attackBonus})`);
     } else {
-      // C. Fallback: Desarmado (Se tentou usar skill de arma sem ter arma do tipo)
-      // Geralmente 1 + Força
+      // Fallback: Desarmado (1 + Força)
       const strMod = attacker.attributes["Força"]?.modifier || 0;
-      totalDamage += 1 + strMod;
+      totalValue += 1 + strMod;
 
       formulaParts.push("1");
       formulaParts.push("FOR");
@@ -51,50 +61,19 @@ export const calculateSkillDamage = (
     }
   }
 
-  // 2. Dano Bônus da Skill (ex: "2d6" de um ataque especial)
-  if (skill.bonusDamage && !skill.isHealing) {
-    const bonusRoll = rollDiceString(skill.bonusDamage);
-    totalDamage += bonusRoll.total;
+  // 3. Dano Bônus da Skill
+  if (skill.bonusDamage) {
+    const bonusRoll = rollDiceString(skill.bonusDamage, false, attacker.attributes);
+    totalValue += bonusRoll.total;
 
     formulaParts.push(skill.bonusDamage);
     logDetails.push(`${skill.name} (${bonusRoll.total})`);
   }
 
-  // 3. Lógica de Cura (Separada)
-  if (skill.isHealing && skill.healFormula) {
-    let formula = skill.healFormula;
-
-    // Substituição de variáveis (@CON, @CHA, etc)
-    if (formula.includes("@CON")) {
-      const conMod = attacker.attributes["Constituição"].modifier;
-      formula = formula.replace("@CON", conMod.toString());
-    }
-    if (formula.includes("@CHA")) {
-      const chaMod = attacker.attributes["Carisma"].modifier;
-      formula = formula.replace("@CHA", chaMod.toString());
-    }
-    if (formula.includes("@SAB")) {
-      const wisMod = attacker.attributes["Sabedoria"].modifier;
-      formula = formula.replace("@SAB", wisMod.toString());
-    }
-    if (formula.includes("@INT")) {
-      const intMod = attacker.attributes["Inteligência"].modifier;
-      formula = formula.replace("@INT", intMod.toString());
-    }
-
-    const healRoll = rollDiceString(formula);
-
-    return {
-      total: healRoll.total,
-      formula: formula,
-      log: `Cura: ${healRoll.total} [${healRoll.detailedLog || formula}]`,
-    };
-  }
-
-  // Retorno Final de Dano
   return {
-    total: Math.max(0, totalDamage), // Garante que não cure o inimigo com dano negativo
+    total: Math.max(0, totalValue),
     formula: formulaParts.join(" + "),
-    log: `Total: ${totalDamage} [${logDetails.join(" + ")}]`,
+    log: `Total: ${totalValue} [${logDetails.join(" + ")}]`,
+    type: "damage",
   };
 };

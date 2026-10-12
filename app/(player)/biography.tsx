@@ -21,7 +21,7 @@ import { SKILL_DESCRIPTIONS } from "@/data/expertiseData";
 import { SkillList } from "@/components/rpg/SkillList";
 
 export default function BiographyScreen() {
-  const { character, updateBackstory, toggleTrainedSkill } = useCharacter();
+  const { character, updateBackstory, updateSkillLevel } = useCharacter();
   const { colors } = useTheme();
   const styles = useMemo(() => getStyles(colors), [colors]);
   const { showAlert } = useAlert();
@@ -47,13 +47,14 @@ export default function BiographyScreen() {
             <Text style={styles.sectionTitle}>Perícias Treinadas</Text>
           </View>
           <Text style={styles.helperText}>
-            Toque para treinar (+2). Segure para ver a descrição.
+            Toque no badge para ciclar: NT (0), T (+2), E (+4), EX (+6). Segure
+            no nome para detalhes.
           </Text>
 
           {/* LISTA DE SKILLS COMPONENTIZADA */}
           <SkillList
             character={character}
-            onToggleSkill={toggleTrainedSkill}
+            onUpdateSkillLevel={updateSkillLevel} // Nova prop para níveis graduados
             onShowDescription={handleShowDescription}
           />
         </View>

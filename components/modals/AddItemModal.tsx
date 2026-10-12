@@ -77,6 +77,8 @@ export const AddItemModal = ({
       description,
       quantity: parseInt(quantity) || 1,
       image,
+      type: "consumable",
+      weight: 0,
     });
     onClose();
   };

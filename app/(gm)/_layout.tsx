@@ -44,6 +44,15 @@ export default function GMLayout() {
         }}
       />
       <Tabs.Screen
+        name="campaigns"
+        options={{
+          title: "Campanhas",
+          tabBarIcon: ({ color }) => (
+            <Ionicons name="map" size={24} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
         name="npcs"
         options={{
           title: "Bestiário",

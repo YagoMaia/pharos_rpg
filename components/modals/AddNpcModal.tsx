@@ -1,12 +1,15 @@
 import { useTheme } from "@/context/ThemeContext";
+import { SPECIALIZATIONS } from "@/data/specializationsData";
 import { CLASS_DATA } from "@/data/classData";
 import { ANCESTRIES } from "@/data/origins";
 import {
+  ActionType,
   ALL_CLASSES,
   Attribute,
   AttributeName,
   CharacterClass,
   NpcTemplate,
+  NpcPhase,
   Skill,
   Spell,
   Stance,
@@ -35,6 +38,7 @@ interface AddNpcModalProps {
   onClose: () => void;
   onSave: (data: Partial<NpcTemplate>) => void;
   initialData?: NpcTemplate | null;
+  phaseMode?: boolean;
 }
 
 export const AddNpcModal = ({
@@ -42,15 +46,20 @@ export const AddNpcModal = ({
   onClose,
   onSave,
   initialData,
+  phaseMode = false,
 }: AddNpcModalProps) => {
   const { colors } = useTheme();
   const styles = useMemo(() => getStyles(colors), [colors]);
 
   const [image, setImage] = useState("");
+  const [phases, setPhases] = useState<NpcPhase[]>([]);
+  const [editingPhase, setEditingPhase] = useState<number | null>(null);
+  const [phaseDraft, setPhaseDraft] = useState<NpcTemplate | null>(null);
 
   // --- ESTADOS DO FORMULÁRIO (Copiados do NpcScreen) ---
   const [formTab, setFormTab] = useState<"general" | "details">("general");
   const [name, setName] = useState("");
+  const [specializationId, setSpecializationId] = useState<string>(initialData?.specialization?.id || "");
   const [npcClass, setNpcClass] = useState<CharacterClass | string>();
   const [level, setLevel] = useState("1");
   const [subline, setSubline] = useState("");
@@ -90,10 +99,24 @@ export const AddNpcModal = ({
   const [npcSpells, setNpcSpells] = useState<Spell[]>([]);
 
   const [spellModalVisible, setSpellModalVisible] = useState(false);
+  // --- ESTADOS: ARMAS DO NPC ---
+  const [meleeName, setMeleeName] = useState("");
+  const [meleeDamage, setMeleeDamage] = useState("");
+  const [meleeAttr, setMeleeAttr] = useState("Força"); // Novo
+  const [meleeBonus, setMeleeBonus] = useState("0"); // Novo
+  const [meleeRange, setMeleeRange] = useState("1.5m"); // Novo
+
+  const [rangedName, setRangedName] = useState("");
+  const [rangedDamage, setRangedDamage] = useState("");
+  const [rangedAttr, setRangedAttr] = useState("Destreza"); // Novo
+  const [rangedBonus, setRangedBonus] = useState("0"); // Novo
+  const [rangedRange, setRangedRange] = useState("9m"); // Novo
 
   useEffect(() => {
     // Só executa se o modal estiver visível
     if (visible) {
+      setPhases(initialData?.phases ?? []);
+      setEditingPhase(null);
       if (initialData) {
         // --- MODO EDIÇÃO ---
         setImage(initialData.image || "");
@@ -105,12 +128,13 @@ export const AddNpcModal = ({
 
         // CORREÇÃO DE CLASSE/ANCESTRALIDADE: Garante string vazia se for null
         setNpcClass((initialData.class as CharacterClass) || "");
+        setSpecializationId(initialData.specialization?.id || "");
         setAncestry(initialData.ancestry || "");
 
         // Outros campos com proteção contra null/undefined
         setHp(String(initialData.maxHp || "10"));
         // setHpFormula(initialData.hpFormula || "");
-        setAc(String(initialData.armorClass || "10"));
+        setAc(String(initialData.armorClass ?? 10));
         setAcDetail(initialData.acDetail || "");
         setSpeed(initialData.speed || "9m");
         setInit(String(initialData.initiativeBonus || "0"));
@@ -135,13 +159,26 @@ export const AddNpcModal = ({
         setNpcStances(initialData.stances || []);
         setNpcSkills(initialData.skills || []);
 
-        setNpcSpells(initialData.spells || []); // Carregar magias existentes (se houver na interface NpcTemplate)
+        setNpcSpells(initialData.spells || []);
+
+        setMeleeName(initialData.weapons?.melee?.name || "");
+        setMeleeDamage(initialData.weapons?.melee?.damage || "1d4");
+        setMeleeAttr(initialData.weapons?.melee?.attribute || "Força");
+        setMeleeBonus(String(initialData.weapons?.melee?.attackBonus || "0"));
+        setMeleeRange(initialData.weapons?.melee?.range || "1.5m");
+
+        setRangedName(initialData.weapons?.ranged?.name || "");
+        setRangedDamage(initialData.weapons?.ranged?.damage || "1d4");
+        setRangedAttr(initialData.weapons?.ranged?.attribute || "Destreza");
+        setRangedBonus(String(initialData.weapons?.ranged?.attackBonus || "0"));
+        setRangedRange(initialData.weapons?.ranged?.range || "9m");
       } else {
         // --- MODO CRIAÇÃO (RESET) ---
         setImage("");
         setName("");
         setLevel("1");
         setNpcClass(undefined);
+        setSpecializationId("");
         setAncestry("");
         setSubline("");
         setHp("");
@@ -165,23 +202,72 @@ export const AddNpcModal = ({
         setNpcSkills([]);
         setFormTab("general");
         setNpcSpells([]);
+        setMeleeName("");
+        setMeleeDamage("1d4");
+        setMeleeAttr("Força");
+        setMeleeBonus(String("0"));
+        setMeleeRange("1.5m");
+
+        setRangedName("");
+        setRangedDamage("1d4");
+        setRangedAttr("Destreza");
+        setRangedBonus(String("0"));
+        setRangedRange("9m");
       }
     }
   }, [visible, initialData]);
 
-  useEffect(() => {
-    // Só roda se NÃO estiver editando (para não sobrescrever dados salvos)
-    if (!initialData && npcClass) {
-      // A. Se for Customizado (Monstro/Outros), LIMPA as listas automáticas
-      if (CUSTOM_CLASSES.includes(npcClass)) {
-        setNpcSkills([]);
+  // useEffect(() => {
+  //   // Só roda se NÃO estiver editando (para não sobrescrever dados salvos)
+  //   if (!initialData && npcClass) {
+  //     // A. Se for Customizado (Monstro/Outros), LIMPA as listas automáticas
+  //     if (CUSTOM_CLASSES.includes(npcClass)) {
+  //       setNpcSkills([]);
+  //       setNpcStances([]);
+  //       return; // PARE AQUI! Não busque no CLASS_DATA
+  //     }
+
+  //     // B. Se for Classe Padrão, carrega do arquivo
+  //     if (CLASS_DATA[npcClass as CharacterClass]) {
+  //       const data = CLASS_DATA[npcClass as CharacterClass];
+  //       const numericLevel = parseInt(level) || 1;
+
+  //       const autoSkills = data.skills.filter(
+  //         (s) => (s.level || 1) <= numericLevel,
+  //       );
+  //       const autoStances = data.stances;
+
+  //       setNpcSkills(autoSkills);
+  //       setNpcStances(autoStances);
+  //     }
+  //   }
+  // }, [npcClass, level, initialData]);
+
+  // NOVA FUNÇÃO: Lida com a troca de classe de forma manual e segura
+  // NOVA FUNÇÃO: Lida com a troca de classe de forma manual e segura
+  const handleClassChange = (cls: string) => {
+    setNpcClass(cls);
+    setSpecializationId((current) => {
+      const currentSpec = current ? SPECIALIZATIONS[current] : undefined;
+      return currentSpec?.classRequired === cls ? current : "";
+    });
+
+    // Só altera as listas automáticas se NÃO for uma edição
+    // (Em edições, assumimos que o Mestre já customizou o que queria)
+    if (!initialData || phaseMode) {
+      if (CUSTOM_CLASSES.includes(cls)) {
+        // Se mudou para Monstro/Outro, REMOVE as skills que vieram de
+        // classes padrão (que não têm o prefixo "custom_"), mas MANTÉM as customizadas.
+        setNpcSkills((prev) =>
+          prev.filter((skill) => skill.id.startsWith("custom_")),
+        );
         setNpcStances([]);
-        return; // PARE AQUI! Não busque no CLASS_DATA
+        return;
       }
 
-      // B. Se for Classe Padrão, carrega do arquivo
-      if (CLASS_DATA[npcClass as CharacterClass]) {
-        const data = CLASS_DATA[npcClass as CharacterClass];
+      // Se escolheu uma classe padrão, carrega as habilidades dela
+      if (CLASS_DATA[cls as CharacterClass]) {
+        const data = CLASS_DATA[cls as CharacterClass];
         const numericLevel = parseInt(level) || 1;
 
         const autoSkills = data.skills.filter(
@@ -189,11 +275,18 @@ export const AddNpcModal = ({
         );
         const autoStances = data.stances;
 
-        setNpcSkills(autoSkills);
+        // COMBINA as habilidades da nova classe com as customizadas (caso ele já tenha criado alguma)
+        setNpcSkills((prev) => {
+          const customSkills = prev.filter((skill) =>
+            skill.id.startsWith("custom_"),
+          );
+          return [...autoSkills, ...customSkills];
+        });
+
         setNpcStances(autoStances);
       }
     }
-  }, [npcClass, level, initialData]);
+  };
 
   const pickImage = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -210,17 +303,24 @@ export const AddNpcModal = ({
     }
   };
 
-  const handleSave = () => {
-    const data = {
+  const selectedSpecialization = () => {
+    const spec = specializationId ? SPECIALIZATIONS[specializationId] : undefined;
+    return spec?.classRequired === npcClass ? spec : null;
+  };
+
+  const buildTemplate = () => {
+    return {
+      id: initialData?.id,
       name,
       image,
       subline,
-      maxHp: parseInt(hp) || 10,
+      maxHp: Math.max(1, parseInt(hp) || 10),
       level: parseInt(level) || 1,
       //   hpFormula,
       class: npcClass,
+      specialization: selectedSpecialization(),
       ancestry: ancestry,
-      armorClass: parseInt(ac) || 10,
+      armorClass: Number.isNaN(parseInt(ac)) ? 10 : Math.max(0, parseInt(ac)),
       acDetail,
       speed: speed || "9m",
       initiativeBonus: parseInt(init) || 0,
@@ -231,9 +331,43 @@ export const AddNpcModal = ({
       stances: npcStances,
       skills: npcSkills,
       spells: npcSpells,
+      phases,
+      // Dentro do seu objeto "data" na const handleSave
+      weapons: {
+        melee: {
+          ...initialData?.weapons?.melee,
+          name: meleeName || "Ataque Corpo-a-Corpo",
+          damage: meleeDamage || "1d4",
+          attribute: (meleeAttr || "Força") as AttributeName,
+          attackBonus: parseInt(meleeBonus) || 0,
+          range: meleeRange || "1.5m",
+        },
+        ranged: {
+          ...initialData?.weapons?.ranged,
+          name: rangedName || "Ataque à Distância",
+          damage: rangedDamage || "1d4",
+          attribute: (rangedAttr || "Destreza") as AttributeName,
+          attackBonus: parseInt(rangedBonus) || 0,
+          range: rangedRange || "9m",
+        },
+      },
     };
+  };
+
+  const handleSave = () => {
+    const data = buildTemplate();
     onSave(data);
     onClose();
+  };
+
+  const openPhase = (index: number) => {
+    const base = buildTemplate();
+    // Cada fase começa com os valores herdados da anterior, inclusive armas e posturas.
+    const inherited = phases.slice(0, index + 1).reduce<NpcTemplate>((prev, phase) => ({ ...prev, ...phase }), {
+      ...base, id: `phase_${index}`, class: base.class ?? "Monstro",
+    });
+    setPhaseDraft({ ...inherited, phases: [] });
+    setEditingPhase(index);
   };
 
   const addSpell = (spell: Spell) => {
@@ -247,6 +381,10 @@ export const AddNpcModal = ({
     setNpcSpells(npcSpells.filter((s) => s.id !== spellId));
   };
 
+  const removeSkill = (skillId: string) => {
+    setNpcSkills(npcSkills.filter((s) => s.id !== skillId));
+  };
+
   const handleAttributeChange = (key: AttributeName, text: string) => {
     const newValue = parseInt(text) || 0;
     // Recalcula o modificador: (Valor - 10) / 2 arredondado para baixo
@@ -255,11 +393,67 @@ export const AddNpcModal = ({
     setAttrs((prev) => ({
       ...prev,
       [key]: {
-        ...prev[key], // Mantém o nome e outros dados se houver
+        ...prev[key],
         value: newValue,
         modifier: newModifier,
       },
     }));
+  };
+
+  const [skillModalVisible, setSkillModalVisible] = useState(false);
+
+  const [tempSkillName, setTempSkillName] = useState("");
+  const [tempSkillDesc, setTempSkillDesc] = useState("");
+  const [tempSkillCost, setTempSkillCost] = useState("0");
+  const [tempSkillAction, setTempSkillAction] = useState<ActionType>("Padrão");
+
+  // Combate
+  const [tempUsesWeapon, setTempUsesWeapon] = useState(true);
+  const [tempWeaponType, setTempWeaponType] = useState<
+    "melee" | "ranged" | "any"
+  >("melee");
+  const [tempBonusDmg, setTempBonusDmg] = useState("");
+
+  // Cura
+  const [tempIsHealing, setTempIsHealing] = useState(false);
+  const [tempHealFormula, setTempHealFormula] = useState("");
+
+  const handleAddNewSkill = () => {
+    if (!tempSkillName.trim()) {
+      // Se quiser, pode usar um showAlert aqui
+      return;
+    }
+
+    const novaSkill: Skill = {
+      id: `custom_${Date.now()}`,
+      name: tempSkillName.trim(),
+      level: 1, // Geralmente monstros não tem level de skill, deixamos 1
+      cost: parseInt(tempSkillCost) || 0,
+      actionType: tempSkillAction,
+      description: tempSkillDesc.trim() || "Ataque customizado do NPC.",
+
+      // Lógica de Dano
+      usesWeaponDamage: tempUsesWeapon,
+      weaponType: tempWeaponType,
+      bonusDamage: tempBonusDmg.trim() || undefined,
+
+      // Lógica de Cura
+      isHealing: tempIsHealing,
+      healFormula: tempHealFormula.trim() || undefined,
+    };
+
+    setNpcSkills((prev) => [...prev, novaSkill]);
+
+    // Limpar e fechar
+    setTempSkillName("");
+    setTempSkillDesc("");
+    setTempSkillCost("0");
+    setTempBonusDmg("");
+    setTempHealFormula("");
+    setTempUsesWeapon(true);
+    setTempIsHealing(false);
+
+    setSkillModalVisible(false);
   };
 
   return (
@@ -271,7 +465,7 @@ export const AddNpcModal = ({
       <SafeAreaView style={styles.modalContainer}>
         <View style={styles.modalHeader}>
           <Text style={styles.modalTitle}>
-            {initialData ? "Editar NPC" : "Criar NPC"}
+            {phaseMode ? "Editar Fase" : initialData ? "Editar NPC" : "Criar NPC"}
           </Text>
           <TouchableOpacity onPress={onClose}>
             <Text style={styles.closeText}>Cancelar</Text>
@@ -373,7 +567,7 @@ export const AddNpcModal = ({
                         isSelected && styles.chipActive,
                         isCustom && !isSelected && { borderColor: "#fb8c00" }, // Laranja sutil para monstros
                       ]}
-                      onPress={() => setNpcClass(cls)}
+                      onPress={() => handleClassChange(cls)}
                     >
                       <Text
                         style={[
@@ -384,6 +578,29 @@ export const AddNpcModal = ({
                       >
                         {cls}
                       </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+
+              {!phaseMode && <>
+              <Text style={styles.label}>Especialização</Text>
+              <View style={styles.chipContainer}>
+                <TouchableOpacity
+                  style={[styles.chip, !specializationId && styles.chipActive]}
+                  onPress={() => setSpecializationId("")}
+                >
+                  <Text style={[styles.chipText, !specializationId && styles.chipTextActive]}>Nenhuma</Text>
+                </TouchableOpacity>
+                {Object.values(SPECIALIZATIONS).filter(s => s.classRequired === npcClass).map((spec) => {
+                  const isSelected = specializationId === spec.id;
+                  return (
+                    <TouchableOpacity
+                      key={spec.id}
+                      style={[styles.chip, isSelected && styles.chipActive]}
+                      onPress={() => setSpecializationId(spec.id)}
+                    >
+                      <Text style={[styles.chipText, isSelected && styles.chipTextActive]}>{spec.name}</Text>
                     </TouchableOpacity>
                   );
                 })}
@@ -412,6 +629,7 @@ export const AddNpcModal = ({
                 })}
               </View>
 
+              </>}
               <View style={styles.row}>
                 <View style={{ flex: 1, marginRight: 8 }}>
                   <Text style={styles.label}>PV Máx</Text>
@@ -423,7 +641,7 @@ export const AddNpcModal = ({
                     placeholderTextColor={colors.textSecondary}
                   />
                 </View>
-                <View style={{ flex: 1 }}>
+                {!phaseMode && <View style={{ flex: 1 }}>
                   <Text style={styles.label}>Fórmula PV</Text>
                   <TextInput
                     style={styles.input}
@@ -432,7 +650,7 @@ export const AddNpcModal = ({
                     placeholder="1d10+2"
                     placeholderTextColor={colors.textSecondary}
                   />
-                </View>
+                </View>}
               </View>
 
               <View style={styles.row}>
@@ -446,7 +664,7 @@ export const AddNpcModal = ({
                     placeholderTextColor={colors.textSecondary}
                   />
                 </View>
-                <View style={{ flex: 1 }}>
+                {!phaseMode && <View style={{ flex: 1 }}>
                   <Text style={styles.label}>Detalhe CA</Text>
                   <TextInput
                     style={styles.input}
@@ -455,10 +673,10 @@ export const AddNpcModal = ({
                     placeholder="Couro"
                     placeholderTextColor={colors.textSecondary}
                   />
-                </View>
+                </View>}
               </View>
 
-              <View style={styles.row}>
+              {!phaseMode && <View style={styles.row}>
                 <View style={{ flex: 1, marginRight: 8 }}>
                   <Text style={styles.label}>Init (Mod)</Text>
                   <TextInput
@@ -490,43 +708,343 @@ export const AddNpcModal = ({
                     placeholderTextColor={colors.textSecondary}
                   />
                 </View>
-              </View>
+              </View>}
             </>
+          )}
+
+          {!phaseMode && formTab === "general" && (
+            <View>
+              <Text style={styles.label}>Fases subsequentes</Text>
+              <Text style={styles.miniItemDesc}>
+                A ficha acima é a fase 1. Cadastre as próximas na ordem em que serão ativadas.
+              </Text>
+              {phases.map((phase, index) => (
+                <View key={index} style={styles.miniItem}>
+                  <TouchableOpacity style={{ flex: 1 }} onPress={() => openPhase(index)}>
+                    <Text style={styles.miniItemTitle}>Fase {index + 2}: {phase.name || name}</Text>
+                    <Text style={styles.miniItemDesc}>PV: {phase.maxHp ?? "herdado"} · CA: {phase.armorClass ?? "herdada"} · Toque para editar</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity onPress={() => setPhases((prev) => prev.filter((_, i) => i !== index))}>
+                    <Ionicons name="trash-outline" size={22} color={colors.error} />
+                  </TouchableOpacity>
+                </View>
+              ))}
+              <TouchableOpacity style={styles.addBtnSmall} onPress={() => openPhase(phases.length)}>
+                <Text style={styles.addBtnText}>+ Próxima fase</Text>
+              </TouchableOpacity>
+            </View>
           )}
 
           {/* ABA DETALHES */}
           {formTab === "details" && (
             <>
-              <Text style={styles.label}>Equipamento</Text>
+              {/* --- NOVA SEÇÃO DE ARMAS --- */}
+              <Text
+                style={[styles.label, { color: colors.primary, marginTop: 16 }]}
+              >
+                Armas Padrão (Usadas nas Habilidades)
+              </Text>
+
+              {/* --- CORPO A CORPO (MELEE) --- */}
+              <View
+                style={[
+                  styles.miniItem,
+                  {
+                    flexDirection: "column",
+                    alignItems: "stretch",
+                    padding: 12,
+                  },
+                ]}
+              >
+                <Text
+                  style={{
+                    color: colors.text,
+                    fontWeight: "bold",
+                    marginBottom: 8,
+                  }}
+                >
+                  Corpo-a-Corpo
+                </Text>
+
+                <View style={styles.row}>
+                  <View style={{ flex: 2, marginRight: 8 }}>
+                    <TextInput
+                      style={styles.input}
+                      value={meleeName}
+                      onChangeText={setMeleeName}
+                      placeholder="Nome (Ex: Garra)"
+                      placeholderTextColor={colors.textSecondary}
+                    />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <TextInput
+                      style={styles.input}
+                      value={meleeDamage}
+                      onChangeText={setMeleeDamage}
+                      placeholder="Dano (1d6)"
+                      placeholderTextColor={colors.textSecondary}
+                    />
+                  </View>
+                </View>
+
+                <View style={[styles.row, { marginTop: 8 }]}>
+                  <View style={{ flex: 1, marginRight: 8 }}>
+                    <TextInput
+                      style={styles.input}
+                      value={meleeBonus}
+                      onChangeText={setMeleeBonus}
+                      keyboardType="numeric"
+                      placeholder="Bônus Atq (+2)"
+                      placeholderTextColor={colors.textSecondary}
+                    />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <TextInput
+                      style={styles.input}
+                      value={meleeRange}
+                      onChangeText={setMeleeRange}
+                      placeholder="Alcance (1.5m)"
+                      placeholderTextColor={colors.textSecondary}
+                    />
+                  </View>
+                </View>
+
+                {/* --- NOVO SELETOR DE ATRIBUTO MELEE --- */}
+                <Text style={[styles.label, { marginTop: 12 }]}>
+                  Atributo Usado no Ataque
+                </Text>
+                <View
+                  style={[
+                    styles.input,
+                    { padding: 0, overflow: "hidden", height: 45 },
+                  ]}
+                >
+                  <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={{
+                      alignItems: "center",
+                      paddingHorizontal: 5,
+                    }}
+                  >
+                    {ATTRIBUTE_ORDER.map((attr) => (
+                      <TouchableOpacity
+                        key={attr}
+                        onPress={() => setMeleeAttr(attr)}
+                        style={{
+                          paddingHorizontal: 12,
+                          paddingVertical: 6,
+                          borderRadius: 8,
+                          marginRight: 5,
+                          backgroundColor:
+                            meleeAttr === attr ? colors.primary : "transparent",
+                        }}
+                      >
+                        <Text
+                          style={{
+                            color:
+                              meleeAttr === attr
+                                ? "#fff"
+                                : colors.textSecondary,
+                            fontWeight: meleeAttr === attr ? "bold" : "normal",
+                            fontSize: 12,
+                          }}
+                        >
+                          {attr.substring(0, 3).toUpperCase()}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
+                </View>
+              </View>
+
+              {/* --- À DISTÂNCIA (RANGED) --- */}
+              <View
+                style={[
+                  styles.miniItem,
+                  {
+                    flexDirection: "column",
+                    alignItems: "stretch",
+                    padding: 12,
+                  },
+                ]}
+              >
+                <Text
+                  style={{
+                    color: colors.text,
+                    fontWeight: "bold",
+                    marginBottom: 8,
+                  }}
+                >
+                  À Distância
+                </Text>
+
+                <View style={styles.row}>
+                  <View style={{ flex: 2, marginRight: 8 }}>
+                    <TextInput
+                      style={styles.input}
+                      value={rangedName}
+                      onChangeText={setRangedName}
+                      placeholder="Nome (Ex: Arco)"
+                      placeholderTextColor={colors.textSecondary}
+                    />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <TextInput
+                      style={styles.input}
+                      value={rangedDamage}
+                      onChangeText={setRangedDamage}
+                      placeholder="Dano (1d8)"
+                      placeholderTextColor={colors.textSecondary}
+                    />
+                  </View>
+                </View>
+
+                <View style={[styles.row, { marginTop: 8 }]}>
+                  <View style={{ flex: 1, marginRight: 8 }}>
+                    <TextInput
+                      style={styles.input}
+                      value={rangedBonus}
+                      onChangeText={setRangedBonus}
+                      keyboardType="numeric"
+                      placeholder="Bônus Atq (+2)"
+                      placeholderTextColor={colors.textSecondary}
+                    />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <TextInput
+                      style={styles.input}
+                      value={rangedRange}
+                      onChangeText={setRangedRange}
+                      placeholder="Alcance (9m)"
+                      placeholderTextColor={colors.textSecondary}
+                    />
+                  </View>
+                </View>
+
+                {/* --- NOVO SELETOR DE ATRIBUTO RANGED --- */}
+                <Text style={[styles.label, { marginTop: 12 }]}>
+                  Atributo Usado no Ataque
+                </Text>
+                <View
+                  style={[
+                    styles.input,
+                    { padding: 0, overflow: "hidden", height: 45 },
+                  ]}
+                >
+                  <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={{
+                      alignItems: "center",
+                      paddingHorizontal: 5,
+                    }}
+                  >
+                    {ATTRIBUTE_ORDER.map((attr) => (
+                      <TouchableOpacity
+                        key={attr}
+                        onPress={() => setRangedAttr(attr)}
+                        style={{
+                          paddingHorizontal: 12,
+                          paddingVertical: 6,
+                          borderRadius: 8,
+                          marginRight: 5,
+                          backgroundColor:
+                            rangedAttr === attr
+                              ? colors.primary
+                              : "transparent",
+                        }}
+                      >
+                        <Text
+                          style={{
+                            color:
+                              rangedAttr === attr
+                                ? "#fff"
+                                : colors.textSecondary,
+                            fontWeight: rangedAttr === attr ? "bold" : "normal",
+                            fontSize: 12,
+                          }}
+                        >
+                          {attr.substring(0, 3).toUpperCase()}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
+                </View>
+              </View>
+
+              <View style={styles.divider} />
+
+              {!phaseMode && <>
+              <Text style={styles.label}>Outros Equipamentos (Inventário)</Text>
               <TextInput
                 style={styles.input}
                 value={equip}
                 onChangeText={setEquip}
+                placeholder="Poções, armaduras, moedas..."
                 placeholderTextColor={colors.textSecondary}
               />
-
-              <Text style={styles.label}>Ações & Habilidades</Text>
-              <Text
-                style={{
-                  fontSize: 12,
-                  color: colors.textSecondary,
-                  marginBottom: 4,
-                }}
-              >
-                {CUSTOM_CLASSES.includes(npcClass || "")
-                  ? "Digite aqui os ataques, posturas e habilidades do monstro."
-                  : "Ações extras ou descrição."}
-              </Text>
-              <TextInput
-                style={[styles.input, styles.textArea]}
-                multiline
-                value={actions}
-                onChangeText={setActions}
-                placeholderTextColor={colors.textSecondary}
-                placeholder="Ex: Ataque de Garra +5 (1d6+3)..."
-              />
+              </>}
 
               <View style={styles.divider} />
+
+              {/* --- NOVA SEÇÃO: HABILIDADES (SKILLS) --- */}
+              <View
+                style={{
+                  flexDirection: "row",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  marginBottom: 10,
+                }}
+              >
+                <Text style={styles.label}>Habilidades Especiais</Text>
+
+                {/* Botão de Adicionar (Para abrir seu futuro SkillSelectorModal) */}
+                <TouchableOpacity
+                  onPress={() => setSkillModalVisible(true)}
+                  style={styles.addBtnSmall}
+                >
+                  <Text style={styles.addBtnText}>+ Habilidade</Text>
+                </TouchableOpacity>
+              </View>
+
+              {/* Lista de Skills que o NPC tem */}
+              {npcSkills.length === 0 ? (
+                <Text
+                  style={{
+                    color: colors.textSecondary,
+                    fontStyle: "italic",
+                    marginBottom: 10,
+                    fontSize: 12,
+                  }}
+                >
+                  Nenhuma habilidade mecânica cadastrada.
+                </Text>
+              ) : (
+                npcSkills.map((skill) => (
+                  <View key={skill.id} style={styles.miniItem}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.miniItemTitle}>{skill.name}</Text>
+                      <Text style={styles.miniItemDesc}>
+                        Ação: {skill.actionType} • Custo: {skill.cost} Foco
+                      </Text>
+                    </View>
+
+                    {/* Botão para remover a Skill */}
+                    <TouchableOpacity onPress={() => removeSkill(skill.id)}>
+                      <Ionicons
+                        name="trash-outline"
+                        size={20}
+                        color={colors.error}
+                      />
+                    </TouchableOpacity>
+                  </View>
+                ))
+              )}
+
+              <View style={styles.divider} />
+
+              {!phaseMode && <>
               {/* Lógica de Magias e Atributos mantida... */}
               <View
                 style={{
@@ -587,6 +1105,7 @@ export const AddNpcModal = ({
                   </View>
                 ))}
               </View>
+              </>}
             </>
           )}
         </ScrollView>
@@ -603,7 +1122,308 @@ export const AddNpcModal = ({
           onClose={() => setSpellModalVisible(false)}
           onSelect={addSpell}
           learnedSpells={npcSpells}
+          character={{ class: npcClass,
+      specialization: selectedSpecialization(), level: parseInt(level) || 1 } as any}
         />
+        {!phaseMode && editingPhase !== null && phaseDraft && (
+          <AddNpcModal
+            visible
+            phaseMode
+            initialData={phaseDraft}
+            onClose={() => setEditingPhase(null)}
+            onSave={(data) => {
+              const phase: NpcPhase = {
+                name: data.name, image: data.image, maxHp: data.maxHp,
+                armorClass: data.armorClass,
+                stances: data.specialization?.newStances?.length ? data.specialization.newStances : data.stances,
+                skills: data.skills, weapons: data.weapons,
+              };
+              setPhases((prev) => editingPhase === prev.length ? [...prev, phase] :
+                prev.map((item, index) => index === editingPhase ? phase : item));
+            }}
+          />
+        )}
+        {/* --- MODAL COMPLETO: ADICIONAR NOVA SKILL --- */}
+        <Modal visible={skillModalVisible} transparent animationType="fade">
+          <View style={styles.overlayModal}>
+            <View style={[styles.cardModal, { maxHeight: "90%" }]}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>Nova Habilidade</Text>
+                <TouchableOpacity onPress={() => setSkillModalVisible(false)}>
+                  <Ionicons
+                    name="close"
+                    size={24}
+                    color={colors.textSecondary}
+                  />
+                </TouchableOpacity>
+              </View>
+
+              <ScrollView style={{ padding: 20 }}>
+                {/* INFORMAÇÕES BÁSICAS */}
+                <Text style={styles.label}>Nome da Habilidade</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="Ex: Mordida Venenosa"
+                  placeholderTextColor={colors.textSecondary}
+                  value={tempSkillName}
+                  onChangeText={setTempSkillName}
+                />
+
+                <View style={styles.row}>
+                  <View style={{ flex: 1, marginRight: 10 }}>
+                    <Text style={styles.label}>Custo (Foco)</Text>
+                    <TextInput
+                      style={styles.input}
+                      keyboardType="numeric"
+                      placeholder="0"
+                      placeholderTextColor={colors.textSecondary}
+                      value={tempSkillCost}
+                      onChangeText={setTempSkillCost}
+                    />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.label}>Tipo de Ação</Text>
+                    <View
+                      style={[styles.input, { padding: 0, overflow: "hidden" }]}
+                    >
+                      {/* Um seletor simples improvisado usando flex row */}
+                      <ScrollView
+                        horizontal
+                        showsHorizontalScrollIndicator={false}
+                        contentContainerStyle={{
+                          alignItems: "center",
+                          paddingHorizontal: 10,
+                        }}
+                      >
+                        {(
+                          ["Padrão", "Ação Bônus", "Reação", "Livre"] as const
+                        ).map((act) => (
+                          <TouchableOpacity
+                            key={act}
+                            onPress={() => setTempSkillAction(act)}
+                            style={{
+                              paddingHorizontal: 10,
+                              paddingVertical: 6,
+                              borderRadius: 8,
+                              marginRight: 5,
+                              backgroundColor:
+                                tempSkillAction === act
+                                  ? colors.primary
+                                  : "transparent",
+                            }}
+                          >
+                            <Text
+                              style={{
+                                color:
+                                  tempSkillAction === act
+                                    ? "#fff"
+                                    : colors.textSecondary,
+                                fontWeight:
+                                  tempSkillAction === act ? "bold" : "normal",
+                                fontSize: 12,
+                              }}
+                            >
+                              {act}
+                            </Text>
+                          </TouchableOpacity>
+                        ))}
+                      </ScrollView>
+                    </View>
+                  </View>
+                </View>
+
+                {/* DESCRIÇÃO */}
+                <Text style={styles.label}>Descrição</Text>
+                <TextInput
+                  style={[styles.input, { height: 60 }]}
+                  multiline
+                  placeholder="O que essa habilidade faz..."
+                  placeholderTextColor={colors.textSecondary}
+                  value={tempSkillDesc}
+                  onChangeText={setTempSkillDesc}
+                />
+
+                <View style={styles.divider} />
+
+                {/* MECÂNICAS: DANO OU CURA */}
+                <View
+                  style={{ flexDirection: "row", gap: 10, marginBottom: 15 }}
+                >
+                  <TouchableOpacity
+                    style={[
+                      styles.chip,
+                      !tempIsHealing && styles.chipActive,
+                      { flex: 1, alignItems: "center" },
+                    ]}
+                    onPress={() => setTempIsHealing(false)}
+                  >
+                    <Text
+                      style={[
+                        styles.chipText,
+                        !tempIsHealing && styles.chipTextActive,
+                      ]}
+                    >
+                      É um Ataque
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[
+                      styles.chip,
+                      tempIsHealing && styles.chipActive,
+                      {
+                        flex: 1,
+                        alignItems: "center",
+                        backgroundColor: tempIsHealing
+                          ? colors.success
+                          : colors.inputBg,
+                        borderColor: tempIsHealing
+                          ? colors.success
+                          : colors.border,
+                      },
+                    ]}
+                    onPress={() => setTempIsHealing(true)}
+                  >
+                    <Text
+                      style={[
+                        styles.chipText,
+                        tempIsHealing && styles.chipTextActive,
+                      ]}
+                    >
+                      É uma Cura
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+
+                {tempIsHealing ? (
+                  // FORMULÁRIO DE CURA
+                  <View>
+                    <Text style={styles.label}>
+                      Fórmula de Cura (Ex: 2d8+4)
+                    </Text>
+                    <TextInput
+                      style={styles.input}
+                      placeholder="Ex: 2d8+4"
+                      placeholderTextColor={colors.textSecondary}
+                      value={tempHealFormula}
+                      onChangeText={setTempHealFormula}
+                    />
+                  </View>
+                ) : (
+                  // FORMULÁRIO DE ATAQUE
+                  <View>
+                    <View
+                      style={{
+                        flexDirection: "row",
+                        alignItems: "center",
+                        marginBottom: 10,
+                      }}
+                    >
+                      <TouchableOpacity
+                        onPress={() => setTempUsesWeapon(!tempUsesWeapon)}
+                        style={{
+                          width: 20,
+                          height: 20,
+                          borderRadius: 4,
+                          borderWidth: 2,
+                          borderColor: tempUsesWeapon
+                            ? colors.primary
+                            : colors.textSecondary,
+                          backgroundColor: tempUsesWeapon
+                            ? colors.primary
+                            : "transparent",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          marginRight: 10,
+                        }}
+                      >
+                        {tempUsesWeapon && (
+                          <Ionicons name="checkmark" size={14} color="#fff" />
+                        )}
+                      </TouchableOpacity>
+                      <Text style={{ color: colors.text, fontSize: 14 }}>
+                        Soma Dano da Arma base (1d4 desarmado)
+                      </Text>
+                    </View>
+
+                    {tempUsesWeapon && (
+                      <View
+                        style={{
+                          flexDirection: "row",
+                          gap: 10,
+                          marginBottom: 15,
+                        }}
+                      >
+                        {(["melee", "ranged", "any"] as const).map((wType) => (
+                          <TouchableOpacity
+                            key={wType}
+                            onPress={() => setTempWeaponType(wType)}
+                            style={[
+                              styles.chip,
+                              tempWeaponType === wType && styles.chipActive,
+                              { paddingVertical: 4, paddingHorizontal: 10 },
+                            ]}
+                          >
+                            <Text
+                              style={[
+                                styles.chipText,
+                                tempWeaponType === wType &&
+                                  styles.chipTextActive,
+                                { fontSize: 12 },
+                              ]}
+                            >
+                              {wType === "melee"
+                                ? "Corpo-a-Corpo"
+                                : wType === "ranged"
+                                  ? "Distância"
+                                  : "Qualquer"}
+                            </Text>
+                          </TouchableOpacity>
+                        ))}
+                      </View>
+                    )}
+
+                    <Text style={styles.label}>
+                      Dados Extras de Dano (Opcional)
+                    </Text>
+                    <TextInput
+                      style={styles.input}
+                      placeholder="Ex: 1d6 (Veneno)"
+                      placeholderTextColor={colors.textSecondary}
+                      value={tempBonusDmg}
+                      onChangeText={setTempBonusDmg}
+                    />
+                  </View>
+                )}
+
+                <View style={{ height: 20 }} />
+              </ScrollView>
+
+              {/* BOTÕES DO MODAL */}
+              <View
+                style={{
+                  flexDirection: "row",
+                  gap: 10,
+                  padding: 20,
+                  borderTopWidth: 1,
+                  borderColor: colors.border,
+                }}
+              >
+                <TouchableOpacity
+                  style={styles.cancelBtn}
+                  onPress={() => setSkillModalVisible(false)}
+                >
+                  <Text style={styles.cancelText}>Cancelar</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.saveBtn}
+                  onPress={handleAddNewSkill}
+                >
+                  <Text style={styles.saveText}>Criar Habilidade</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </Modal>
       </SafeAreaView>
     </Modal>
   );
@@ -966,5 +1786,28 @@ const getStyles = (colors: any) =>
       alignItems: "center",
       borderWidth: 2,
       borderColor: colors.surface,
+    },
+    overlayModal: {
+      flex: 1,
+      backgroundColor: "rgba(0,0,0,0.6)", // Fundo escuro transparente
+      justifyContent: "center",
+      alignItems: "center",
+      padding: 20,
+    },
+    cardModal: {
+      backgroundColor: colors.surface,
+      width: "100%",
+      borderRadius: 16,
+      // Remova o padding: 24 daqui, pois agora a ScrollView gerencia o padding interno
+      borderWidth: 1,
+      borderColor: colors.border,
+      elevation: 5,
+    },
+    saveBtn: {
+      flex: 1,
+      paddingVertical: 14,
+      borderRadius: 8,
+      backgroundColor: colors.primary,
+      alignItems: "center",
     },
   });
