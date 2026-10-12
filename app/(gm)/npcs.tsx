@@ -31,6 +31,8 @@ export default function NpcScreen() {
     updateNpcInLibrary,
     addCombatant,
     combatants,
+    isSyncingNpcs,
+    syncNpcsWithServer,
   } = useCampaign();
   const { colors } = useTheme();
   const { showAlert } = useAlert();
@@ -189,13 +191,30 @@ export default function NpcScreen() {
   return (
     <View style={styles.container}>
       <View style={styles.topBar}>
-        <Text style={styles.screenTitle}></Text>
+        <TouchableOpacity
+          onPress={async () => {
+            await syncNpcsWithServer();
+            showAlert("Sincronização", "Biblioteca de NPCs sincronizada com a nuvem!");
+          }}
+          disabled={isSyncingNpcs}
+          style={[styles.iconBtn, { opacity: isSyncingNpcs ? 0.6 : 1 }]}
+        >
+          <Ionicons
+            name={isSyncingNpcs ? "sync-outline" : "cloud-done-outline"}
+            size={22}
+            color={colors.primary}
+          />
+          <Text style={{ color: colors.primary, marginLeft: 6, fontWeight: "600", fontSize: 13 }}>
+            {isSyncingNpcs ? "Sincronizando..." : "Sincronizar Nuvem"}
+          </Text>
+        </TouchableOpacity>
+
         <TouchableOpacity
           onPress={handleImportPlayerAsNpc}
           style={styles.iconBtn}
         >
-          <Ionicons name="download-outline" size={24} color={colors.primary} />
-          <Text style={{ color: colors.primary, marginLeft: 4 }}>
+          <Ionicons name="download-outline" size={22} color={colors.primary} />
+          <Text style={{ color: colors.primary, marginLeft: 4, fontWeight: "600", fontSize: 13 }}>
             Importar Player
           </Text>
         </TouchableOpacity>

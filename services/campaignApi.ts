@@ -130,6 +130,21 @@ export interface MemberSheetResponse {
   characterData: any | null;
 }
 
+export interface NpcTemplateInput {
+  id?: string;
+  name: string;
+  level?: number;
+  templateData: any;
+  updatedAt?: string;
+}
+
+export interface NpcTemplateItem extends NpcTemplateInput {
+  id: string;
+  userId?: string;
+  createdAt?: string;
+  updatedAt: string;
+}
+
 export interface CampaignApiOptions {
   baseUrl: string;
   getAccessToken: () => string | Promise<string>;
@@ -305,6 +320,19 @@ export function createCampaignApi({ baseUrl, getAccessToken, fetcher = fetch }: 
     ),
     deleteNpc: (campaignId: string, npcId: string) => request<void>(
       `${campaignPath(campaignId)}/npcs/${encodeURIComponent(requiredText(npcId, "ID do NPC"))}`, "DELETE",
+    ),
+    listNpcTemplates: () => request<NpcTemplateItem[]>("/npc-library"),
+    createNpcTemplate: (template: NpcTemplateInput) => request<NpcTemplateItem>(
+      "/npc-library", "POST", template,
+    ),
+    updateNpcTemplate: (id: string, template: NpcTemplateInput) => request<NpcTemplateItem>(
+      `/npc-library/${encodeURIComponent(requiredText(id, "ID do Template"))}`, "PUT", template,
+    ),
+    deleteNpcTemplate: (id: string) => request<void>(
+      `/npc-library/${encodeURIComponent(requiredText(id, "ID do Template"))}`, "DELETE",
+    ),
+    syncNpcTemplates: (templates: NpcTemplateInput[]) => request<NpcTemplateItem[]>(
+      "/npc-library/sync", "POST", { templates },
     ),
   };
 }

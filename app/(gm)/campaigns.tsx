@@ -27,7 +27,7 @@ import {
 import { masterCampaigns } from "@/services/campaignView";
 import { Ionicons } from "@expo/vector-icons";
 import * as Clipboard from "expo-clipboard";
-import React, { useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { ScrollView, Text, View } from "react-native";
 
 const EMPTY_DRAFT: JournalEntryInput = { title: "", body: "", visibility: "gm" };
@@ -61,7 +61,7 @@ export default function GMCampaignsScreen() {
     });
   }
 
-  function clearSession() {
+  const clearSession = useCallback(() => {
     setSession(null);
     setSelected(null);
     setCampaigns([]);
@@ -76,16 +76,16 @@ export default function GMCampaignsScreen() {
     setInspectedMember(null);
     setInspectedSheet(null);
     setSheetModalVisible(false);
-  }
+  }, [setSession]);
 
-  function showError(cause: unknown) {
+  const showError = useCallback((cause: unknown) => {
     if (cause instanceof CampaignApiError && cause.status === 401) {
       clearSession();
       setError("Sessão expirada. Entre novamente.");
       return;
     }
     setError("Não foi possível concluir a operação. Verifique a conexão e tente novamente.");
-  }
+  }, [clearSession]);
 
   async function authenticate(baseUrl: string, name: string, pin: string) {
     if (busy) return;
@@ -129,6 +129,28 @@ export default function GMCampaignsScreen() {
       setBusy(false);
     }
   }
+
+  useEffect(() => {
+    let active = true;
+    if (session?.role === "gm") {
+      setBusy(true);
+      setError("");
+      api(session)
+        .listCampaigns()
+        .then((data) => {
+          if (active) setCampaigns(masterCampaigns(data));
+        })
+        .catch((cause) => {
+          if (active) showError(cause);
+        })
+        .finally(() => {
+          if (active) setBusy(false);
+        });
+    }
+    return () => {
+      active = false;
+    };
+  }, [session, showError]);
 
   function refresh() {
     run(async (credentials) => {
