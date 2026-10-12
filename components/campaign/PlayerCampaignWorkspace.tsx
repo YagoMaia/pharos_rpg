@@ -1,14 +1,18 @@
 import { ThemeColors } from "@/constants/theme";
-import { CampaignSummary, JournalEntry } from "@/services/campaignApi";
+import { CampaignQuest, CampaignSession, CampaignSummary, JournalEntry } from "@/services/campaignApi";
 import { CampaignJournalList } from "./CampaignJournal";
-import { Ionicons } from "@expo/vector-icons";
-import React from "react";
+import { CampaignSessions } from "./CampaignSessions";
+import { CampaignQuests } from "./CampaignQuests";
+import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
+import React, { useState } from "react";
 import { Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, useWindowDimensions, View } from "react-native";
 
 interface PlayerCampaignWorkspaceProps {
   colors: ThemeColors;
   campaigns: CampaignSummary[];
   entries: JournalEntry[];
+  sessions?: CampaignSession[];
+  quests?: CampaignQuest[];
   selected: CampaignSummary | null;
   inviteCode: string;
   characterName: string;
@@ -18,6 +22,7 @@ interface PlayerCampaignWorkspaceProps {
   onJoin: () => void;
   onLink: () => void;
   onUnlink?: () => void;
+  onSyncSheet?: () => void;
   onRefresh: () => void;
   onSelect: (campaign: CampaignSummary) => void;
   onLogout: () => void;
@@ -68,6 +73,7 @@ export function PlayerCampaignWorkspace(props: PlayerCampaignWorkspaceProps) {
   const { colors, campaigns, selected, busy } = props;
   const { width } = useWindowDimensions();
   const isDesktop = width >= 900;
+  const [tab, setTab] = useState<"sheet" | "sessions" | "quests" | "journal">("sheet");
 
   const isCurrentSheetLinked =
     selected && props.characterId && selected.characterId === props.characterId;
@@ -253,89 +259,233 @@ export function PlayerCampaignWorkspace(props: PlayerCampaignWorkspaceProps) {
             </View>
           ) : (
             <View style={styles.detailContent}>
-              {/* Card de Informações e Vínculo */}
-              <View style={[styles.panel, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-                <View style={styles.selectedHeader}>
-                  <Text style={[styles.selectedTitle, { color: colors.text }]}>{selected.name}</Text>
-                  <View style={styles.idRow}>
-                    <Text style={[styles.idLabel, { color: colors.textSecondary }]}>ID:</Text>
-                    <Text selectable style={[styles.idValue, { color: colors.text }]}>
-                      {selected.id}
-                    </Text>
-                  </View>
-                </View>
+              {/* Barra de Abas da Campanha */}
+              <View style={[styles.campaignTabsRow, { borderBottomColor: colors.border }]}>
+                <TouchableOpacity
+                  accessibilityRole="tab"
+                  accessibilityState={{ selected: tab === "sheet" }}
+                  onPress={() => setTab("sheet")}
+                  style={[
+                    styles.campaignTab,
+                    tab === "sheet" && { borderBottomColor: colors.primary, borderBottomWidth: 3 },
+                    webPointer,
+                  ]}
+                >
+                  <Ionicons
+                    name="shield-checkmark-outline"
+                    size={16}
+                    color={tab === "sheet" ? colors.primary : colors.textSecondary}
+                  />
+                  <Text
+                    style={[
+                      styles.campaignTabText,
+                      { color: tab === "sheet" ? colors.primary : colors.textSecondary },
+                    ]}
+                  >
+                    Ficha & Vínculo
+                  </Text>
+                </TouchableOpacity>
 
-                {/* Bloco de Personagem Local */}
-                <View style={[styles.charBox, { borderColor: colors.border, backgroundColor: colors.inputBg }]}>
-                  <View style={styles.charBoxLeft}>
-                    <View
-                      style={[
-                        styles.charAvatar,
-                        { backgroundColor: isCurrentSheetLinked ? colors.success : colors.primary },
-                      ]}
-                    >
-                      <Ionicons
-                        name={isCurrentSheetLinked ? "shield-checkmark" : "person"}
-                        size={18}
-                        color="#fff"
-                      />
-                    </View>
-                    <View style={{ flex: 1 }}>
-                      <Text style={[styles.charName, { color: colors.text }]}>
-                        {props.characterName || "Sem Nome"}
-                      </Text>
-                      <Text style={[styles.charSubtitle, { color: colors.textSecondary }]}>
-                        {isCurrentSheetLinked
-                          ? "Ficha pronta para o combate"
-                          : selected.characterId
-                            ? "Outra ficha está vinculada nesta campanha"
-                            : "Ficha deste dispositivo ainda não vinculada"}
-                      </Text>
-                    </View>
-                  </View>
-                </View>
+                <TouchableOpacity
+                  accessibilityRole="tab"
+                  accessibilityState={{ selected: tab === "sessions" }}
+                  onPress={() => setTab("sessions")}
+                  style={[
+                    styles.campaignTab,
+                    tab === "sessions" && { borderBottomColor: colors.primary, borderBottomWidth: 3 },
+                    webPointer,
+                  ]}
+                >
+                  <MaterialCommunityIcons
+                    name="calendar-clock"
+                    size={16}
+                    color={tab === "sessions" ? colors.primary : colors.textSecondary}
+                  />
+                  <Text
+                    style={[
+                      styles.campaignTabText,
+                      { color: tab === "sessions" ? colors.primary : colors.textSecondary },
+                    ]}
+                  >
+                    Sessões ({props.sessions?.length || 0})
+                  </Text>
+                </TouchableOpacity>
 
-                {/* Ações da Campanha */}
-                <View style={styles.actionsContainer}>
-                  {selected.characterId !== props.characterId && (
-                    <CampaignButton
-                      label={
-                        selected.characterId
-                          ? "Substituir Vínculo pela Ficha Atual"
-                          : "Vincular Minha Ficha à Campanha"
-                      }
-                      icon={selected.characterId ? "swap-horizontal-outline" : "link-outline"}
-                      disabled={busy || !props.characterId}
-                      color={colors.primary}
-                      onPress={props.onLink}
-                    />
-                  )}
+                <TouchableOpacity
+                  accessibilityRole="tab"
+                  accessibilityState={{ selected: tab === "quests" }}
+                  onPress={() => setTab("quests")}
+                  style={[
+                    styles.campaignTab,
+                    tab === "quests" && { borderBottomColor: colors.primary, borderBottomWidth: 3 },
+                    webPointer,
+                  ]}
+                >
+                  <MaterialCommunityIcons
+                    name="target"
+                    size={16}
+                    color={tab === "quests" ? colors.primary : colors.textSecondary}
+                  />
+                  <Text
+                    style={[
+                      styles.campaignTabText,
+                      { color: tab === "quests" ? colors.primary : colors.textSecondary },
+                    ]}
+                  >
+                    Missões ({props.quests?.length || 0})
+                  </Text>
+                </TouchableOpacity>
 
-                  {!!selected.characterId && !!props.onUnlink && (
-                    <CampaignButton
-                      label="Desvincular Ficha"
-                      icon="unlink-outline"
-                      disabled={busy}
-                      color={colors.error}
-                      outline
-                      onPress={props.onUnlink}
-                    />
-                  )}
-
-                  {isCurrentSheetLinked && (
-                    <CampaignButton
-                      label="Rolar Iniciativa e Abrir Combate"
-                      icon="flash-outline"
-                      disabled={busy}
-                      color={colors.primary}
-                      onPress={props.onStartCombat}
-                    />
-                  )}
-                </View>
+                <TouchableOpacity
+                  accessibilityRole="tab"
+                  accessibilityState={{ selected: tab === "journal" }}
+                  onPress={() => setTab("journal")}
+                  style={[
+                    styles.campaignTab,
+                    tab === "journal" && { borderBottomColor: colors.primary, borderBottomWidth: 3 },
+                    webPointer,
+                  ]}
+                >
+                  <Ionicons
+                    name="book-outline"
+                    size={16}
+                    color={tab === "journal" ? colors.primary : colors.textSecondary}
+                  />
+                  <Text
+                    style={[
+                      styles.campaignTabText,
+                      { color: tab === "journal" ? colors.primary : colors.textSecondary },
+                    ]}
+                  >
+                    Diário ({props.entries.length})
+                  </Text>
+                </TouchableOpacity>
               </View>
 
-              {/* Diário de Anotações Compartilhadas */}
-              <CampaignJournalList colors={colors} entries={props.entries} />
+              {/* Aba: Ficha e Vínculo */}
+              {tab === "sheet" && (
+                <View style={[styles.panel, { backgroundColor: colors.surface, borderColor: colors.border, marginTop: 14 }]}>
+                  <View style={styles.selectedHeader}>
+                    <Text style={[styles.selectedTitle, { color: colors.text }]}>{selected.name}</Text>
+                    <View style={styles.idRow}>
+                      <Text style={[styles.idLabel, { color: colors.textSecondary }]}>ID:</Text>
+                      <Text selectable style={[styles.idValue, { color: colors.text }]}>
+                        {selected.id}
+                      </Text>
+                    </View>
+                  </View>
+
+                  {/* Bloco de Personagem Local */}
+                  <View style={[styles.charBox, { borderColor: colors.border, backgroundColor: colors.inputBg }]}>
+                    <View style={styles.charBoxLeft}>
+                      <View
+                        style={[
+                          styles.charAvatar,
+                          { backgroundColor: isCurrentSheetLinked ? colors.success : colors.primary },
+                        ]}
+                      >
+                        <Ionicons
+                          name={isCurrentSheetLinked ? "shield-checkmark" : "person"}
+                          size={18}
+                          color="#fff"
+                        />
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Text style={[styles.charName, { color: colors.text }]}>
+                          {props.characterName || "Sem Nome"}
+                        </Text>
+                        <Text style={[styles.charSubtitle, { color: colors.textSecondary }]}>
+                          {isCurrentSheetLinked
+                            ? "Ficha pronta para o combate e sincronizada"
+                            : selected.characterId
+                              ? "Outra ficha está vinculada nesta campanha"
+                              : "Ficha deste dispositivo ainda não vinculada"}
+                        </Text>
+                      </View>
+                    </View>
+                  </View>
+
+                  {/* Ações da Campanha */}
+                  <View style={styles.actionsContainer}>
+                    {selected.characterId !== props.characterId && (
+                      <CampaignButton
+                        label={
+                          selected.characterId
+                            ? "Substituir Vínculo pela Ficha Atual"
+                            : "Vincular Minha Ficha à Campanha"
+                        }
+                        icon={selected.characterId ? "swap-horizontal-outline" : "link-outline"}
+                        disabled={busy || !props.characterId}
+                        color={colors.primary}
+                        onPress={props.onLink}
+                      />
+                    )}
+
+                    {isCurrentSheetLinked && !!props.onSyncSheet && (
+                      <CampaignButton
+                        label="Sincronizar Ficha Completa"
+                        icon="cloud-upload-outline"
+                        disabled={busy}
+                        color={colors.secondary || colors.info}
+                        textColor="#121212"
+                        onPress={props.onSyncSheet}
+                      />
+                    )}
+
+                    {!!selected.characterId && !!props.onUnlink && (
+                      <CampaignButton
+                        label="Desvincular Ficha"
+                        icon="unlink-outline"
+                        disabled={busy}
+                        color={colors.error}
+                        outline
+                        onPress={props.onUnlink}
+                      />
+                    )}
+
+                    {isCurrentSheetLinked && (
+                      <CampaignButton
+                        label="Rolar Iniciativa e Abrir Combate"
+                        icon="flash-outline"
+                        disabled={busy}
+                        color={colors.primary}
+                        onPress={props.onStartCombat}
+                      />
+                    )}
+                  </View>
+                </View>
+              )}
+
+              {/* Aba: Sessões */}
+              {tab === "sessions" && (
+                <View style={[styles.panel, { backgroundColor: colors.surface, borderColor: colors.border, marginTop: 14 }]}>
+                  <CampaignSessions
+                    colors={colors}
+                    sessions={props.sessions || []}
+                    isGm={false}
+                    busy={busy}
+                  />
+                </View>
+              )}
+
+              {/* Aba: Missões (Quests) */}
+              {tab === "quests" && (
+                <View style={[styles.panel, { backgroundColor: colors.surface, borderColor: colors.border, marginTop: 14 }]}>
+                  <CampaignQuests
+                    colors={colors}
+                    quests={props.quests || []}
+                    isGm={false}
+                    busy={busy}
+                  />
+                </View>
+              )}
+
+              {/* Aba: Diário */}
+              {tab === "journal" && (
+                <View style={{ marginTop: 14 }}>
+                  <CampaignJournalList colors={colors} entries={props.entries} />
+                </View>
+              )}
             </View>
           )}
         </View>
@@ -578,5 +728,23 @@ const styles = StyleSheet.create({
   },
   actionsContainer: {
     gap: 8,
+  },
+  campaignTabsRow: {
+    flexDirection: "row",
+    borderBottomWidth: 1,
+    marginTop: 16,
+    gap: 8,
+    flexWrap: "wrap",
+  },
+  campaignTab: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+  },
+  campaignTabText: {
+    fontSize: 13,
+    fontWeight: "600",
   },
 });

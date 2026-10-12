@@ -6,7 +6,15 @@ import { useWebSocket } from "@/context/WebSocketContext";
 import { initiativeBonus } from "@/utils/featRules";
 import { useRouter } from "expo-router";
 import { useCampaignAuth } from "@/context/CampaignAuthContext";
-import { CampaignApiError, CampaignSummary, JournalEntry, createAuthApi, createCampaignApi } from "@/services/campaignApi";
+import {
+  CampaignApiError,
+  CampaignQuest,
+  CampaignSession,
+  CampaignSummary,
+  JournalEntry,
+  createAuthApi,
+  createCampaignApi,
+} from "@/services/campaignApi";
 import { playerCampaigns } from "@/services/campaignView";
 import { Ionicons } from "@expo/vector-icons";
 import React, { useState } from "react";
@@ -22,6 +30,8 @@ export default function PlayerCampaignsScreen() {
   const [campaigns, setCampaigns] = useState<CampaignSummary[]>([]);
   const [selected, setSelected] = useState<CampaignSummary | null>(null);
   const [entries, setEntries] = useState<JournalEntry[]>([]);
+  const [sessions, setSessions] = useState<CampaignSession[]>([]);
+  const [quests, setQuests] = useState<CampaignQuest[]>([]);
   const [inviteCode, setInviteCode] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -31,6 +41,8 @@ export default function PlayerCampaignsScreen() {
     setCampaigns([]);
     setSelected(null);
     setEntries([]);
+    setSessions([]);
+    setQuests([]);
     setInviteCode("");
     setError("");
   }
@@ -62,6 +74,8 @@ export default function PlayerCampaignsScreen() {
       const credentials = { baseUrl: baseUrl.trim(), token: accessToken, role: "player" as const };
       setSelected(null);
       setEntries([]);
+      setSessions([]);
+      setQuests([]);
       setInviteCode("");
       setSession(credentials);
       const client = createCampaignApi({ baseUrl: credentials.baseUrl, getAccessToken: () => credentials.token });
@@ -97,18 +111,33 @@ export default function PlayerCampaignsScreen() {
       setCampaigns(updated);
       setSelected((current) => updated.find((campaign) => campaign.id === current?.id) ?? null);
       if (selected && updated.some((campaign) => campaign.id === selected.id)) {
-        setEntries(await client.listEntries(selected.id));
+        const [notes, sess, qst] = await Promise.all([
+          client.listEntries(selected.id),
+          client.listSessions(selected.id),
+          client.listQuests(selected.id),
+        ]);
+        setEntries(notes);
+        setSessions(sess);
+        setQuests(qst);
       } else {
         setEntries([]);
+        setSessions([]);
+        setQuests([]);
       }
     });
   }
 
   function select(campaign: CampaignSummary) {
     run(async (client) => {
-      const notes = await client.listEntries(campaign.id);
+      const [notes, sess, qst] = await Promise.all([
+        client.listEntries(campaign.id),
+        client.listSessions(campaign.id),
+        client.listQuests(campaign.id),
+      ]);
       setSelected(campaign);
       setEntries(notes);
+      setSessions(sess);
+      setQuests(qst);
     });
   }
 
@@ -117,9 +146,15 @@ export default function PlayerCampaignsScreen() {
       const joined = await client.joinCampaign(inviteCode);
       setCampaigns((current) => [...current.filter((item) => item.id !== joined.id), joined]);
       setSelected(joined);
-      setEntries([]);
       setInviteCode("");
-      setEntries(await client.listEntries(joined.id));
+      const [notes, sess, qst] = await Promise.all([
+        client.listEntries(joined.id),
+        client.listSessions(joined.id),
+        client.listQuests(joined.id),
+      ]);
+      setEntries(notes);
+      setSessions(sess);
+      setQuests(qst);
     });
   }
 
@@ -127,9 +162,16 @@ export default function PlayerCampaignsScreen() {
     const sheetId = character.sheetId;
     if (!selected || isLoading || !sheetId) return;
     run(async (client) => {
-      const linked = await client.linkCharacter(selected.id, sheetId);
+      const linked = await client.linkCharacter(selected.id, sheetId, character);
       setCampaigns((current) => current.map((item) => item.id === linked.id ? linked : item));
       setSelected(linked);
+    });
+  }
+
+  function syncSheet() {
+    if (!selected || !selected.characterId || isLoading) return;
+    run(async (client) => {
+      await client.syncCharacterSheet(selected.id, character);
     });
   }
 
@@ -198,12 +240,15 @@ export default function PlayerCampaignsScreen() {
           campaigns={campaigns}
           selected={selected}
           entries={entries}
+          sessions={sessions}
+          quests={quests}
           inviteCode={inviteCode}
           onInviteChange={setInviteCode}
           busy={busy}
           onJoin={join}
           onLink={link}
           onUnlink={unlink}
+          onSyncSheet={syncSheet}
           onRefresh={refresh}
           onSelect={select}
           onLogout={logout}
