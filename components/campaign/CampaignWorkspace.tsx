@@ -112,7 +112,8 @@ export function CampaignWorkspace(props: CampaignWorkspaceProps) {
   const { colors, campaigns, selected, invite, busy } = props;
   const { width } = useWindowDimensions();
   const isDesktop = width >= 920;
-  const [tab, setTab] = useState<"members" | "sessions" | "quests" | "encounters" | "npcs" | "journal">("members");
+  const [tab, setTab] = useState<"members" | "sessions" | "quests" | "encounters" | "npcs" | "journal">("sessions");
+  const [showCampaignSwitcher, setShowCampaignSwitcher] = useState(false);
 
   return (
     <ScrollView style={{ backgroundColor: colors.background }} contentContainerStyle={styles.content}>
@@ -123,23 +124,38 @@ export function CampaignWorkspace(props: CampaignWorkspaceProps) {
             <MaterialCommunityIcons name="shield-crown" size={20} color={colors.primary} />
             <Text style={[styles.roleBadgeText, { color: colors.primary }]}>Mestre</Text>
           </View>
-          <Text style={[styles.topBarTitle, { color: colors.text }]}>Painel de Campanhas</Text>
+          <Text style={[styles.topBarTitle, { color: colors.text }]}>
+            {selected ? selected.name : "Painel da Mesa"}
+          </Text>
         </View>
 
-        <ActionButton
-          label="Sair da Mesa"
-          icon="log-out-outline"
-          color={colors.error}
-          disabled={busy}
-          onPress={props.onLogout}
-          outline
-        />
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+          {selected && (
+            <ActionButton
+              label={showCampaignSwitcher ? "Focar na Mesa" : "Outras Mesas"}
+              icon="layers-outline"
+              color={colors.primary}
+              onPress={() => setShowCampaignSwitcher(!showCampaignSwitcher)}
+              outline
+            />
+          )}
+
+          <ActionButton
+            label="Sair da Mesa"
+            icon="log-out-outline"
+            color={colors.error}
+            disabled={busy}
+            onPress={props.onLogout}
+            outline
+          />
+        </View>
       </View>
 
       {/* Grid Principal Responsivo */}
-      <View style={isDesktop ? styles.columns : styles.stack}>
-        {/* Coluna Esquerda: Criação e Lista */}
-        <View style={[styles.sidebar, isDesktop ? { width: 340 } : { width: "100%" }]}>
+      <View style={isDesktop && (showCampaignSwitcher || !selected) ? styles.columns : styles.stack}>
+        {/* Coluna Esquerda: Criação e Lista (exibida apenas se solicitado ou se nenhuma mesa estiver ativa) */}
+        {(showCampaignSwitcher || !selected) && (
+          <View style={[styles.sidebar, isDesktop ? { width: 340 } : { width: "100%" }]}>
           {/* Card: Criar Campanha */}
           <View style={[styles.panel, { backgroundColor: colors.surface, borderColor: colors.border }]}>
             <View style={styles.cardHeader}>
@@ -252,6 +268,7 @@ export function CampaignWorkspace(props: CampaignWorkspaceProps) {
             )}
           </View>
         </View>
+        )}
 
         {/* Coluna Direita: Detalhes, Membros e Diário */}
         <View style={[styles.detail, { flex: 1 }]}>

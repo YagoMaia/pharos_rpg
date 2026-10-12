@@ -135,10 +135,43 @@ export default function GMCampaignsScreen() {
     if (session?.role === "gm") {
       setBusy(true);
       setError("");
-      api(session)
+      const client = api(session);
+      client
         .listCampaigns()
-        .then((data) => {
-          if (active) setCampaigns(masterCampaigns(data));
+        .then(async (data) => {
+          if (!active) return;
+          let masterList = masterCampaigns(data);
+          // Se não existir nenhuma campanha (primeiro boot), inicializa a Mesa automaticamente
+          if (masterList.length === 0) {
+            try {
+              const defaultCamp = await client.createCampaign("A Mesa de Pharos");
+              masterList = [defaultCamp];
+            } catch {
+              // Segue com lista vazia se falhar
+            }
+          }
+          if (active) setCampaigns(masterList);
+
+          // Auto-seleciona a campanha ativa e carrega o painel completo
+          if (masterList.length > 0) {
+            const firstId = masterList[0].id;
+            const [details, notes, sessionsList, questsList, encountersList, npcsList] = await Promise.all([
+              client.getCampaign(firstId),
+              client.listEntries(firstId),
+              client.listSessions(firstId),
+              client.listQuests(firstId),
+              client.listEncounters(firstId),
+              client.listNpcs(firstId),
+            ]);
+            if (active) {
+              setSelected(details);
+              setEntries(notes);
+              setSessions(sessionsList);
+              setQuests(questsList);
+              setEncounters(encountersList);
+              setNpcs(npcsList);
+            }
+          }
         })
         .catch((cause) => {
           if (active) showError(cause);

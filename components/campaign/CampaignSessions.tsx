@@ -1,5 +1,7 @@
 import { ThemeColors } from "@/constants/theme";
 import { CampaignSession, CampaignSessionInput, SessionStatus } from "@/services/campaignApi";
+import { DateTimePickerField } from "@/components/ui/DateTimePickerField";
+import { formatSessionDate } from "@/utils/sessionDate";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import React, { useState } from "react";
 import { Platform, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
@@ -144,13 +146,11 @@ export function CampaignSessions({
 
           <View style={styles.formRow}>
             <View style={{ flex: 1 }}>
-              <Text style={[styles.inputLabel, { color: colors.textSecondary }]}>Data / Agendamento</Text>
-              <TextInput
+              <DateTimePickerField
+                colors={colors}
                 value={scheduledAt}
-                onChangeText={setScheduledAt}
-                placeholder="Ex: 15/10/2026 às 19:30"
-                placeholderTextColor={colors.textSecondary}
-                style={[styles.input, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.text }]}
+                onChange={setScheduledAt}
+                label="Data / Horário da Sessão"
               />
             </View>
 
@@ -255,7 +255,7 @@ export function CampaignSessions({
                       <Text style={[styles.sessionItemTitle, { color: colors.text }]}>{sess.title}</Text>
                       {sess.scheduledAt && (
                         <Text style={[styles.sessionDate, { color: colors.textSecondary }]}>
-                          📅 {sess.scheduledAt}
+                          📅 {formatSessionDate(sess.scheduledAt)}
                         </Text>
                       )}
                     </View>
