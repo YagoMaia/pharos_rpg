@@ -10,7 +10,8 @@ RUN corepack enable && corepack prepare pnpm@latest --activate
 
 # Instalação com cache de dependências
 COPY package.json pnpm-lock.yaml ./
-RUN pnpm install --frozen-lockfile
+RUN --mount=type=cache,target=/root/.local/share/pnpm/store \
+    pnpm install --frozen-lockfile
 
 # Código-fonte
 COPY . .
