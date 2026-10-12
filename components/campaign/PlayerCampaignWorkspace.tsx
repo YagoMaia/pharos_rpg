@@ -1,8 +1,9 @@
 import { ThemeColors } from "@/constants/theme";
-import { CampaignQuest, CampaignSession, CampaignSummary, JournalEntry } from "@/services/campaignApi";
+import { CampaignNpc, CampaignQuest, CampaignSession, CampaignSummary, JournalEntry } from "@/services/campaignApi";
 import { CampaignJournalList } from "./CampaignJournal";
 import { CampaignSessions } from "./CampaignSessions";
 import { CampaignQuests } from "./CampaignQuests";
+import { CampaignNpcList } from "./CampaignNpcList";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import React, { useState } from "react";
 import { Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, useWindowDimensions, View } from "react-native";
@@ -13,6 +14,7 @@ interface PlayerCampaignWorkspaceProps {
   entries: JournalEntry[];
   sessions?: CampaignSession[];
   quests?: CampaignQuest[];
+  npcs?: CampaignNpc[];
   selected: CampaignSummary | null;
   inviteCode: string;
   characterName: string;
@@ -73,7 +75,7 @@ export function PlayerCampaignWorkspace(props: PlayerCampaignWorkspaceProps) {
   const { colors, campaigns, selected, busy } = props;
   const { width } = useWindowDimensions();
   const isDesktop = width >= 900;
-  const [tab, setTab] = useState<"sheet" | "sessions" | "quests" | "journal">("sheet");
+  const [tab, setTab] = useState<"sheet" | "sessions" | "quests" | "npcs" | "journal">("sheet");
 
   const isCurrentSheetLinked =
     selected && props.characterId && selected.characterId === props.characterId;
@@ -338,6 +340,31 @@ export function PlayerCampaignWorkspace(props: PlayerCampaignWorkspaceProps) {
 
                 <TouchableOpacity
                   accessibilityRole="tab"
+                  accessibilityState={{ selected: tab === "npcs" }}
+                  onPress={() => setTab("npcs")}
+                  style={[
+                    styles.campaignTab,
+                    tab === "npcs" && { borderBottomColor: colors.primary, borderBottomWidth: 3 },
+                    webPointer,
+                  ]}
+                >
+                  <MaterialCommunityIcons
+                    name="account-group-outline"
+                    size={16}
+                    color={tab === "npcs" ? colors.primary : colors.textSecondary}
+                  />
+                  <Text
+                    style={[
+                      styles.campaignTabText,
+                      { color: tab === "npcs" ? colors.primary : colors.textSecondary },
+                    ]}
+                  >
+                    NPCs ({props.npcs?.length || 0})
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  accessibilityRole="tab"
                   accessibilityState={{ selected: tab === "journal" }}
                   onPress={() => setTab("journal")}
                   style={[
@@ -474,6 +501,18 @@ export function PlayerCampaignWorkspace(props: PlayerCampaignWorkspaceProps) {
                   <CampaignQuests
                     colors={colors}
                     quests={props.quests || []}
+                    isGm={false}
+                    busy={busy}
+                  />
+                </View>
+              )}
+
+              {/* Aba: NPCs Conhecidos da Mesa */}
+              {tab === "npcs" && (
+                <View style={[styles.panel, { backgroundColor: colors.surface, borderColor: colors.border, marginTop: 14 }]}>
+                  <CampaignNpcList
+                    colors={colors}
+                    npcs={props.npcs || []}
                     isGm={false}
                     busy={busy}
                   />

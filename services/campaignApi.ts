@@ -71,6 +71,60 @@ export interface CampaignQuest extends CampaignQuestInput {
   updatedAt: string;
 }
 
+export type EncounterStatus = "planned" | "ready" | "completed";
+
+export interface CampaignEncounterMonster {
+  name: string;
+  count: number;
+  hp?: number;
+  ac?: number;
+  initiativeBonus?: number;
+  attributes?: Record<string, any>;
+  weapons?: any;
+}
+
+export interface CampaignEncounterInput {
+  name: string;
+  description?: string;
+  tactics?: string;
+  rewards?: string;
+  status: EncounterStatus;
+  monstersData: CampaignEncounterMonster[];
+}
+
+export interface CampaignEncounter extends CampaignEncounterInput {
+  id: string;
+  campaignId: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface LaunchEncounterResult {
+  status: string;
+  encounterId: string;
+  combatantsAdded: number;
+}
+
+export type NpcAttitude = "friendly" | "neutral" | "hostile" | "unknown";
+export type NpcVisibility = "party" | "gm";
+
+export interface CampaignNpcInput {
+  name: string;
+  role?: string;
+  attitude: NpcAttitude;
+  description?: string;
+  gmNotes?: string;
+  combatData?: any;
+  visibility: NpcVisibility;
+}
+
+export interface CampaignNpc extends CampaignNpcInput {
+  id: string;
+  campaignId: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface MemberSheetResponse {
   characterId: string | null;
   characterData: any | null;
@@ -228,6 +282,29 @@ export function createCampaignApi({ baseUrl, getAccessToken, fetcher = fetch }: 
     ),
     deleteEntry: (campaignId: string, entryId: string) => request<void>(
       `${campaignPath(campaignId)}/entries/${encodeURIComponent(requiredText(entryId, "ID da nota"))}`, "DELETE",
+    ),
+    listEncounters: (campaignId: string) => request<CampaignEncounter[]>(`${campaignPath(campaignId)}/encounters`),
+    createEncounter: (campaignId: string, encounter: CampaignEncounterInput) => request<CampaignEncounter>(
+      `${campaignPath(campaignId)}/encounters`, "POST", encounter,
+    ),
+    updateEncounter: (campaignId: string, encounterId: string, encounter: CampaignEncounterInput) => request<CampaignEncounter>(
+      `${campaignPath(campaignId)}/encounters/${encodeURIComponent(requiredText(encounterId, "ID do encontro"))}`, "PUT", encounter,
+    ),
+    deleteEncounter: (campaignId: string, encounterId: string) => request<void>(
+      `${campaignPath(campaignId)}/encounters/${encodeURIComponent(requiredText(encounterId, "ID do encontro"))}`, "DELETE",
+    ),
+    launchEncounter: (campaignId: string, encounterId: string) => request<LaunchEncounterResult>(
+      `${campaignPath(campaignId)}/encounters/${encodeURIComponent(requiredText(encounterId, "ID do encontro"))}/launch`, "POST", {},
+    ),
+    listNpcs: (campaignId: string) => request<CampaignNpc[]>(`${campaignPath(campaignId)}/npcs`),
+    createNpc: (campaignId: string, npc: CampaignNpcInput) => request<CampaignNpc>(
+      `${campaignPath(campaignId)}/npcs`, "POST", npc,
+    ),
+    updateNpc: (campaignId: string, npcId: string, npc: CampaignNpcInput) => request<CampaignNpc>(
+      `${campaignPath(campaignId)}/npcs/${encodeURIComponent(requiredText(npcId, "ID do NPC"))}`, "PUT", npc,
+    ),
+    deleteNpc: (campaignId: string, npcId: string) => request<void>(
+      `${campaignPath(campaignId)}/npcs/${encodeURIComponent(requiredText(npcId, "ID do NPC"))}`, "DELETE",
     ),
   };
 }
