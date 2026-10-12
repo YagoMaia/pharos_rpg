@@ -1,3 +1,5 @@
+import { useCampaignAuth } from "@/context/CampaignAuthContext";
+import { createCampaignApi } from "@/services/campaignApi";
 import { npcToCombatant, playerToCombatant } from "@/utils/combatantFactory";
 import { advanceCombatantPhase, advanceCombatTurn } from "@/utils/combatRules";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -52,10 +54,12 @@ export interface CampaignMetaContextType {
   diceHistory: string[];
   isLoaded: boolean;
   isOfflineMode: boolean;
+  isSyncingNpcs: boolean;
   setOfflineMode: React.Dispatch<React.SetStateAction<boolean>>;
   saveNpcToLibrary: (npc: Omit<NpcTemplate, "id">) => void;
   deleteNpcFromLibrary: (id: string) => void;
   updateNpcInLibrary: (id: string, npc: Partial<NpcTemplate>) => void;
+  syncNpcsWithServer: () => Promise<void>;
   addDiceRoll: (roll: string) => void;
 }
 
@@ -82,12 +86,47 @@ export const CampaignProvider = ({ children }: { children: ReactNode }) => {
       activeTurnId: typeof update === "function" ? update(prev.activeTurnId) : update,
     }));
   }, []);
+  const [session] = useCampaignAuth();
+  const [isSyncingNpcs, setIsSyncingNpcs] = useState(false);
   const [npcLibrary, setNpcLibrary] = useState<NpcTemplate[]>([]);
   const [diceHistory, setDiceHistory] = useState<string[]>([]);
   const [logs, setLogs] = useState<string[]>([]);
   const [isLoaded, setIsLoaded] = useState(false);
   const [lastEvent, setLastEvent] = useState<GameEvent | null>(null);
   const [isOfflineMode, setOfflineMode] = useState(false);
+
+  const syncNpcsWithServer = useCallback(async () => {
+    if (!session || session.role !== "gm" || isSyncingNpcs) return;
+    setIsSyncingNpcs(true);
+    try {
+      const client = createCampaignApi({
+        baseUrl: session.baseUrl,
+        getAccessToken: () => session.token,
+      });
+      const localNpcs = npcLibrary;
+      const payload = localNpcs.map((npc) => ({
+        id: npc.id,
+        name: npc.name,
+        level: npc.level || 1,
+        templateData: npc,
+        updatedAt: (npc as any).updatedAt || new Date().toISOString(),
+      }));
+      const remote = await client.syncNpcTemplates(payload);
+      const consolidated: NpcTemplate[] = remote.map((item) => ({
+        ...item.templateData,
+        id: item.id,
+        name: item.name,
+        level: item.level || 1,
+        updatedAt: item.updatedAt,
+      }));
+      setNpcLibrary(consolidated);
+      await AsyncStorage.setItem("@rpg_npc_library", JSON.stringify(consolidated));
+    } catch (err) {
+      console.warn("Falha ao sincronizar NPCs com o servidor:", err);
+    } finally {
+      setIsSyncingNpcs(false);
+    }
+  }, [session, npcLibrary, isSyncingNpcs]);
 
   useEffect(() => {
     const loadData = async () => {
@@ -104,6 +143,12 @@ export const CampaignProvider = ({ children }: { children: ReactNode }) => {
     };
     loadData();
   }, []);
+
+  useEffect(() => {
+    if (isLoaded && session?.role === "gm" && session?.token) {
+      syncNpcsWithServer();
+    }
+  }, [isLoaded, session?.token]);
 
   useEffect(() => {
     if (isLoaded) {
@@ -267,30 +312,78 @@ export const CampaignProvider = ({ children }: { children: ReactNode }) => {
     setCombatState((prev) => advanceCombatTurn(prev.combatants, prev.activeTurnId));
   }, []);
 
-  const deleteNpcFromLibrary = useCallback((id: string) => {
-    setNpcLibrary((prev) => prev.filter((n) => n.id !== id));
-  }, []);
+  const deleteNpcFromLibrary = useCallback(
+    (id: string) => {
+      setNpcLibrary((prev) => prev.filter((n) => n.id !== id));
+      if (session?.role === "gm") {
+        const client = createCampaignApi({
+          baseUrl: session.baseUrl,
+          getAccessToken: () => session.token,
+        });
+        client.deleteNpcTemplate(id).catch((e) => console.warn("Erro ao excluir NPC no servidor:", e));
+      }
+    },
+    [session],
+  );
 
   const updateNpcInLibrary = useCallback(
     (id: string, updates: Partial<NpcTemplate>) => {
+      let updatedNpc: NpcTemplate | null = null;
       setNpcLibrary((prev) =>
         prev.map((npc) => {
           if (npc.id === id) {
-            return { ...npc, ...updates } as NpcTemplate;
+            updatedNpc = { ...npc, ...updates, updatedAt: new Date().toISOString() } as NpcTemplate;
+            return updatedNpc;
           }
           return npc;
         }),
       );
+      if (session?.role === "gm" && updatedNpc) {
+        const client = createCampaignApi({
+          baseUrl: session.baseUrl,
+          getAccessToken: () => session.token,
+        });
+        const target = updatedNpc as NpcTemplate;
+        client
+          .updateNpcTemplate(id, {
+            name: target.name,
+            level: target.level || 1,
+            templateData: target,
+            updatedAt: (target as any).updatedAt,
+          })
+          .catch((e) => console.warn("Erro ao atualizar NPC no servidor:", e));
+      }
     },
-    [],
+    [session],
   );
 
-  const saveNpcToLibrary = useCallback((npcRaw: Omit<NpcTemplate, "id">) => {
-    setNpcLibrary((prev) => [
-      ...prev,
-      { ...npcRaw, id: Date.now().toString() } as NpcTemplate,
-    ]);
-  }, []);
+  const saveNpcToLibrary = useCallback(
+    (npcRaw: Omit<NpcTemplate, "id">) => {
+      const id = Date.now().toString();
+      const newNpc = {
+        ...npcRaw,
+        id,
+        updatedAt: new Date().toISOString(),
+      } as NpcTemplate;
+      setNpcLibrary((prev) => [...prev, newNpc]);
+      if (session?.role === "gm") {
+        const client = createCampaignApi({
+          baseUrl: session.baseUrl,
+          getAccessToken: () => session.token,
+        });
+        client
+          .createNpcTemplate({
+            id,
+            name: newNpc.name,
+            level: newNpc.level || 1,
+            templateData: newNpc,
+            updatedAt: (newNpc as any).updatedAt,
+          })
+          .catch((e) => console.warn("Erro ao salvar NPC no servidor:", e));
+      }
+    },
+    [session],
+  );
 
   const addDiceRoll = useCallback((roll: string) => {
     setDiceHistory((prev) => [roll, ...prev].slice(0, 20));
@@ -346,10 +439,12 @@ export const CampaignProvider = ({ children }: { children: ReactNode }) => {
       diceHistory,
       isLoaded,
       isOfflineMode,
+      isSyncingNpcs,
       setOfflineMode,
       saveNpcToLibrary,
       deleteNpcFromLibrary,
       updateNpcInLibrary,
+      syncNpcsWithServer,
       addDiceRoll,
     }),
     [
@@ -357,10 +452,12 @@ export const CampaignProvider = ({ children }: { children: ReactNode }) => {
       diceHistory,
       isLoaded,
       isOfflineMode,
+      isSyncingNpcs,
       setOfflineMode,
       saveNpcToLibrary,
       deleteNpcFromLibrary,
       updateNpcInLibrary,
+      syncNpcsWithServer,
       addDiceRoll,
     ],
   );

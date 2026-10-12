@@ -18,7 +18,7 @@ import {
 } from "@/services/campaignApi";
 import { playerCampaigns } from "@/services/campaignView";
 import { Ionicons } from "@expo/vector-icons";
-import React, { useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { ScrollView, Text, View } from "react-native";
 
 export default function PlayerCampaignsScreen() {
@@ -38,7 +38,7 @@ export default function PlayerCampaignsScreen() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
-  function clearSession() {
+  const clearSession = useCallback(() => {
     setSession(null);
     setCampaigns([]);
     setSelected(null);
@@ -48,9 +48,9 @@ export default function PlayerCampaignsScreen() {
     setNpcs([]);
     setInviteCode("");
     setError("");
-  }
+  }, [setSession]);
 
-  function showError(cause: unknown) {
+  const showError = useCallback((cause: unknown) => {
     if (cause instanceof CampaignApiError && cause.status === 401) {
       clearSession();
       setError("Sessão expirada. Entre novamente.");
@@ -65,7 +65,7 @@ export default function PlayerCampaignsScreen() {
       return;
     }
     setError("Operação não concluída. Verifique os dados e a conexão.");
-  }
+  }, [clearSession]);
 
   async function authenticate(baseUrl: string, name: string, pin: string) {
     if (busy) return;
@@ -108,6 +108,29 @@ export default function PlayerCampaignsScreen() {
       setBusy(false);
     }
   }
+
+  useEffect(() => {
+    let active = true;
+    if (session?.role === "player") {
+      setBusy(true);
+      setError("");
+      const client = createCampaignApi({ baseUrl: session.baseUrl, getAccessToken: () => session.token });
+      client
+        .listCampaigns()
+        .then((data) => {
+          if (active) setCampaigns(playerCampaigns(data));
+        })
+        .catch((cause) => {
+          if (active) showError(cause);
+        })
+        .finally(() => {
+          if (active) setBusy(false);
+        });
+    }
+    return () => {
+      active = false;
+    };
+  }, [session, showError]);
 
   function refresh() {
     run(async (client) => {
