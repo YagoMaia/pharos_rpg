@@ -1,0 +1,69 @@
+services:
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        - EXPO_PUBLIC_API_URL=${EXPO_PUBLIC_API_URL:-https://pharos-server.yagomaia.com.br}
+    container_name: pharos-frontend
+    restart: unless-stopped
+    ports:
+      - "3000:80"
+    networks:
+      - pharos-network
+
+  backend:
+    build:
+      context: ../pharos_rpg_server
+      dockerfile: Dockerfile
+    container_name: pharos-backend
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+      - CAMPAIGN_DB_PATH=/data/pharos.sqlite3
+    volumes:
+      - pharos_sqlite_data:/data
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - pharos-network
+
+  redis:
+    image: redis:7-alpine
+    container_name: pharos-redis
+    restart: unless-stopped
+    volumes:
+      - pharos_redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - pharos-network
+
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: pharos-cloudflare-tunnel
+    restart: unless-stopped
+    command: tunnel run
+    environment:
+      - TUNNEL_TOKEN=${CLOUDFLARE_TUNNEL_TOKEN}
+    depends_on:
+      - frontend
+      - backend
+    networks:
+      - pharos-network
+
+volumes:
+  pharos_sqlite_data:
+    name: pharos_sqlite_data
+  pharos_redis_data:
+    name: pharos_redis_data
+
+networks:
+  pharos-network:
+    name: pharos-network

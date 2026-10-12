@@ -373,13 +373,18 @@ export const WebSocketProvider = ({
       .replace(/^wss?:\/\//, "")
       .replace(/\/$/, "");
 
-    if (!host.includes(":")) {
+    const isSecureInput = inputIp.trim().startsWith("https://") || inputIp.trim().startsWith("wss://");
+    const isBrowserHttps = typeof window !== "undefined" && window.location?.protocol === "https:";
+    const isNumericIpOrLocal = /^(localhost|127\.|192\.168\.|10\.|172\.(1[6-9]|2[0-9]|3[0-1])\.|100\.(6[4-9]|[7-9][0-9]|1[0-1][0-9]|12[0-7])\.|[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+)/i.test(host);
+
+    if (!host.includes(":") && isNumericIpOrLocal) {
       host = `${host}:8000`;
     }
 
+    const wsProto = (isSecureInput || isBrowserHttps) ? "wss:" : "ws:";
     const wsUrl = campaignToken
       ? campaignSocketUrl(inputIp, sessionId.slice("campaign-".length))
-      : `ws://${host}/ws/${sessionId}`;
+      : `${wsProto}//${host}/ws/${sessionId}`;
     console.log("🔌 Conectando ao RPG Server:", wsUrl);
 
     try {

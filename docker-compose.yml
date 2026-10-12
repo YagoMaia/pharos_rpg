@@ -1,0 +1,31 @@
+services:
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        - EXPO_PUBLIC_API_URL=${EXPO_PUBLIC_API_URL:-https://pharos-server.yagomaia.com.br}
+    container_name: pharos-frontend
+    restart: unless-stopped
+    ports:
+      - "3000:80"
+    networks:
+      - pharos-network
+
+  # Cloudflare Tunnel - Conecta os domínios aos containers sem abrir portas no firewall
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: pharos-cloudflare-tunnel
+    restart: unless-stopped
+    command: tunnel run
+    environment:
+      - TUNNEL_TOKEN=${CLOUDFLARE_TUNNEL_TOKEN}
+    depends_on:
+      - frontend
+    networks:
+      - pharos-network
+
+networks:
+  pharos-network:
+    name: pharos-network
+    external: false
