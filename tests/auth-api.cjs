@@ -45,3 +45,8 @@ test('erro de autenticação não inclui corpo de resposta sensível', async () 
 test('não envia credenciais por HTTP fora de localhost', () => {
   assert.throws(() => loadAuthApi().createAuthApi({ baseUrl: 'http://192.168.1.10:8000' }), /HTTPS/);
 });
+
+test('formulário informa o mínimo de oito caracteres exigido no cadastro', () => {
+  const source = fs.readFileSync(path.join(process.cwd(), 'components/campaign/CampaignAuthForm.tsx'), 'utf8');
+  assert.match(source, /Senha \(mínimo 8 caracteres para cadastro\)/);
+});

@@ -42,7 +42,7 @@ export function CampaignAuthForm({ colors, busy, onSubmit }: CampaignAuthFormPro
       {mode === "register" && <TextInput accessibilityLabel="Nome" value={name} onChangeText={setName}
         placeholder="Seu nome" placeholderTextColor={colors.textSecondary} style={inputStyle} />}
       <TextInput accessibilityLabel="Senha" value={password} onChangeText={setPassword}
-        placeholder="Senha (mínimo 12 caracteres para cadastro)" placeholderTextColor={colors.textSecondary}
+        placeholder="Senha (mínimo 8 caracteres para cadastro)" placeholderTextColor={colors.textSecondary}
         secureTextEntry autoCapitalize="none" style={inputStyle} />
       <TouchableOpacity accessibilityRole="button" disabled={busy} onPress={submit}
         style={[styles.button, { backgroundColor: colors.primary }]}>
