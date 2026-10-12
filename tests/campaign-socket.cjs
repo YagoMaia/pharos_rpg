@@ -26,7 +26,20 @@ test('URL da sala usa WSS remoto e nunca contém o token', () => {
   });
 });
 
-test('WS de campanha recusa transporte HTTP remoto', () => {
+test('WS de campanha aceita HTTP local/privado e recusa HTTP remoto público', () => {
   const { campaignSocketUrl } = socketHelpers();
-  assert.throws(() => campaignSocketUrl('http://192.168.0.5:8000', 'x'), /HTTPS/);
+  assert.equal(campaignSocketUrl('http://192.168.0.5:8000', 'camp-id'),
+    'ws://192.168.0.5:8000/ws/campaign-camp-id');
+  assert.equal(campaignSocketUrl('http://10.0.0.5:8000', 'camp-id'),
+    'ws://10.0.0.5:8000/ws/campaign-camp-id');
+  assert.equal(campaignSocketUrl('http://172.16.1.1:8000', 'camp-id'),
+    'ws://172.16.1.1:8000/ws/campaign-camp-id');
+  assert.equal(campaignSocketUrl('http://100.100.1.1:8000', 'camp-id'),
+    'ws://100.100.1.1:8000/ws/campaign-camp-id');
+  assert.equal(campaignSocketUrl('http://meupc.local:8000', 'camp-id'),
+    'ws://meupc.local:8000/ws/campaign-camp-id');
+
+  assert.throws(() => campaignSocketUrl('http://example.org:8000', 'x'), /HTTPS/);
+  assert.throws(() => campaignSocketUrl('http://8.8.8.8:8000', 'x'), /HTTPS/);
+  assert.throws(() => campaignSocketUrl('http://203.0.113.5:8000', 'x'), /HTTPS/);
 });

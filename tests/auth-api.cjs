@@ -42,8 +42,19 @@ test('erro de autenticação não inclui corpo de resposta sensível', async () 
     error.status === 401 && !error.message.includes('secret'));
 });
 
-test('não envia credenciais por HTTP fora de localhost', () => {
-  assert.throws(() => loadAuthApi().createAuthApi({ baseUrl: 'http://192.168.1.10:8000' }), /HTTPS/);
+test('permite HTTP em redes locais e privadas e exige HTTPS em endereços públicos', () => {
+  const { createAuthApi } = loadAuthApi();
+  assert.doesNotThrow(() => createAuthApi({ baseUrl: 'http://localhost:8000' }));
+  assert.doesNotThrow(() => createAuthApi({ baseUrl: 'http://127.0.0.1:8000' }));
+  assert.doesNotThrow(() => createAuthApi({ baseUrl: 'http://192.168.1.10:8000' }));
+  assert.doesNotThrow(() => createAuthApi({ baseUrl: 'http://10.0.0.1:8000' }));
+  assert.doesNotThrow(() => createAuthApi({ baseUrl: 'http://172.20.0.5:8000' }));
+  assert.doesNotThrow(() => createAuthApi({ baseUrl: 'http://100.64.1.2:8000' }));
+  assert.doesNotThrow(() => createAuthApi({ baseUrl: 'http://mesa.local:8000' }));
+
+  assert.throws(() => createAuthApi({ baseUrl: 'http://example.org:8000' }), /HTTPS/);
+  assert.throws(() => createAuthApi({ baseUrl: 'http://8.8.8.8:8000' }), /HTTPS/);
+  assert.throws(() => createAuthApi({ baseUrl: 'http://203.0.113.10:8000' }), /HTTPS/);
 });
 
 test('formulário usa lista de nomes e PIN em vez de email e senha', () => {
