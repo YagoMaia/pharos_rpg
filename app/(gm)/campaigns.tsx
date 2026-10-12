@@ -9,6 +9,7 @@ import {
   createAuthApi, createCampaignApi,
 } from "@/services/campaignApi";
 import { masterCampaigns } from "@/services/campaignView";
+import { Ionicons } from "@expo/vector-icons";
 import * as Clipboard from "expo-clipboard";
 import React, { useState } from "react";
 import { ScrollView, Text, View } from "react-native";
@@ -190,7 +191,30 @@ export default function GMCampaignsScreen() {
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
-      {!!error && <Text accessibilityRole="alert" style={{ color: colors.error, padding: 16 }}>{error}</Text>}
+      {!!error && (
+        <View
+          style={{
+            backgroundColor: "rgba(229, 57, 53, 0.12)",
+            borderColor: colors.error,
+            borderWidth: 1,
+            borderRadius: 10,
+            marginHorizontal: 16,
+            marginTop: 16,
+            maxWidth: 1240,
+            alignSelf: "center",
+            width: "100%",
+            padding: 12,
+            flexDirection: "row",
+            alignItems: "center",
+            gap: 10,
+          }}
+        >
+          <Ionicons name="alert-circle" size={20} color={colors.error} />
+          <Text accessibilityRole="alert" style={{ color: colors.error, flex: 1, fontWeight: "600", fontSize: 14 }}>
+            {error}
+          </Text>
+        </View>
+      )}
       {session?.role === "gm" ? <CampaignWorkspace colors={colors} campaigns={campaigns} selected={selected}
         invite={invite} name={name} busy={busy} onNameChange={setName} onCreate={create}
         entries={entries} draft={draft} editingEntry={!!editingEntryId}

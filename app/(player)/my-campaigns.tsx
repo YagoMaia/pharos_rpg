@@ -8,6 +8,7 @@ import { useRouter } from "expo-router";
 import { useCampaignAuth } from "@/context/CampaignAuthContext";
 import { CampaignApiError, CampaignSummary, JournalEntry, createAuthApi, createCampaignApi } from "@/services/campaignApi";
 import { playerCampaigns } from "@/services/campaignView";
+import { Ionicons } from "@expo/vector-icons";
 import React, { useState } from "react";
 import { ScrollView, Text, View } from "react-native";
 
@@ -156,15 +157,55 @@ export default function PlayerCampaignsScreen() {
     }
   }
 
-  return <View style={{ flex: 1, backgroundColor: colors.background }}>
-    {!!error && <Text accessibilityRole="alert" style={{ color: colors.error, padding: 16 }}>{error}</Text>}
-    {session?.role === "player" ? <PlayerCampaignWorkspace colors={colors} campaigns={campaigns} selected={selected}
-      entries={entries}
-      inviteCode={inviteCode} onInviteChange={setInviteCode} busy={busy} onJoin={join} onLink={link}
-      onRefresh={refresh} onSelect={select} onLogout={logout} onStartCombat={startCombat}
-      characterName={character.name} characterId={isLoading ? undefined : character.sheetId} /> :
-      <ScrollView contentContainerStyle={{ padding: 20, flexGrow: 1, justifyContent: "center" }}>
-        <CampaignAuthForm colors={colors} role="player" busy={busy} onSubmit={authenticate} />
-      </ScrollView>}
-  </View>;
+  return (
+    <View style={{ flex: 1, backgroundColor: colors.background }}>
+      {!!error && (
+        <View
+          style={{
+            backgroundColor: "rgba(229, 57, 53, 0.12)",
+            borderColor: colors.error,
+            borderWidth: 1,
+            borderRadius: 10,
+            marginHorizontal: 16,
+            marginTop: 16,
+            maxWidth: 1240,
+            alignSelf: "center",
+            width: "100%",
+            padding: 12,
+            flexDirection: "row",
+            alignItems: "center",
+            gap: 10,
+          }}
+        >
+          <Ionicons name="alert-circle" size={20} color={colors.error} />
+          <Text accessibilityRole="alert" style={{ color: colors.error, flex: 1, fontWeight: "600", fontSize: 14 }}>
+            {error}
+          </Text>
+        </View>
+      )}
+      {session?.role === "player" ? (
+        <PlayerCampaignWorkspace
+          colors={colors}
+          campaigns={campaigns}
+          selected={selected}
+          entries={entries}
+          inviteCode={inviteCode}
+          onInviteChange={setInviteCode}
+          busy={busy}
+          onJoin={join}
+          onLink={link}
+          onRefresh={refresh}
+          onSelect={select}
+          onLogout={logout}
+          onStartCombat={startCombat}
+          characterName={character.name}
+          characterId={isLoading ? undefined : character.sheetId}
+        />
+      ) : (
+        <ScrollView contentContainerStyle={{ padding: 20, flexGrow: 1, justifyContent: "center" }}>
+          <CampaignAuthForm colors={colors} role="player" busy={busy} onSubmit={authenticate} />
+        </ScrollView>
+      )}
+    </View>
+  );
 }
