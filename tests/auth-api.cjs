@@ -46,7 +46,36 @@ test('não envia credenciais por HTTP fora de localhost', () => {
   assert.throws(() => loadAuthApi().createAuthApi({ baseUrl: 'http://192.168.1.10:8000' }), /HTTPS/);
 });
 
-test('formulário informa o mínimo de oito caracteres exigido no cadastro', () => {
+test('formulário usa lista de nomes e PIN em vez de email e senha', () => {
   const source = fs.readFileSync(path.join(process.cwd(), 'components/campaign/CampaignAuthForm.tsx'), 'utf8');
-  assert.match(source, /Senha \(mínimo 8 caracteres para cadastro\)/);
+  assert.match(source, /tableNamesForRole\(role\)/);
+  assert.match(source, /accessibilityLabel="PIN"/);
+  assert.doesNotMatch(source, /accessibilityLabel="Email"/);
+});
+
+test('login da mesa envia só nome e PIN no corpo HTTPS', async () => {
+  const calls = [];
+  const api = loadAuthApi().createAuthApi({
+    baseUrl: 'https://example.org',
+    fetcher: async (url, options) => {
+      calls.push({ url, options });
+      return { ok: true, json: async () => ({ accessToken: 'test-token' }) };
+    },
+  });
+  assert.deepEqual(await api.tableLogin('Gabriel', 'gabriel'), { accessToken: 'test-token' });
+  assert.equal(calls[0].url, 'https://example.org/auth/table-login');
+  assert.deepEqual(JSON.parse(calls[0].options.body), { name: 'Gabriel', pin: 'gabriel' });
+  assert.ok(!calls[0].url.includes('gabriel'));
+});
+
+test('lista da mesa separa o mestre dos jogadores', () => {
+  const source = fs.readFileSync(path.join(process.cwd(), 'services/tableRoster.ts'), 'utf8');
+  const code = ts.transpileModule(source, {
+    compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 },
+  }).outputText;
+  const module = { exports: {} };
+  new Function('module', 'exports', code)(module, module.exports);
+  assert.deepEqual(module.exports.tableNamesForRole('gm'), ['Victor']);
+  assert.deepEqual(module.exports.tableNamesForRole('player'),
+    ['Gabriel', 'Leandro', 'Yago', 'Luiz', 'Amom', 'Wayne', 'Visitante']);
 });

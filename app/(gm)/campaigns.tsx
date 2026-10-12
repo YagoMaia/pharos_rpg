@@ -56,17 +56,14 @@ export default function GMCampaignsScreen() {
     setError("Não foi possível concluir a operação. Verifique a conexão e tente novamente.");
   }
 
-  async function authenticate(mode: "login" | "register", baseUrl: string,
-    email: string, displayName: string, password: string) {
+  async function authenticate(baseUrl: string, name: string, pin: string) {
     if (busy) return;
     setBusy(true);
     setError("");
     try {
       const auth = createAuthApi({ baseUrl: baseUrl.trim() });
-      const { accessToken } = mode === "register"
-        ? await auth.register(email, displayName, password)
-        : await auth.login(email, password);
-      const credentials = { baseUrl: baseUrl.trim(), token: accessToken };
+      const { accessToken } = await auth.tableLogin(name, pin);
+      const credentials: Session = { baseUrl: baseUrl.trim(), token: accessToken, role: "gm" };
       setSelected(null);
       setEntries([]);
       setInvite(null);
@@ -76,9 +73,7 @@ export default function GMCampaignsScreen() {
       setCampaigns(masterCampaigns(await api(credentials).listCampaigns()));
     } catch (cause) {
       if (cause instanceof CampaignApiError && cause.status === 401) {
-        setError("Email ou senha inválidos.");
-      } else if (cause instanceof CampaignApiError && cause.status === 409) {
-        setError("Este email já está cadastrado.");
+        setError("Nome ou PIN inválidos.");
       } else {
         showError(cause);
       }
@@ -196,14 +191,14 @@ export default function GMCampaignsScreen() {
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
       {!!error && <Text accessibilityRole="alert" style={{ color: colors.error, padding: 16 }}>{error}</Text>}
-      {session ? <CampaignWorkspace colors={colors} campaigns={campaigns} selected={selected}
+      {session?.role === "gm" ? <CampaignWorkspace colors={colors} campaigns={campaigns} selected={selected}
         invite={invite} name={name} busy={busy} onNameChange={setName} onCreate={create}
         entries={entries} draft={draft} editingEntry={!!editingEntryId}
         onDraftChange={setDraft} onSaveEntry={saveEntry} onEditEntry={editEntry} onCancelEdit={cancelEdit}
         onRefresh={refresh} onSelect={select} onInvite={generateInvite}
         onCopyInvite={copyInvite} onLogout={logout} onStartCombat={startCombat} /> :
         <ScrollView contentContainerStyle={{ padding: 20, flexGrow: 1, justifyContent: "center" }}>
-          <CampaignAuthForm colors={colors} busy={busy} onSubmit={authenticate} />
+          <CampaignAuthForm colors={colors} role="gm" busy={busy} onSubmit={authenticate} />
         </ScrollView>}
     </View>
   );

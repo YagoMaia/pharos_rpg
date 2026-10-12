@@ -13,7 +13,7 @@ autor: agente
 
 ## Primeira entrega
 
-O cliente tipado em `services/campaignApi.ts` possui chamadas para campanhas e registro/login. Os endpoints abaixo estão implementados em `pharos_rpg_server` na branch `feat/campaign-planning`, com testes de integração usando FastAPI `TestClient` e SQLite local. A aba **Campanhas** do mestre usa a API para cadastro/login, criação de campanhas, visualização de membros e convites. O jogador acessa **Minhas campanhas** pela ficha (`/my-campaigns`), entra usando um convite e vincula explicitamente a ficha local. O token fica **somente em memória**, e o usuário precisa entrar novamente após fechar o app; não há armazenamento persistente de credenciais.
+O cliente tipado em `services/campaignApi.ts` possui chamadas para campanhas. A tela atual usa `/auth/table-login`: Victor entra como mestre; Gabriel, Leandro, Yago, Luiz, Amom, Wayne e Visitante entram como jogadores. O PIN de cada pessoa é o próprio nome em minúsculas, conforme convenção desta mesa. A aba **Campanhas** do mestre cria campanhas, visualiza membros e gera convites. O jogador acessa **Minhas campanhas** pela ficha (`/my-campaigns`), entra usando um convite e vincula explicitamente a ficha local. O token fica **somente em memória**, e o usuário precisa entrar novamente após fechar o app; não há armazenamento persistente de credenciais.
 
 O diário permite ao mestre criar e editar notas privadas (`gm`) ou compartilhadas (`party`). O servidor filtra notas privadas antes de responder aos jogadores, inclusive após uma alteração de visibilidade. O mestre edita no painel web; o jogador consulta as notas compartilhadas em `/my-campaigns`.
 
@@ -27,12 +27,13 @@ O diário permite ao mestre criar e editar notas privadas (`gm`) ou compartilhad
 | PUT | `/campaigns/{id}/character` | `{ characterId }` | resumo da campanha com vínculo |
 | POST | `/auth/register` | `{ email, displayName, password }` | `{ accessToken }` |
 | POST | `/auth/login` | `{ email, password }` | `{ accessToken }` |
+| POST | `/auth/table-login` | `{ name, pin }` | `{ accessToken }`; cria a identidade da mesa no primeiro acesso |
 | POST | `/auth/logout` | — (Bearer atual) | 204; revoga apenas o token desta sessão |
 | GET | `/campaigns/{id}/entries` | — | até 100 notas visíveis ao membro, mais recentes primeiro |
 | POST | `/campaigns/{id}/entries` | `{ title, body, visibility: "gm" \| "party" }` | nota criada (somente mestre) |
 | PUT | `/campaigns/{id}/entries/{entryId}` | `{ title, body, visibility: "gm" \| "party" }` | nota editada (somente mestre) |
 
-As chamadas de campanha enviam `Authorization: Bearer <token>` obtido em registro/login. O cliente não armazena tokens, não envia fichas completas e não expõe resposta/credenciais em mensagens de erro. O endereço da API é injetado; não é derivado automaticamente do IP da sala WebSocket. O backend armazena hash do token e da senha, token expira em 7 dias e convite é de uso único, expira em 24 horas. As campanhas são persistidas em SQLite no caminho configurável `CAMPAIGN_DB_PATH` (padrão `pharos.sqlite3`, ignorado pelo Git).
+As chamadas de campanha enviam `Authorization: Bearer <token>` obtido em `/auth/table-login`. O cliente não armazena tokens, não envia fichas completas e não expõe resposta/credenciais em mensagens de erro. O endereço da API é injetado; não é derivado automaticamente do IP da sala WebSocket. O backend armazena hash do token; ele expira em 7 dias, e o convite é de uso único, expira em 24 horas. As identidades fixas são separadas das antigas contas de e-mail, sem apagar nem migrar campanhas anteriores. Os endpoints antigos `/auth/register` e `/auth/login` permanecem disponíveis para compatibilidade, mas não são usados pela interface da mesa. **Nome e PIN conhecidos não oferecem autenticação real:** qualquer pessoa com acesso à API pode assumir inclusive a identidade do mestre. Não expor a API publicamente sem substituir essa convenção por credenciais privadas e limitar tentativas. As campanhas são persistidas em SQLite no caminho configurável `CAMPAIGN_DB_PATH` (padrão `pharos.sqlite3`, ignorado pelo Git).
 
 ## Decisões pendentes antes de ligar o cliente
 

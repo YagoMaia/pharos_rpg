@@ -137,6 +137,9 @@ export function createAuthApi({ baseUrl, fetcher = fetch }: AuthApiOptions) {
   }
 
   return {
+    tableLogin: (name: string, pin: string) => send("/auth/table-login", {
+      name: requiredText(name, "Nome"), pin,
+    }),
     register: (email: string, displayName: string, password: string) => send("/auth/register", {
       email: requiredText(email, "Email"),
       displayName: requiredText(displayName, "Nome"), password,

@@ -51,16 +51,14 @@ export default function PlayerCampaignsScreen() {
     setError("Operação não concluída. Verifique os dados e a conexão.");
   }
 
-  async function authenticate(mode: "login" | "register", baseUrl: string,
-    email: string, name: string, password: string) {
+  async function authenticate(baseUrl: string, name: string, pin: string) {
     if (busy) return;
     setBusy(true);
     setError("");
     try {
       const auth = createAuthApi({ baseUrl: baseUrl.trim() });
-      const { accessToken } = mode === "login"
-        ? await auth.login(email, password) : await auth.register(email, name, password);
-      const credentials = { baseUrl: baseUrl.trim(), token: accessToken };
+      const { accessToken } = await auth.tableLogin(name, pin);
+      const credentials = { baseUrl: baseUrl.trim(), token: accessToken, role: "player" as const };
       setSelected(null);
       setEntries([]);
       setInviteCode("");
@@ -70,9 +68,7 @@ export default function PlayerCampaignsScreen() {
     } catch (cause) {
       if (cause instanceof CampaignApiError && cause.status === 401) {
         clearSession();
-        setError("Email ou senha inválidos.");
-      } else if (cause instanceof CampaignApiError && cause.status === 409) {
-        setError("Este email já está cadastrado.");
+        setError("Nome ou PIN inválidos.");
       } else {
         showError(cause);
       }
@@ -162,13 +158,13 @@ export default function PlayerCampaignsScreen() {
 
   return <View style={{ flex: 1, backgroundColor: colors.background }}>
     {!!error && <Text accessibilityRole="alert" style={{ color: colors.error, padding: 16 }}>{error}</Text>}
-    {session ? <PlayerCampaignWorkspace colors={colors} campaigns={campaigns} selected={selected}
+    {session?.role === "player" ? <PlayerCampaignWorkspace colors={colors} campaigns={campaigns} selected={selected}
       entries={entries}
       inviteCode={inviteCode} onInviteChange={setInviteCode} busy={busy} onJoin={join} onLink={link}
       onRefresh={refresh} onSelect={select} onLogout={logout} onStartCombat={startCombat}
       characterName={character.name} characterId={isLoading ? undefined : character.sheetId} /> :
       <ScrollView contentContainerStyle={{ padding: 20, flexGrow: 1, justifyContent: "center" }}>
-        <CampaignAuthForm colors={colors} busy={busy} onSubmit={authenticate} />
+        <CampaignAuthForm colors={colors} role="player" busy={busy} onSubmit={authenticate} />
       </ScrollView>}
   </View>;
 }

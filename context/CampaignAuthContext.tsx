@@ -3,6 +3,7 @@ import React, { createContext, useContext, useState } from "react";
 export interface CampaignSession {
   baseUrl: string;
   token: string;
+  role: "gm" | "player";
 }
 
 type CampaignAuthState = readonly [CampaignSession | null, React.Dispatch<React.SetStateAction<CampaignSession | null>>];
