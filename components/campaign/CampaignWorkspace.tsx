@@ -27,6 +27,8 @@ interface CampaignWorkspaceProps {
   onSaveEntry: () => void;
   onEditEntry: (entry: JournalEntry) => void;
   onCancelEdit: () => void;
+  onDeleteEntry?: (entry: JournalEntry) => void;
+  onDeleteDraft?: () => void;
 }
 
 const webPointer = Platform.OS === "web" ? ({ cursor: "pointer" } as const) : {};
@@ -369,9 +371,15 @@ export function CampaignWorkspace(props: CampaignWorkspaceProps) {
                 onChange={props.onDraftChange}
                 onSave={props.onSaveEntry}
                 onCancel={props.onCancelEdit}
+                onDelete={props.onDeleteDraft}
               />
 
-              <CampaignJournalList colors={colors} entries={props.entries} onEdit={props.onEditEntry} />
+              <CampaignJournalList
+                colors={colors}
+                entries={props.entries}
+                onEdit={props.onEditEntry}
+                onDelete={props.onDeleteEntry}
+              />
             </View>
           )}
         </View>

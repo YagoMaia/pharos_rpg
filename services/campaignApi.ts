@@ -146,12 +146,18 @@ export function createCampaignApi({ baseUrl, getAccessToken, fetcher = fetch }: 
     linkCharacter: (campaignId: string, characterId: string) => request<CampaignSummary>(
       `${campaignPath(campaignId)}/character`, "PUT", { characterId: requiredText(characterId, "ID do personagem") },
     ),
+    unlinkCharacter: (campaignId: string) => request<CampaignSummary>(
+      `${campaignPath(campaignId)}/character`, "DELETE",
+    ),
     listEntries: (campaignId: string) => request<JournalEntry[]>(`${campaignPath(campaignId)}/entries`),
     createEntry: (campaignId: string, entry: JournalEntryInput) => request<JournalEntry>(
       `${campaignPath(campaignId)}/entries`, "POST", entry,
     ),
     updateEntry: (campaignId: string, entryId: string, entry: JournalEntryInput) => request<JournalEntry>(
       `${campaignPath(campaignId)}/entries/${encodeURIComponent(requiredText(entryId, "ID da nota"))}`, "PUT", entry,
+    ),
+    deleteEntry: (campaignId: string, entryId: string) => request<void>(
+      `${campaignPath(campaignId)}/entries/${encodeURIComponent(requiredText(entryId, "ID da nota"))}`, "DELETE",
     ),
   };
 }

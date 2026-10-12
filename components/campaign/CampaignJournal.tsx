@@ -8,12 +8,13 @@ interface JournalListProps {
   colors: ThemeColors;
   entries: JournalEntry[];
   onEdit?: (entry: JournalEntry) => void;
+  onDelete?: (entry: JournalEntry) => void;
 }
 
 const webPointer = Platform.OS === "web" ? ({ cursor: "pointer" } as const) : {};
 
 /** Lista notas já filtradas pelo servidor de acordo com o papel do membro. */
-export function CampaignJournalList({ colors, entries, onEdit }: JournalListProps) {
+export function CampaignJournalList({ colors, entries, onEdit, onDelete }: JournalListProps) {
   return (
     <View style={styles.list}>
       <View style={styles.sectionHeader}>
@@ -76,15 +77,30 @@ export function CampaignJournalList({ colors, entries, onEdit }: JournalListProp
 
             <Text style={[styles.entryBody, { color: colors.text }]}>{entry.body}</Text>
 
-            {onEdit && (
-              <TouchableOpacity
-                accessibilityRole="button"
-                onPress={() => onEdit(entry)}
-                style={[styles.editButton, webPointer]}
-              >
-                <Ionicons name="pencil-outline" size={14} color={colors.primary} />
-                <Text style={[styles.editText, { color: colors.primary }]}>Editar nota</Text>
-              </TouchableOpacity>
+            {(onEdit || onDelete) && (
+              <View style={styles.entryActionsRow}>
+                {onEdit && (
+                  <TouchableOpacity
+                    accessibilityRole="button"
+                    onPress={() => onEdit(entry)}
+                    style={[styles.editButton, webPointer]}
+                  >
+                    <Ionicons name="pencil-outline" size={14} color={colors.primary} />
+                    <Text style={[styles.editText, { color: colors.primary }]}>Editar nota</Text>
+                  </TouchableOpacity>
+                )}
+
+                {onDelete && (
+                  <TouchableOpacity
+                    accessibilityRole="button"
+                    onPress={() => onDelete(entry)}
+                    style={[styles.deleteButton, webPointer]}
+                  >
+                    <Ionicons name="trash-outline" size={14} color={colors.error} />
+                    <Text style={[styles.deleteText, { color: colors.error }]}>Excluir nota</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
             )}
           </View>
         );
@@ -101,6 +117,7 @@ interface JournalEditorProps {
   onChange: (draft: JournalEntryInput) => void;
   onSave: () => void;
   onCancel: () => void;
+  onDelete?: () => void;
 }
 
 /** Novas notas são privadas por padrão para evitar divulgação acidental. */
@@ -224,6 +241,22 @@ export function CampaignJournalEditor(props: JournalEditorProps) {
           <Text style={styles.saveText}>{props.editing ? "Salvar Alterações" : "Criar Anotação"}</Text>
         </TouchableOpacity>
 
+        {props.editing && props.onDelete && (
+          <TouchableOpacity
+            accessibilityRole="button"
+            disabled={busy}
+            onPress={props.onDelete}
+            style={[
+              styles.deleteEditorButton,
+              { borderColor: colors.error },
+              webPointer,
+            ]}
+          >
+            <Ionicons name="trash-outline" size={18} color={colors.error} />
+            <Text style={[styles.deleteEditorText, { color: colors.error }]}>Excluir</Text>
+          </TouchableOpacity>
+        )}
+
         {props.editing && (
           <TouchableOpacity
             accessibilityRole="button"
@@ -318,16 +351,32 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 22,
   },
+  entryActionsRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    marginTop: 6,
+    flexWrap: "wrap",
+  },
   editButton: {
     flexDirection: "row",
     alignItems: "center",
     gap: 4,
-    alignSelf: "flex-start",
-    marginTop: 6,
     paddingVertical: 4,
     paddingHorizontal: 6,
   },
   editText: {
+    fontSize: 13,
+    fontWeight: "bold",
+  },
+  deleteButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingVertical: 4,
+    paddingHorizontal: 6,
+  },
+  deleteText: {
     fontSize: 13,
     fontWeight: "bold",
   },
@@ -409,5 +458,18 @@ const styles = StyleSheet.create({
   cancelText: {
     fontSize: 14,
     fontWeight: "500",
+  },
+  deleteEditorButton: {
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+  },
+  deleteEditorText: {
+    fontSize: 14,
+    fontWeight: "600",
   },
 });

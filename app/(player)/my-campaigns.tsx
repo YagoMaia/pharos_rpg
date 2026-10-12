@@ -133,6 +133,15 @@ export default function PlayerCampaignsScreen() {
     });
   }
 
+  function unlink() {
+    if (!selected) return;
+    run(async (client) => {
+      const unlinked = await client.unlinkCharacter(selected.id);
+      setCampaigns((current) => current.map((item) => item.id === unlinked.id ? unlinked : item));
+      setSelected(unlinked);
+    });
+  }
+
   function startCombat() {
     if (!selected || selected.characterId !== character.sheetId || isLoading || !session) return;
     const initiative = Math.floor(Math.random() * 20) + 1 + initiativeBonus(character);
@@ -194,6 +203,7 @@ export default function PlayerCampaignsScreen() {
           busy={busy}
           onJoin={join}
           onLink={link}
+          onUnlink={unlink}
           onRefresh={refresh}
           onSelect={select}
           onLogout={logout}

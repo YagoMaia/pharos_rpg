@@ -63,10 +63,14 @@ test('entra via convite e vincula personagem sem enviar a ficha completa', async
   });
   await api.joinCampaign('ABCD');
   await api.linkCharacter('camp-1', 'hero-1');
+  await api.unlinkCharacter('camp-1');
   assert.equal(calls[0].url, 'https://example.org/campaigns/join');
   assert.equal(calls[0].options.body, JSON.stringify({ inviteCode: 'ABCD' }));
   assert.equal(calls[1].url, 'https://example.org/campaigns/camp-1/character');
+  assert.equal(calls[1].options.method, 'PUT');
   assert.equal(calls[1].options.body, JSON.stringify({ characterId: 'hero-1' }));
+  assert.equal(calls[2].url, 'https://example.org/campaigns/camp-1/character');
+  assert.equal(calls[2].options.method, 'DELETE');
 });
 
 test('mestre pode solicitar convite com prazo definido pelo servidor', async () => {
@@ -115,6 +119,7 @@ test('diário usa contrato autenticado para listar, criar e editar notas', async
     getAccessToken: () => 'token',
     fetcher: async (url, options) => {
       calls.push({ url, options });
+      if (options.method === 'DELETE') return fakeResponse(undefined, 204);
       return fakeResponse(options.method === 'GET' ? [entry] : entry);
     },
   });
@@ -125,13 +130,16 @@ test('diário usa contrato autenticado para listar, criar e editar notas', async
   assert.deepEqual(await api.updateEntry('camp/1', 'entry/1', {
     title: 'Resumo', body: 'A cidade', visibility: 'party',
   }), entry);
+  assert.equal(await api.deleteEntry('camp/1', 'entry/1'), undefined);
   assert.deepEqual(calls.map(call => call.url), [
     'https://example.org/campaigns/camp%2F1/entries',
     'https://example.org/campaigns/camp%2F1/entries',
     'https://example.org/campaigns/camp%2F1/entries/entry%2F1',
+    'https://example.org/campaigns/camp%2F1/entries/entry%2F1',
   ]);
-  assert.deepEqual(calls.map(call => call.options.method), ['GET', 'POST', 'PUT']);
+  assert.deepEqual(calls.map(call => call.options.method), ['GET', 'POST', 'PUT', 'DELETE']);
   assert.equal(calls[2].options.headers.Authorization, 'Bearer token');
+  assert.equal(calls[3].options.headers.Authorization, 'Bearer token');
 });
 
 test('logout revoga a sessão sem tentar ler JSON da resposta 204', async () => {

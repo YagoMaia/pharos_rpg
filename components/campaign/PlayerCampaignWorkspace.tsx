@@ -17,6 +17,7 @@ interface PlayerCampaignWorkspaceProps {
   onInviteChange: (code: string) => void;
   onJoin: () => void;
   onLink: () => void;
+  onUnlink?: () => void;
   onRefresh: () => void;
   onSelect: (campaign: CampaignSummary) => void;
   onLogout: () => void;
@@ -298,11 +299,26 @@ export function PlayerCampaignWorkspace(props: PlayerCampaignWorkspaceProps) {
                 <View style={styles.actionsContainer}>
                   {selected.characterId !== props.characterId && (
                     <CampaignButton
-                      label="Vincular Minha Ficha à Campanha"
-                      icon="link-outline"
-                      disabled={busy || !props.characterId || !!selected.characterId}
+                      label={
+                        selected.characterId
+                          ? "Substituir Vínculo pela Ficha Atual"
+                          : "Vincular Minha Ficha à Campanha"
+                      }
+                      icon={selected.characterId ? "swap-horizontal-outline" : "link-outline"}
+                      disabled={busy || !props.characterId}
                       color={colors.primary}
                       onPress={props.onLink}
+                    />
+                  )}
+
+                  {!!selected.characterId && !!props.onUnlink && (
+                    <CampaignButton
+                      label="Desvincular Ficha"
+                      icon="unlink-outline"
+                      disabled={busy}
+                      color={colors.error}
+                      outline
+                      onPress={props.onUnlink}
                     />
                   )}
 

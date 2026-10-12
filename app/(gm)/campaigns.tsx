@@ -155,6 +155,26 @@ export default function GMCampaignsScreen() {
     });
   }
 
+  function deleteEntry(entry: JournalEntry) {
+    if (!selected) return;
+    run(async (credentials) => {
+      const client = api(credentials);
+      await client.deleteEntry(selected.id, entry.id);
+      setEntries(await client.listEntries(selected.id));
+      if (editingEntryId === entry.id) cancelEdit();
+    });
+  }
+
+  function deleteCurrentDraft() {
+    if (!selected || !editingEntryId) return;
+    run(async (credentials) => {
+      const client = api(credentials);
+      await client.deleteEntry(selected.id, editingEntryId);
+      setEntries(await client.listEntries(selected.id));
+      cancelEdit();
+    });
+  }
+
   function generateInvite() {
     if (!selected) return;
     run(async (credentials) => setInvite(await api(credentials).createInvite(selected.id)));
@@ -219,6 +239,7 @@ export default function GMCampaignsScreen() {
         invite={invite} name={name} busy={busy} onNameChange={setName} onCreate={create}
         entries={entries} draft={draft} editingEntry={!!editingEntryId}
         onDraftChange={setDraft} onSaveEntry={saveEntry} onEditEntry={editEntry} onCancelEdit={cancelEdit}
+        onDeleteEntry={deleteEntry} onDeleteDraft={deleteCurrentDraft}
         onRefresh={refresh} onSelect={select} onInvite={generateInvite}
         onCopyInvite={copyInvite} onLogout={logout} onStartCombat={startCombat} /> :
         <ScrollView contentContainerStyle={{ padding: 20, flexGrow: 1, justifyContent: "center" }}>
