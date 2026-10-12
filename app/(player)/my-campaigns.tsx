@@ -117,8 +117,28 @@ export default function PlayerCampaignsScreen() {
       const client = createCampaignApi({ baseUrl: session.baseUrl, getAccessToken: () => session.token });
       client
         .listCampaigns()
-        .then((data) => {
-          if (active) setCampaigns(playerCampaigns(data));
+        .then(async (data) => {
+          if (!active) return;
+          const playerList = playerCampaigns(data);
+          setCampaigns(playerList);
+
+          // Se já participa de campanha, seleciona automaticamente a mesa ativa
+          if (playerList.length > 0) {
+            const firstCamp = playerList[0];
+            const [notes, sess, qst, npclist] = await Promise.all([
+              client.listEntries(firstCamp.id),
+              client.listSessions(firstCamp.id),
+              client.listQuests(firstCamp.id),
+              client.listNpcs(firstCamp.id),
+            ]);
+            if (active) {
+              setSelected(firstCamp);
+              setEntries(notes);
+              setSessions(sess);
+              setQuests(qst);
+              setNpcs(npclist);
+            }
+          }
         })
         .catch((cause) => {
           if (active) showError(cause);

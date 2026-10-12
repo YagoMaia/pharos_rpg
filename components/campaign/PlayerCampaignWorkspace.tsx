@@ -76,6 +76,7 @@ export function PlayerCampaignWorkspace(props: PlayerCampaignWorkspaceProps) {
   const { width } = useWindowDimensions();
   const isDesktop = width >= 900;
   const [tab, setTab] = useState<"sheet" | "sessions" | "quests" | "npcs" | "journal">("sheet");
+  const [showCampaignSwitcher, setShowCampaignSwitcher] = useState(false);
 
   const isCurrentSheetLinked =
     selected && props.characterId && selected.characterId === props.characterId;
@@ -94,23 +95,38 @@ export function PlayerCampaignWorkspace(props: PlayerCampaignWorkspaceProps) {
             <Ionicons name="person-outline" size={18} color={colors.secondary || colors.info} />
             <Text style={[styles.roleBadgeText, { color: colors.secondary || colors.info }]}>Jogador</Text>
           </View>
-          <Text style={[styles.topBarTitle, { color: colors.text }]}>Minhas Campanhas</Text>
+          <Text style={[styles.topBarTitle, { color: colors.text }]}>
+            {selected ? selected.name : "Painel da Mesa"}
+          </Text>
         </View>
 
-        <CampaignButton
-          label="Sair da Mesa"
-          icon="log-out-outline"
-          disabled={busy}
-          color={colors.error}
-          onPress={props.onLogout}
-          outline
-        />
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+          {selected && (
+            <CampaignButton
+              label={showCampaignSwitcher ? "Focar na Mesa" : "Outras Mesas"}
+              icon="layers-outline"
+              color={colors.primary}
+              onPress={() => setShowCampaignSwitcher(!showCampaignSwitcher)}
+              outline
+            />
+          )}
+
+          <CampaignButton
+            label="Sair da Mesa"
+            icon="log-out-outline"
+            disabled={busy}
+            color={colors.error}
+            onPress={props.onLogout}
+            outline
+          />
+        </View>
       </View>
 
       {/* Layout Responsivo */}
-      <View style={isDesktop ? styles.columns : styles.stack}>
-        {/* Coluna Esquerda: Convite e Campanhas */}
-        <View style={[styles.sidebar, isDesktop ? { width: 340 } : { width: "100%" }]}>
+      <View style={isDesktop && (showCampaignSwitcher || !selected) ? styles.columns : styles.stack}>
+        {/* Coluna Esquerda: Convite e Campanhas (exibida apenas se solicitado ou sem mesa ativa) */}
+        {(showCampaignSwitcher || !selected) && (
+          <View style={[styles.sidebar, isDesktop ? { width: 340 } : { width: "100%" }]}>
           {/* Card: Entrar com convite */}
           <View style={[styles.panel, { backgroundColor: colors.surface, borderColor: colors.border }]}>
             <View style={styles.cardHeader}>
@@ -240,6 +256,7 @@ export function PlayerCampaignWorkspace(props: PlayerCampaignWorkspaceProps) {
             )}
           </View>
         </View>
+        )}
 
         {/* Coluna Direita: Detalhes da Campanha e Diário */}
         <View style={[styles.detail, { flex: 1 }]}>
