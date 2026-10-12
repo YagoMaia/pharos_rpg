@@ -8,8 +8,12 @@ import { CampaignSession as Session, useCampaignAuth } from "@/context/CampaignA
 import {
   CampaignApiError,
   CampaignDetails,
+  CampaignEncounter,
+  CampaignEncounterInput,
   CampaignInvite,
   CampaignMember,
+  CampaignNpc,
+  CampaignNpcInput,
   CampaignQuest,
   CampaignQuestInput,
   CampaignSession,
@@ -41,6 +45,8 @@ export default function GMCampaignsScreen() {
   const [entries, setEntries] = useState<JournalEntry[]>([]);
   const [sessions, setSessions] = useState<CampaignSession[]>([]);
   const [quests, setQuests] = useState<CampaignQuest[]>([]);
+  const [encounters, setEncounters] = useState<CampaignEncounter[]>([]);
+  const [npcs, setNpcs] = useState<CampaignNpc[]>([]);
   const [inspectedMember, setInspectedMember] = useState<CampaignMember | null>(null);
   const [inspectedSheet, setInspectedSheet] = useState<any | null>(null);
   const [sheetModalVisible, setSheetModalVisible] = useState(false);
@@ -63,6 +69,8 @@ export default function GMCampaignsScreen() {
     setEntries([]);
     setSessions([]);
     setQuests([]);
+    setEncounters([]);
+    setNpcs([]);
     setDraft(EMPTY_DRAFT);
     setEditingEntryId(null);
     setInspectedMember(null);
@@ -91,6 +99,8 @@ export default function GMCampaignsScreen() {
       setEntries([]);
       setSessions([]);
       setQuests([]);
+      setEncounters([]);
+      setNpcs([]);
       setInvite(null);
       setDraft(EMPTY_DRAFT);
       setEditingEntryId(null);
@@ -124,16 +134,20 @@ export default function GMCampaignsScreen() {
     run(async (credentials) => {
       setCampaigns(masterCampaigns(await api(credentials).listCampaigns()));
       if (!selected) return;
-      const [details, notes, sessionsList, questsList] = await Promise.all([
+      const [details, notes, sessionsList, questsList, encountersList, npcsList] = await Promise.all([
         api(credentials).getCampaign(selected.id),
         api(credentials).listEntries(selected.id),
         api(credentials).listSessions(selected.id),
         api(credentials).listQuests(selected.id),
+        api(credentials).listEncounters(selected.id),
+        api(credentials).listNpcs(selected.id),
       ]);
       setSelected(details);
       setEntries(notes);
       setSessions(sessionsList);
       setQuests(questsList);
+      setEncounters(encountersList);
+      setNpcs(npcsList);
     });
   }
 
@@ -145,6 +159,8 @@ export default function GMCampaignsScreen() {
       setEntries([]);
       setSessions([]);
       setQuests([]);
+      setEncounters([]);
+      setNpcs([]);
       setDraft(EMPTY_DRAFT);
       setEditingEntryId(null);
       setInvite(null);
@@ -154,16 +170,20 @@ export default function GMCampaignsScreen() {
 
   function select(id: string) {
     run(async (credentials) => {
-      const [details, notes, sessionsList, questsList] = await Promise.all([
+      const [details, notes, sessionsList, questsList, encountersList, npcsList] = await Promise.all([
         api(credentials).getCampaign(id),
         api(credentials).listEntries(id),
         api(credentials).listSessions(id),
         api(credentials).listQuests(id),
+        api(credentials).listEncounters(id),
+        api(credentials).listNpcs(id),
       ]);
       setSelected(details);
       setEntries(notes);
       setSessions(sessionsList);
       setQuests(questsList);
+      setEncounters(encountersList);
+      setNpcs(npcsList);
       setDraft(EMPTY_DRAFT);
       setEditingEntryId(null);
       setInvite(null);
@@ -277,6 +297,70 @@ export default function GMCampaignsScreen() {
     setSheetModalVisible(true);
   }
 
+  function createEncounter(encounter: CampaignEncounterInput) {
+    if (!selected) return;
+    run(async (credentials) => {
+      const client = api(credentials);
+      await client.createEncounter(selected.id, encounter);
+      setEncounters(await client.listEncounters(selected.id));
+    });
+  }
+
+  function updateEncounter(encounterId: string, encounter: CampaignEncounterInput) {
+    if (!selected) return;
+    run(async (credentials) => {
+      const client = api(credentials);
+      await client.updateEncounter(selected.id, encounterId, encounter);
+      setEncounters(await client.listEncounters(selected.id));
+    });
+  }
+
+  function deleteEncounter(encounterId: string) {
+    if (!selected) return;
+    run(async (credentials) => {
+      const client = api(credentials);
+      await client.deleteEncounter(selected.id, encounterId);
+      setEncounters(await client.listEncounters(selected.id));
+    });
+  }
+
+  function launchEncounter(encounterId: string) {
+    if (!selected) return;
+    run(async (credentials) => {
+      const client = api(credentials);
+      await client.launchEncounter(selected.id, encounterId);
+      setEncounters(await client.listEncounters(selected.id));
+      startCombat();
+    });
+  }
+
+  function createNpc(npc: CampaignNpcInput) {
+    if (!selected) return;
+    run(async (credentials) => {
+      const client = api(credentials);
+      await client.createNpc(selected.id, npc);
+      setNpcs(await client.listNpcs(selected.id));
+    });
+  }
+
+  function updateNpc(npcId: string, npc: CampaignNpcInput) {
+    if (!selected) return;
+    run(async (credentials) => {
+      const client = api(credentials);
+      await client.updateNpc(selected.id, npcId, npc);
+      setNpcs(await client.listNpcs(selected.id));
+    });
+  }
+
+  function deleteNpc(npcId: string) {
+    if (!selected) return;
+    run(async (credentials) => {
+      const client = api(credentials);
+      await client.deleteNpc(selected.id, npcId);
+      setNpcs(await client.listNpcs(selected.id));
+    });
+  }
+
   function generateInvite() {
     if (!selected) return;
     run(async (credentials) => setInvite(await api(credentials).createInvite(selected.id)));
@@ -353,6 +437,8 @@ export default function GMCampaignsScreen() {
             editingEntry={!!editingEntryId}
             sessions={sessions}
             quests={quests}
+            encounters={encounters}
+            npcs={npcs}
             onDraftChange={setDraft}
             onSaveEntry={saveEntry}
             onEditEntry={editEntry}
@@ -372,6 +458,13 @@ export default function GMCampaignsScreen() {
             onUpdateQuest={updateQuest}
             onDeleteQuest={deleteQuest}
             onInspectMember={inspectMember}
+            onCreateEncounter={createEncounter}
+            onUpdateEncounter={updateEncounter}
+            onDeleteEncounter={deleteEncounter}
+            onLaunchEncounter={launchEncounter}
+            onCreateNpc={createNpc}
+            onUpdateNpc={updateNpc}
+            onDeleteNpc={deleteNpc}
           />
 
           <MemberSheetModal

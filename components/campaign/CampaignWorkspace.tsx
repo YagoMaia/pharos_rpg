@@ -1,8 +1,12 @@
 import { ThemeColors } from "@/constants/theme";
 import {
   CampaignDetails,
+  CampaignEncounter,
+  CampaignEncounterInput,
   CampaignInvite,
   CampaignMember,
+  CampaignNpc,
+  CampaignNpcInput,
   CampaignQuest,
   CampaignQuestInput,
   CampaignSession,
@@ -14,6 +18,8 @@ import {
 import { CampaignJournalEditor, CampaignJournalList } from "./CampaignJournal";
 import { CampaignSessions } from "./CampaignSessions";
 import { CampaignQuests } from "./CampaignQuests";
+import { CampaignEncounters } from "./CampaignEncounters";
+import { CampaignNpcList } from "./CampaignNpcList";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import React, { useState } from "react";
 import { Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, useWindowDimensions, View } from "react-native";
@@ -30,6 +36,8 @@ interface CampaignWorkspaceProps {
   editingEntry: boolean;
   sessions?: CampaignSession[];
   quests?: CampaignQuest[];
+  encounters?: CampaignEncounter[];
+  npcs?: CampaignNpc[];
   onNameChange: (name: string) => void;
   onCreate: () => void;
   onRefresh: () => void;
@@ -51,6 +59,13 @@ interface CampaignWorkspaceProps {
   onUpdateQuest?: (questId: string, quest: CampaignQuestInput) => void;
   onDeleteQuest?: (questId: string) => void;
   onInspectMember?: (member: CampaignMember) => void;
+  onCreateEncounter?: (encounter: CampaignEncounterInput) => void;
+  onUpdateEncounter?: (encounterId: string, encounter: CampaignEncounterInput) => void;
+  onDeleteEncounter?: (encounterId: string) => void;
+  onLaunchEncounter?: (encounterId: string) => void;
+  onCreateNpc?: (npc: CampaignNpcInput) => void;
+  onUpdateNpc?: (npcId: string, npc: CampaignNpcInput) => void;
+  onDeleteNpc?: (npcId: string) => void;
 }
 
 const webPointer = Platform.OS === "web" ? ({ cursor: "pointer" } as const) : {};
@@ -97,7 +112,7 @@ export function CampaignWorkspace(props: CampaignWorkspaceProps) {
   const { colors, campaigns, selected, invite, busy } = props;
   const { width } = useWindowDimensions();
   const isDesktop = width >= 920;
-  const [tab, setTab] = useState<"members" | "sessions" | "quests" | "journal">("members");
+  const [tab, setTab] = useState<"members" | "sessions" | "quests" | "encounters" | "npcs" | "journal">("members");
 
   return (
     <ScrollView style={{ backgroundColor: colors.background }} contentContainerStyle={styles.content}>
@@ -396,6 +411,56 @@ export function CampaignWorkspace(props: CampaignWorkspaceProps) {
 
                 <TouchableOpacity
                   accessibilityRole="tab"
+                  accessibilityState={{ selected: tab === "encounters" }}
+                  onPress={() => setTab("encounters")}
+                  style={[
+                    styles.campaignTab,
+                    tab === "encounters" && { borderBottomColor: colors.primary, borderBottomWidth: 3 },
+                    webPointer,
+                  ]}
+                >
+                  <MaterialCommunityIcons
+                    name="sword-cross"
+                    size={16}
+                    color={tab === "encounters" ? colors.primary : colors.textSecondary}
+                  />
+                  <Text
+                    style={[
+                      styles.campaignTabText,
+                      { color: tab === "encounters" ? colors.primary : colors.textSecondary },
+                    ]}
+                  >
+                    Encontros ({props.encounters?.length || 0})
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  accessibilityRole="tab"
+                  accessibilityState={{ selected: tab === "npcs" }}
+                  onPress={() => setTab("npcs")}
+                  style={[
+                    styles.campaignTab,
+                    tab === "npcs" && { borderBottomColor: colors.primary, borderBottomWidth: 3 },
+                    webPointer,
+                  ]}
+                >
+                  <MaterialCommunityIcons
+                    name="account-group-outline"
+                    size={16}
+                    color={tab === "npcs" ? colors.primary : colors.textSecondary}
+                  />
+                  <Text
+                    style={[
+                      styles.campaignTabText,
+                      { color: tab === "npcs" ? colors.primary : colors.textSecondary },
+                    ]}
+                  >
+                    NPCs ({props.npcs?.length || 0})
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  accessibilityRole="tab"
                   accessibilityState={{ selected: tab === "journal" }}
                   onPress={() => setTab("journal")}
                   style={[
@@ -529,6 +594,36 @@ export function CampaignWorkspace(props: CampaignWorkspaceProps) {
                     onCreateQuest={props.onCreateQuest}
                     onUpdateQuest={props.onUpdateQuest}
                     onDeleteQuest={props.onDeleteQuest}
+                  />
+                </View>
+              )}
+
+              {/* Aba: Encontros Pré-montados */}
+              {tab === "encounters" && (
+                <View style={[styles.panel, { backgroundColor: colors.surface, borderColor: colors.border, marginTop: 14 }]}>
+                  <CampaignEncounters
+                    colors={colors}
+                    encounters={props.encounters || []}
+                    busy={busy}
+                    onCreateEncounter={props.onCreateEncounter}
+                    onUpdateEncounter={props.onUpdateEncounter}
+                    onDeleteEncounter={props.onDeleteEncounter}
+                    onLaunchEncounter={props.onLaunchEncounter}
+                  />
+                </View>
+              )}
+
+              {/* Aba: Dossiê de NPCs */}
+              {tab === "npcs" && (
+                <View style={[styles.panel, { backgroundColor: colors.surface, borderColor: colors.border, marginTop: 14 }]}>
+                  <CampaignNpcList
+                    colors={colors}
+                    npcs={props.npcs || []}
+                    isGm={true}
+                    busy={busy}
+                    onCreateNpc={props.onCreateNpc}
+                    onUpdateNpc={props.onUpdateNpc}
+                    onDeleteNpc={props.onDeleteNpc}
                   />
                 </View>
               )}

@@ -8,6 +8,7 @@ import { useRouter } from "expo-router";
 import { useCampaignAuth } from "@/context/CampaignAuthContext";
 import {
   CampaignApiError,
+  CampaignNpc,
   CampaignQuest,
   CampaignSession,
   CampaignSummary,
@@ -32,6 +33,7 @@ export default function PlayerCampaignsScreen() {
   const [entries, setEntries] = useState<JournalEntry[]>([]);
   const [sessions, setSessions] = useState<CampaignSession[]>([]);
   const [quests, setQuests] = useState<CampaignQuest[]>([]);
+  const [npcs, setNpcs] = useState<CampaignNpc[]>([]);
   const [inviteCode, setInviteCode] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -43,6 +45,7 @@ export default function PlayerCampaignsScreen() {
     setEntries([]);
     setSessions([]);
     setQuests([]);
+    setNpcs([]);
     setInviteCode("");
     setError("");
   }
@@ -76,6 +79,7 @@ export default function PlayerCampaignsScreen() {
       setEntries([]);
       setSessions([]);
       setQuests([]);
+      setNpcs([]);
       setInviteCode("");
       setSession(credentials);
       const client = createCampaignApi({ baseUrl: credentials.baseUrl, getAccessToken: () => credentials.token });
@@ -111,33 +115,38 @@ export default function PlayerCampaignsScreen() {
       setCampaigns(updated);
       setSelected((current) => updated.find((campaign) => campaign.id === current?.id) ?? null);
       if (selected && updated.some((campaign) => campaign.id === selected.id)) {
-        const [notes, sess, qst] = await Promise.all([
+        const [notes, sess, qst, npclist] = await Promise.all([
           client.listEntries(selected.id),
           client.listSessions(selected.id),
           client.listQuests(selected.id),
+          client.listNpcs(selected.id),
         ]);
         setEntries(notes);
         setSessions(sess);
         setQuests(qst);
+        setNpcs(npclist);
       } else {
         setEntries([]);
         setSessions([]);
         setQuests([]);
+        setNpcs([]);
       }
     });
   }
 
   function select(campaign: CampaignSummary) {
     run(async (client) => {
-      const [notes, sess, qst] = await Promise.all([
+      const [notes, sess, qst, npclist] = await Promise.all([
         client.listEntries(campaign.id),
         client.listSessions(campaign.id),
         client.listQuests(campaign.id),
+        client.listNpcs(campaign.id),
       ]);
       setSelected(campaign);
       setEntries(notes);
       setSessions(sess);
       setQuests(qst);
+      setNpcs(npclist);
     });
   }
 
@@ -147,14 +156,16 @@ export default function PlayerCampaignsScreen() {
       setCampaigns((current) => [...current.filter((item) => item.id !== joined.id), joined]);
       setSelected(joined);
       setInviteCode("");
-      const [notes, sess, qst] = await Promise.all([
+      const [notes, sess, qst, npclist] = await Promise.all([
         client.listEntries(joined.id),
         client.listSessions(joined.id),
         client.listQuests(joined.id),
+        client.listNpcs(joined.id),
       ]);
       setEntries(notes);
       setSessions(sess);
       setQuests(qst);
+      setNpcs(npclist);
     });
   }
 
@@ -242,6 +253,7 @@ export default function PlayerCampaignsScreen() {
           entries={entries}
           sessions={sessions}
           quests={quests}
+          npcs={npcs}
           inviteCode={inviteCode}
           onInviteChange={setInviteCode}
           busy={busy}
