@@ -1,5 +1,5 @@
 import { useTheme } from "@/context/ThemeContext";
-import { ActionCostType, AttributeName, Combatant } from "@/types/rpg";
+import { ActionCostType, AttributeName, Combatant, SavingThrowSubmission } from "@/types/rpg";
 import {
   calculateAreaDamage,
   calculateSaveDC,
@@ -45,6 +45,7 @@ export interface AreaTargetResult {
   passed: boolean;
   damageAmount: number;
   customModified?: boolean;
+  playerSubmitted?: boolean;
 }
 
 interface AreaAttackModalProps {
@@ -74,7 +75,20 @@ interface AreaAttackModalProps {
   initialDamageFormula?: string;
   initialFocusCost?: number;
   initialActionCost?: ActionCostType;
+  onRequestSavingThrows?: (payload: {
+    attackId: string;
+    attackerId: string;
+    attackerName?: string;
+    actionName?: string;
+    saveAttribute: AttributeName;
+    saveDC: number;
+    baseDamage: number;
+    halfOnSave: boolean;
+    targetIds: string[];
+  }) => void;
+  incomingSubmissions?: Record<string, SavingThrowSubmission>;
 }
+
 
 export const AreaAttackModal = ({
   visible,
@@ -89,6 +103,8 @@ export const AreaAttackModal = ({
   initialDamageFormula = "2d6",
   initialFocusCost = 0,
   initialActionCost = "standard",
+  onRequestSavingThrows,
+  incomingSubmissions,
 }: AreaAttackModalProps) => {
   const { colors, isDark } = useTheme();
   const styles = useMemo(() => getStyles(colors, isDark), [colors, isDark]);
@@ -106,6 +122,8 @@ export const AreaAttackModal = ({
 
   // Resultados individuais dos alvos
   const [targetStates, setTargetStates] = useState<Record<string, AreaTargetResult>>({});
+  const [isAwaitingPlayers, setIsAwaitingPlayers] = useState(false);
+  const [requestSent, setRequestSent] = useState(false);
 
   useEffect(() => {
     if (visible) {
@@ -119,8 +137,41 @@ export const AreaAttackModal = ({
       setBaseDamage("0");
       setHalfOnSave(true);
       setTargetStates({});
+      setIsAwaitingPlayers(false);
+      setRequestSent(false);
     }
   }, [visible, attacker, initialActionName, initialAttribute, initialDC, initialDamageFormula]);
+
+  // Atualiza em tempo real quando respostas dos jogadores chegam
+  useEffect(() => {
+    if (!incomingSubmissions) return;
+    const subs = Object.values(incomingSubmissions);
+    if (subs.length === 0) return;
+
+    setTargetStates((prev) => {
+      let changed = false;
+      const next = { ...prev };
+      for (const sub of subs) {
+        if (selectedTargets.some((t) => t.id === sub.targetId)) {
+          const current = next[sub.targetId];
+          if (!current || current.roll !== sub.roll || current.total !== sub.total) {
+            next[sub.targetId] = {
+              targetId: sub.targetId,
+              roll: sub.roll,
+              total: sub.total,
+              passed: sub.passed,
+              damageAmount: sub.damageAmount,
+              customModified: false,
+              playerSubmitted: true,
+            };
+            changed = true;
+          }
+        }
+      }
+      return changed ? next : prev;
+    });
+  }, [incomingSubmissions, selectedTargets]);
+
 
   // Atualiza DC padrão ao mudar o atributo (se não for customizada manualmente)
   const handleSelectAttribute = (attr: AttributeName) => {
@@ -266,6 +317,57 @@ export const AreaAttackModal = ({
     setTargetStates(next);
   };
 
+  // Rolar salvaguarda apenas para os alvos que ainda NÃO rolaram
+  const handleRollPendingSaves = () => {
+    const dcNum = parseInt(saveDC, 10) || 10;
+    const dmgNum = parseInt(baseDamage, 10) || 0;
+    setTargetStates((prev) => {
+      const next = { ...prev };
+      for (const target of selectedTargets) {
+        if (!next[target.id] || next[target.id].roll === 0) {
+          const d20 = Math.floor(Math.random() * 20) + 1;
+          const saveRes = resolveSavingThrow(target, saveAttribute, dcNum, d20);
+          const dmg = calculateAreaDamage(dmgNum, saveRes.passed, halfOnSave);
+          next[target.id] = {
+            targetId: target.id,
+            roll: d20,
+            total: saveRes.total,
+            passed: saveRes.passed,
+            damageAmount: dmg,
+            customModified: false,
+            playerSubmitted: false,
+          };
+        }
+      }
+      return next;
+    });
+  };
+
+  // Solicitar salvaguardas interativas aos jogadores
+  const handleRequestPlayerSaves = () => {
+    if (selectedTargets.length === 0) return;
+    const dcNum = parseInt(saveDC, 10) || 10;
+    const dmgNum = parseInt(baseDamage, 10) || 0;
+    const attackId = `area_${Date.now()}`;
+    setIsAwaitingPlayers(true);
+    setRequestSent(true);
+
+    if (onRequestSavingThrows) {
+      onRequestSavingThrows({
+        attackId,
+        attackerId: attacker.id,
+        attackerName: attacker.name,
+        actionName,
+        saveAttribute,
+        saveDC: dcNum,
+        baseDamage: dmgNum,
+        halfOnSave,
+        targetIds: selectedTargets.map((t) => t.id),
+      });
+    }
+  };
+
+
   // Alternar manualmente entre passou/falhou de um alvo
   const handleToggleTargetPassed = (targetId: string) => {
     const current = targetStates[targetId];
@@ -345,10 +447,12 @@ export const AreaAttackModal = ({
 
   const passedCount = selectedTargets.filter((t) => targetStates[t.id]?.passed).length;
   const failedCount = selectedTargets.filter((t) => targetStates[t.id] && !targetStates[t.id].passed).length;
+  const pendingTargetsCount = selectedTargets.filter((t) => !targetStates[t.id] || targetStates[t.id].roll === 0).length;
   const totalDamageDealt = selectedTargets.reduce(
     (acc, t) => acc + (targetStates[t.id]?.damageAmount ?? 0),
     0,
   );
+
 
   return (
     <Modal
@@ -629,14 +733,54 @@ export const AreaAttackModal = ({
                     {saveAttribute} vs CD {saveDC}
                   </Text>
                 </View>
-                <TouchableOpacity
-                  style={styles.rollAllBtn}
-                  onPress={handleRollAllSaves}
-                >
-                  <MaterialCommunityIcons name="dice-d20" size={18} color="#fff" />
-                  <Text style={styles.rollAllBtnText}>ROLAR TODAS</Text>
-                </TouchableOpacity>
+                <View style={{ flexDirection: "row", gap: 6, flexWrap: "wrap", justifyContent: "flex-end" }}>
+                  {onRequestSavingThrows && (
+                    <TouchableOpacity
+                      style={[
+                        styles.requestPlayersBtn,
+                        requestSent && styles.requestPlayersBtnSent,
+                      ]}
+                      onPress={handleRequestPlayerSaves}
+                    >
+                      <MaterialCommunityIcons
+                        name={requestSent ? "account-clock" : "send"}
+                        size={15}
+                        color="#fff"
+                      />
+                      <Text style={styles.requestPlayersBtnText}>
+                        {requestSent ? "SOLICITADO" : "SOLICITAR"}
+                      </Text>
+                    </TouchableOpacity>
+                  )}
+                  {pendingTargetsCount > 0 && pendingTargetsCount < selectedTargets.length && (
+                    <TouchableOpacity
+                      style={styles.rollPendingBtn}
+                      onPress={handleRollPendingSaves}
+                    >
+                      <MaterialCommunityIcons name="dice-d20" size={15} color="#fff" />
+                      <Text style={styles.rollPendingBtnText}>
+                        PENDENTES ({pendingTargetsCount})
+                      </Text>
+                    </TouchableOpacity>
+                  )}
+                  <TouchableOpacity
+                    style={styles.rollAllBtn}
+                    onPress={handleRollAllSaves}
+                  >
+                    <MaterialCommunityIcons name="dice-multiple" size={15} color="#fff" />
+                    <Text style={styles.rollAllBtnText}>ROLAR TODAS</Text>
+                  </TouchableOpacity>
+                </View>
               </View>
+
+              {isAwaitingPlayers && (
+                <View style={styles.awaitingBanner}>
+                  <MaterialCommunityIcons name="clock-outline" size={16} color="#e65100" />
+                  <Text style={styles.awaitingBannerText}>
+                    Salvaguarda solicitada aos jogadores. As respostas atualizarão em tempo real. Você pode rolar pelos ausentes a qualquer momento.
+                  </Text>
+                </View>
+              )}
 
               {/* Lista dos Atores e seus testes */}
               {selectedTargets.map((target) => {
@@ -650,7 +794,20 @@ export const AreaAttackModal = ({
                   <View key={target.id} style={styles.actorCard}>
                     <View style={styles.actorHeader}>
                       <View style={{ flex: 1 }}>
-                        <Text style={styles.actorName}>{target.name}</Text>
+                        <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                          <Text style={styles.actorName}>{target.name}</Text>
+                          {state?.playerSubmitted && (
+                            <View style={styles.playerSubmittedBadge}>
+                              <Ionicons name="checkmark-done" size={12} color="#2e7d32" />
+                              <Text style={styles.playerSubmittedText}>Jogador</Text>
+                            </View>
+                          )}
+                          {!hasRolled && isAwaitingPlayers && target.type === "player" && (
+                            <View style={styles.awaitingBadge}>
+                              <Text style={styles.awaitingBadgeText}>Aguardando...</Text>
+                            </View>
+                          )}
+                        </View>
                         <Text style={styles.actorDetail}>
                           Mod: {mod >= 0 ? `+${mod}` : mod} • CA {target.armorClass} •{" "}
                           {isGm ? `HP: ${target.hp.current}/${target.hp.max}` : getHealthStatus(target.hp.current, target.hp.max)}
@@ -668,6 +825,7 @@ export const AreaAttackModal = ({
                         </Text>
                       </TouchableOpacity>
                     </View>
+
 
                     {/* Linha de Status de Salvaguarda e Dano */}
                     <View style={styles.actorResultRow}>
@@ -982,6 +1140,80 @@ const getStyles = (colors: any, isDark: boolean) =>
       fontWeight: "bold",
       fontSize: 12,
     },
+    requestPlayersBtn: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 4,
+      backgroundColor: "#6a1b9a",
+      paddingVertical: 6,
+      paddingHorizontal: 10,
+      borderRadius: 8,
+    },
+    requestPlayersBtnSent: {
+      backgroundColor: "#4a148c",
+      opacity: 0.85,
+    },
+    requestPlayersBtnText: {
+      color: "#fff",
+      fontWeight: "bold",
+      fontSize: 11,
+    },
+    rollPendingBtn: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 4,
+      backgroundColor: "#e65100",
+      paddingVertical: 6,
+      paddingHorizontal: 10,
+      borderRadius: 8,
+    },
+    rollPendingBtnText: {
+      color: "#fff",
+      fontWeight: "bold",
+      fontSize: 11,
+    },
+    awaitingBanner: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 8,
+      backgroundColor: isDark ? "#2a1805" : "#fff8e1",
+      borderWidth: 1,
+      borderColor: "#ffe082",
+      padding: 10,
+      borderRadius: 8,
+      marginBottom: 10,
+    },
+    awaitingBannerText: {
+      fontSize: 11,
+      color: isDark ? "#ffb74d" : "#e65100",
+      flex: 1,
+    },
+    playerSubmittedBadge: {
+      backgroundColor: "#e8f5e9",
+      paddingHorizontal: 6,
+      paddingVertical: 2,
+      borderRadius: 4,
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 3,
+    },
+    playerSubmittedText: {
+      fontSize: 10,
+      color: "#2e7d32",
+      fontWeight: "600",
+    },
+    awaitingBadge: {
+      backgroundColor: isDark ? "#3e2723" : "#fff3e0",
+      paddingHorizontal: 6,
+      paddingVertical: 2,
+      borderRadius: 4,
+    },
+    awaitingBadgeText: {
+      fontSize: 10,
+      color: "#e65100",
+      fontWeight: "600",
+    },
+
     actorCard: {
       backgroundColor: isDark ? "#222" : "#fafafa",
       borderRadius: 8,

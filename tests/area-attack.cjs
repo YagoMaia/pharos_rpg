@@ -237,3 +237,188 @@ test('handleConfirmAreaAttack online envia payload RESOLVE_ACTION com targets e 
   assert.equal(payload.targets[1].damageAmount, 20);
 });
 
+test('handleServerMessage processa SAVING_THROW_REQUESTED atualizando savingThrowRequest e log', () => {
+  let req = null;
+  let subs = { old: true };
+  const logs = [];
+  const handleServerMessage = expression('context/WebSocketContext.tsx', 'handleServerMessage', {
+    setCombatants() {},
+    setActiveTurnId() {},
+    updateCombatant() {},
+    addLog: msg => logs.push(msg),
+    setLogs() {},
+    setLastEvent() {},
+    setSavingThrowRequest: val => { req = typeof val === 'function' ? val(req) : val; },
+    setSubmittedSavingThrows: val => { subs = typeof val === 'function' ? val(subs) : val; },
+    Alert: { alert() {} },
+    console: { warn() {}, log() {} },
+  }, true);
+
+  handleServerMessage({
+    type: 'SAVING_THROW_REQUESTED',
+    payload: {
+      attackId: 'atk_123',
+      attackerId: 'char_gm',
+      attackerName: 'Mago Negro',
+      actionName: 'Bola de Fogo',
+      saveAttribute: 'Destreza',
+      saveDC: 15,
+      baseDamage: 28,
+      halfOnSave: true,
+      targetIds: ['hero_1', 'hero_2'],
+    },
+  });
+
+  assert.equal(req.attackId, 'atk_123');
+  assert.equal(req.saveDC, 15);
+  assert.equal(req.saveAttribute, 'Destreza');
+  assert.deepEqual(subs, {});
+  assert.ok(logs.some(l => l.includes('Mago Negro') && l.includes('Bola de Fogo')));
+});
+
+test('handleServerMessage processa SAVING_THROW_SUBMITTED acumulando no mapa de respostas e logando', () => {
+  let subs = {};
+  const logs = [];
+  const handleServerMessage = expression('context/WebSocketContext.tsx', 'handleServerMessage', {
+    setCombatants() {},
+    setActiveTurnId() {},
+    updateCombatant() {},
+    addLog: msg => logs.push(msg),
+    setLogs() {},
+    setLastEvent() {},
+    setSavingThrowRequest() {},
+    setSubmittedSavingThrows: val => { subs = typeof val === 'function' ? val(subs) : val; },
+    Alert: { alert() {} },
+    console: { warn() {}, log() {} },
+  }, true);
+
+  handleServerMessage({
+    type: 'SAVING_THROW_SUBMITTED',
+    payload: {
+      attackId: 'atk_123',
+      targetId: 'hero_1',
+      targetName: 'Valeros',
+      roll: 16,
+      total: 19,
+      passed: true,
+      damageAmount: 14,
+    },
+  });
+
+  assert.ok(subs['hero_1']);
+  assert.equal(subs['hero_1'].roll, 16);
+  assert.equal(subs['hero_1'].total, 19);
+  assert.equal(subs['hero_1'].passed, true);
+  assert.equal(subs['hero_1'].damageAmount, 14);
+  assert.ok(logs.some(l => l.includes('Valeros') && l.includes('Passou')));
+});
+
+test('handleServerMessage limpa savingThrowRequest ao receber ACTION_RESOLVED', () => {
+  let req = { attackId: 'atk_123' };
+  const handleServerMessage = expression('context/WebSocketContext.tsx', 'handleServerMessage', {
+    setCombatants() {},
+    setActiveTurnId() {},
+    updateCombatant() {},
+    addLog() {},
+    setLogs() {},
+    setLastEvent() {},
+    setSavingThrowRequest: val => { req = typeof val === 'function' ? val(req) : val; },
+    setSubmittedSavingThrows() {},
+    Alert: { alert() {} },
+    console: { warn() {}, log() {} },
+  }, true);
+
+  handleServerMessage({
+    type: 'ACTION_RESOLVED',
+    payload: {
+      type: 'multi',
+      results: [{ targetId: 'hero_1', targetHp: 10 }],
+    },
+  });
+
+  assert.equal(req, null);
+});
+
+test('handleRequestSavingThrows online envia REQUEST_SAVING_THROW com todos os parametros', () => {
+  const h = harness(false);
+  const payload = {
+    attackId: 'area_999',
+    attackerId: h.actor.id,
+    attackerName: h.actor.name,
+    actionName: 'Onda Trovejante',
+    saveAttribute: 'Constituição',
+    saveDC: 14,
+    baseDamage: 16,
+    halfOnSave: true,
+    targetIds: ['target_1', 'target_2'],
+  };
+
+  h.run('handleRequestSavingThrows')(payload);
+
+  assert.equal(h.state.sent.length, 1);
+  assert.equal(h.state.sent[0].type, 'REQUEST_SAVING_THROW');
+  assert.deepEqual(h.state.sent[0].payload, payload);
+  assert.ok(h.state.alerts.some(a => a[0] === 'Salvaguardas Solicitadas'));
+});
+
+test('jogador e pet resolvem salvaguarda interativa com seus modificadores respectivos', () => {
+  const { generateSafeId } = load('utils/stringUtils');
+  const heroSheet = sheet();
+  heroSheet.name = 'Ranger';
+  heroSheet.attributes['Destreza'] = { name: 'Destreza', value: 16, modifier: 3 };
+  heroSheet.pet = {
+    name: 'Lobo',
+    attributes: {
+      Destreza: { name: 'Destreza', value: 14, modifier: 2 },
+    },
+  };
+
+  const mySafeId = generateSafeId(heroSheet.name);
+  const myPetSafeId = generateSafeId(`${heroSheet.name}_pet_${heroSheet.pet.name}`);
+
+  const req = {
+    attackId: 'area_test',
+    attackerId: 'gm_boss',
+    saveAttribute: 'Destreza',
+    saveDC: 15,
+    baseDamage: 20,
+    halfOnSave: true,
+    targetIds: [mySafeId, myPetSafeId],
+  };
+
+  // Ranger rola d20 = 12 + 3 = 15 >= 15 -> SUCESSO (10 de dano)
+  const rangerSave = resolveSavingThrow(heroSheet, req.saveAttribute, req.saveDC, 12);
+  assert.equal(rangerSave.passed, true);
+  const rangerDmg = calculateAreaDamage(req.baseDamage, rangerSave.passed, req.halfOnSave);
+  assert.equal(rangerDmg, 10);
+
+  // Pet rola d20 = 11 + 2 = 13 < 15 -> FALHA (20 de dano)
+  const petSave = resolveSavingThrow(heroSheet.pet, req.saveAttribute, req.saveDC, 11);
+  assert.equal(petSave.passed, false);
+  const petDmg = calculateAreaDamage(req.baseDamage, petSave.passed, req.halfOnSave);
+  assert.equal(petDmg, 20);
+});
+
+test('handleConfirmAreaAttack combina alvos respondidos por jogadores e alvos rolados pelo mestre', () => {
+  const h = harness(false);
+  // Alvo 1 respondido interativamente pelo jogador, Alvo 2 rolado pelo mestre
+  const targetResults = [
+    { targetId: 'target_1', damageAmount: 12, passed: true, roll: 17, total: 20 },
+    { targetId: 'target_2', damageAmount: 24, passed: false, roll: 8, total: 11 },
+  ];
+  h.run('handleConfirmAreaAttack')(targetResults, 24, 15, 'Destreza', 'Meteoro', 'standard', 5);
+
+  assert.equal(h.state.sent.length, 1);
+  assert.equal(h.state.sent[0].type, 'RESOLVE_ACTION');
+  const payload = h.state.sent[0].payload;
+  assert.equal(payload.actionName, 'Meteoro');
+  assert.equal(payload.focusCost, 5);
+  assert.equal(payload.targets.length, 2);
+  assert.equal(payload.targets[0].targetId, 'target_1');
+  assert.equal(payload.targets[0].damageAmount, 12);
+  assert.equal(payload.targets[1].targetId, 'target_2');
+  assert.equal(payload.targets[1].damageAmount, 24);
+});
+
+
+

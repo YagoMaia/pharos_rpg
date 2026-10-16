@@ -2,7 +2,7 @@ import { petToCombatant, playerToCombatant } from "@/utils/combatantFactory";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { Alert, AppState } from "react-native";
-import { Combatant, GameEvent } from "../types/rpg";
+import { Combatant, GameEvent, SavingThrowRequest, SavingThrowSubmission } from "../types/rpg";
 import { useCampaignAuth } from "./CampaignAuthContext";
 import { campaignAuthMessage, campaignSocketUrl } from "@/utils/campaignSocket";
 import { useCombatants, useCombatLog } from "./CampaignContext";
@@ -32,7 +32,12 @@ interface WebSocketContextType {
     petData?: Combatant | null,
   ) => void;
   connectToCampaign: (campaignId: string, role: "gm" | "player", initiative?: number, petInitiative?: number) => void;
+  savingThrowRequest: SavingThrowRequest | null;
+  clearSavingThrowRequest: () => void;
+  submittedSavingThrows: Record<string, SavingThrowSubmission>;
+  clearSubmittedSavingThrows: () => void;
 }
+
 
 const WebSocketContext = createContext<WebSocketContextType | undefined>(
   undefined,
@@ -83,6 +88,18 @@ export const WebSocketProvider = ({
     setLogs,
     setLastEvent,
   } = useCombatLog();
+
+  const [savingThrowRequest, setSavingThrowRequest] = useState<SavingThrowRequest | null>(null);
+  const [submittedSavingThrows, setSubmittedSavingThrows] = useState<Record<string, SavingThrowSubmission>>({});
+
+  const clearSavingThrowRequest = useCallback(() => {
+    setSavingThrowRequest(null);
+  }, []);
+
+  const clearSubmittedSavingThrows = useCallback(() => {
+    setSubmittedSavingThrows({});
+  }, []);
+
 
   // Limpa timers ao desmontar
   useEffect(() => {
@@ -294,6 +311,39 @@ export const WebSocketProvider = ({
         });
 
         if (payload.log) addLog(payload.log);
+        setSavingThrowRequest(null);
+        break;
+      }
+
+      case "SAVING_THROW_REQUESTED": {
+        setSavingThrowRequest(payload as SavingThrowRequest);
+        setSubmittedSavingThrows({});
+        if (payload.actionName) {
+          addLog(
+            `⚠️ [Salvaguarda] ${payload.attackerName || "Atacante"} exige salvaguarda de ${payload.saveAttribute} (CD ${payload.saveDC}) com ${payload.actionName}!`,
+          );
+        }
+        break;
+      }
+
+      case "SAVING_THROW_SUBMITTED": {
+        const sub = payload as SavingThrowSubmission;
+        if (sub && sub.targetId) {
+          setSubmittedSavingThrows((prev) => ({
+            ...prev,
+            [sub.targetId]: sub,
+          }));
+          const status = sub.passed ? "Passou" : "Falhou";
+          const name = sub.targetName || sub.targetId;
+          addLog(
+            `🎲 ${name} rolou salvaguarda: d20=${sub.roll} (Total: ${sub.total}) → ${status} (${sub.damageAmount} de dano)`,
+          );
+        }
+        break;
+      }
+
+      case "SAVING_THROW_CANCELLED": {
+        setSavingThrowRequest(null);
         break;
       }
 
@@ -340,7 +390,8 @@ export const WebSocketProvider = ({
       default:
         console.warn(`Mensagem WebSocket não tratada: ${type}`);
     }
-  }, [setCombatants, setActiveTurnId, setLogs, setLastEvent, updateCombatant, addLog]);
+  }, [setCombatants, setActiveTurnId, setLogs, setLastEvent, updateCombatant, addLog, setSavingThrowRequest, setSubmittedSavingThrows]);
+
 
   const connectToRoute = useCallback((
     inputIp: string,
@@ -489,6 +540,8 @@ export const WebSocketProvider = ({
     socketRef.current = null;
     lastConnectionRef.current = null;
     reconnectAttempts.current = 0;
+    setSavingThrowRequest(null);
+    setSubmittedSavingThrows({});
     setIsConnected(false);
     setConnectionError(null);
   }, []);
@@ -544,7 +597,24 @@ export const WebSocketProvider = ({
     sendMessage,
     connectToRoute,
     connectToCampaign,
-  }), [isConnected, connectionError, disconnect, joinSession, sendMessage, connectToRoute, connectToCampaign]);
+    savingThrowRequest,
+    clearSavingThrowRequest,
+    submittedSavingThrows,
+    clearSubmittedSavingThrows,
+  }), [
+    isConnected,
+    connectionError,
+    disconnect,
+    joinSession,
+    sendMessage,
+    connectToRoute,
+    connectToCampaign,
+    savingThrowRequest,
+    clearSavingThrowRequest,
+    submittedSavingThrows,
+    clearSubmittedSavingThrows,
+  ]);
+
 
   return (
     <WebSocketContext.Provider value={contextValue}>

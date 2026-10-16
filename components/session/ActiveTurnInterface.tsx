@@ -46,8 +46,9 @@ interface Props {
 const ActiveTurnInterfaceComponent = ({ combatant, isGm = false }: Props) => {
   const { updateCombatant, combatants, activeTurnId, isOfflineMode, nextTurn } =
     useCampaign();
-  const { sendMessage } = useWebSocket();
+  const { sendMessage, submittedSavingThrows } = useWebSocket();
   const { showAlert } = useAlert();
+
   const { colors, isDark } = useTheme();
   const styles = useMemo(() => getStyles(colors, isDark), [colors, isDark]);
 
@@ -714,6 +715,18 @@ const ActiveTurnInterfaceComponent = ({ combatant, isGm = false }: Props) => {
     );
   };
 
+  const handleRequestSavingThrows = (payload: any) => {
+    if (!isOfflineMode) {
+      sendMessage("REQUEST_SAVING_THROW", payload);
+      showAlert(
+        "Salvaguardas Solicitadas",
+        "Os jogadores foram notificados em seus dispositivos.",
+      );
+    }
+  };
+
+
+
   // --- RENDERIZAÇÃO NORMAL (Combate Ativo) ---
   return (
     <ScrollView style={{ flex: 1 }}>
@@ -904,7 +917,10 @@ const ActiveTurnInterfaceComponent = ({ combatant, isGm = false }: Props) => {
         potentialTargets={combatants}
         onConfirmAreaAttack={handleConfirmAreaAttack}
         isGm={isGm}
+        onRequestSavingThrows={!isOfflineMode ? handleRequestSavingThrows : undefined}
+        incomingSubmissions={submittedSavingThrows}
       />
+
 
       {spellHealConfig && (
         <HealModal
