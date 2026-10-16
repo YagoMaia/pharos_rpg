@@ -17,6 +17,8 @@ import { useAlert } from "@/context/AlertContext";
 import { useTheme } from "@/context/ThemeContext";
 import { useWebSocket } from "@/context/WebSocketContext";
 import {
+  ActionCostType,
+  AttributeName,
   Combatant,
   ResolveActionPayload,
   Skill,
@@ -24,6 +26,7 @@ import {
 } from "@/types/rpg";
 import { getActionKey } from "@/utils/rpgUtils";
 
+import { AreaAttackModal } from "../modals/AreaAttackModal";
 import { AttackModal } from "../modals/AttackModal";
 import { ConditionManagerModal } from "../modals/ConditionManagerModal";
 import { HealModal } from "../modals/HealModal";
@@ -49,6 +52,7 @@ const ActiveTurnInterfaceComponent = ({ combatant, isGm = false }: Props) => {
   const styles = useMemo(() => getStyles(colors, isDark), [colors, isDark]);
 
   const [attackModalOpen, setAttackModalOpen] = useState(false);
+  const [areaAttackModalOpen, setAreaAttackModalOpen] = useState(false);
   const [battlefieldVisible, setBattlefieldVisible] = useState(false);
   const [spellAttackConfig, setSpellAttackConfig] = useState<{
     bonus: string;
@@ -613,6 +617,103 @@ const ActiveTurnInterfaceComponent = ({ combatant, isGm = false }: Props) => {
     }
   };
 
+  const handleConfirmAreaAttack = (
+    targetResults: {
+      targetId: string;
+      damageAmount: number;
+      passed: boolean;
+      roll: number;
+      total: number;
+    }[],
+    baseDamage: number,
+    saveDC: number,
+    saveAttribute: AttributeName,
+    actionName: string = "Ataque em Área",
+    costType: ActionCostType = "standard",
+    focusCost: number = 0,
+  ) => {
+    if (targetResults.length === 0) {
+      showAlert("Erro", "Nenhum alvo selecionado para a área.");
+      return;
+    }
+
+    const actionSpent = costType ?? "standard";
+    if (
+      incapacitated ||
+      (actionSpent !== "free" && !turnActions[actionSpent]) ||
+      combatant.focus.current < focusCost
+    ) {
+      showAlert(
+        "Ação indisponível",
+        "Confira as ações e o foco disponíveis antes de confirmar o ataque em área.",
+      );
+      return;
+    }
+
+    const targets = targetResults
+      .map((tr) => {
+        const t = combatants.find((c) => c.id === tr.targetId);
+        if (!t) return null;
+        return {
+          targetId: tr.targetId,
+          damageAmount: tr.damageAmount,
+          healingAmount: 0,
+        };
+      })
+      .filter((t): t is NonNullable<typeof t> => t !== null);
+
+    if (targets.length === 0) return;
+
+    const payload: ResolveActionPayload = {
+      attackerId: combatant.id,
+      targetId: null,
+      targets: targets,
+      actionName: actionName,
+      costType: actionSpent,
+      focusCost: focusCost,
+      damageAmount: 0,
+      healingAmount: 0,
+    };
+
+    if (!isOfflineMode) {
+      sendMessage("RESOLVE_ACTION", payload);
+      setAreaAttackModalOpen(false);
+      return;
+    }
+
+    // Resolução offline
+    targets.forEach((t) => {
+      if (t.damageAmount > 0) {
+        const target = combatants.find((c) => c.id === t.targetId);
+        if (target) {
+          const newHp = Math.max(0, target.hp.current - t.damageAmount);
+          updateCombatant(t.targetId, { hp: { ...target.hp, current: newHp } });
+        }
+      }
+    });
+
+    if (actionSpent !== "free" && turnActions[actionSpent]) {
+      updateCombatant(combatant.id, {
+        turnActions: { ...turnActions, [actionSpent]: false },
+      });
+    }
+
+    if (focusCost > 0) {
+      const newFocus = Math.max(0, combatant.focus.current - focusCost);
+      updateCombatant(combatant.id, {
+        focus: { ...combatant.focus, current: newFocus },
+      });
+    }
+
+    setAreaAttackModalOpen(false);
+
+    const hitCount = targets.filter((t) => t.damageAmount > 0).length;
+    showAlert(
+      "Ataque em Área Realizado",
+      `${actionName} (CD ${saveDC} ${saveAttribute})\n${hitCount} de ${targets.length} alvos sofreram dano.`,
+    );
+  };
+
   // --- RENDERIZAÇÃO NORMAL (Combate Ativo) ---
   return (
     <ScrollView style={{ flex: 1 }}>
@@ -682,19 +783,37 @@ const ActiveTurnInterfaceComponent = ({ combatant, isGm = false }: Props) => {
             });
           }} />
 
-          <TouchableOpacity
-            style={[
-              styles.mainAttackBtn,
-              !turnActions.standard && { opacity: 0.5 },
-            ]}
-            onPress={() => {
-              if (turnActions.standard) setAttackModalOpen(true);
-              else showAlert("Sem Ação", "Você já usou sua ação padrão.");
-            }}
-          >
-            <MaterialCommunityIcons name="sword" size={24} color="#fff" />
-            <Text style={styles.mainAttackText}>REALIZAR ATAQUE</Text>
-          </TouchableOpacity>
+          <View style={styles.attackButtonGroup}>
+            <TouchableOpacity
+              style={[
+                styles.mainAttackBtn,
+                !turnActions.standard && { opacity: 0.5 },
+                { flex: 1, marginRight: 8 },
+              ]}
+              onPress={() => {
+                if (turnActions.standard) setAttackModalOpen(true);
+                else showAlert("Sem Ação", "Você já usou sua ação padrão.");
+              }}
+            >
+              <MaterialCommunityIcons name="sword" size={20} color="#fff" />
+              <Text style={styles.mainAttackText}>ATAQUE DIRETO</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[
+                styles.areaAttackBtn,
+                !turnActions.standard && { opacity: 0.5 },
+                { flex: 1 },
+              ]}
+              onPress={() => {
+                if (turnActions.standard) setAreaAttackModalOpen(true);
+                else showAlert("Sem Ação", "Você já usou sua ação padrão.");
+              }}
+            >
+              <MaterialCommunityIcons name="image-filter-vintage" size={20} color="#fff" />
+              <Text style={styles.areaAttackBtnText}>ATAQUE EM ÁREA</Text>
+            </TouchableOpacity>
+          </View>
         </View>
 
         {/* --- SEÇÃO GRIMÓRIO --- */}
@@ -772,6 +891,19 @@ const ActiveTurnInterfaceComponent = ({ combatant, isGm = false }: Props) => {
         isGm={isGm}
         initialBonus={spellAttackConfig?.bonus}
         initialDamage={spellAttackConfig?.damage}
+        onSwitchToAreaAttack={() => {
+          setAttackModalOpen(false);
+          setAreaAttackModalOpen(true);
+        }}
+      />
+
+      <AreaAttackModal
+        visible={areaAttackModalOpen}
+        onClose={() => setAreaAttackModalOpen(false)}
+        attacker={combatant}
+        potentialTargets={combatants}
+        onConfirmAreaAttack={handleConfirmAreaAttack}
+        isGm={isGm}
       />
 
       {spellHealConfig && (
@@ -891,23 +1023,42 @@ const getStyles = (colors: any, isDark: any) =>
     },
 
     // BUTTONS
+    attackButtonGroup: {
+      flexDirection: "row",
+      alignItems: "center",
+      marginVertical: 12,
+    },
     mainAttackBtn: {
       backgroundColor: "#d32f2f", // Vermelho sangue
       flexDirection: "row",
       alignItems: "center",
       justifyContent: "center",
-      padding: 16,
+      padding: 14,
       borderRadius: 8,
-      marginBottom: 12,
-      marginTop: 12,
-      gap: 8,
+      gap: 6,
       elevation: 3,
     },
     mainAttackText: {
       color: "#fff",
       fontWeight: "900",
-      fontSize: 16,
-      letterSpacing: 1,
+      fontSize: 13,
+      letterSpacing: 0.5,
+    },
+    areaAttackBtn: {
+      backgroundColor: "#c2185b", // Magenta / explosão
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+      padding: 14,
+      borderRadius: 8,
+      gap: 6,
+      elevation: 3,
+    },
+    areaAttackBtnText: {
+      color: "#fff",
+      fontWeight: "900",
+      fontSize: 13,
+      letterSpacing: 0.5,
     },
     battlefieldBtn: {
       flexDirection: "row",
