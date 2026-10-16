@@ -89,7 +89,9 @@ export const CombatantCard = ({ item }: { item: Combatant }) => {
     <View
       style={[
         styles.cardContainer,
-        item.type === "player" ? styles.playerCard : styles.npcCard,
+        item.type === "player" || item.type === "pet"
+          ? styles.playerCard
+          : styles.npcCard,
       ]}
     >
       <TouchableOpacity

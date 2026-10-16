@@ -39,6 +39,7 @@ interface AttackModalProps {
   isGm: boolean;
   initialBonus?: string;
   initialDamage?: string;
+  onSwitchToAreaAttack?: () => void;
 }
 
 export const AttackModal = ({
@@ -50,6 +51,7 @@ export const AttackModal = ({
   isGm,
   initialBonus,
   initialDamage,
+  onSwitchToAreaAttack,
 }: AttackModalProps) => {
   const { colors } = useTheme();
   const styles = getStyles(colors);
@@ -158,6 +160,40 @@ export const AttackModal = ({
           {/* STEP 1: LISTA DE ALVOS (Multi-Seleção) */}
           {step === 1 && (
             <View>
+              {onSwitchToAreaAttack && (
+                <TouchableOpacity
+                  style={{
+                    flexDirection: "row",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    paddingVertical: 8,
+                    paddingHorizontal: 12,
+                    backgroundColor: colors.primary + "15",
+                    borderBottomWidth: 1,
+                    borderBottomColor: colors.border,
+                    gap: 6,
+                  }}
+                  onPress={() => {
+                    onClose();
+                    onSwitchToAreaAttack();
+                  }}
+                >
+                  <MaterialCommunityIcons
+                    name="image-filter-vintage"
+                    size={16}
+                    color={colors.primary}
+                  />
+                  <Text
+                    style={{
+                      color: colors.primary,
+                      fontSize: 12,
+                      fontWeight: "bold",
+                    }}
+                  >
+                    Mudar para Ataque em Área (Salvaguarda)
+                  </Text>
+                </TouchableOpacity>
+              )}
               <FlatList
                 data={validTargets}
                 keyExtractor={(item) => item.id}
@@ -191,7 +227,7 @@ export const AttackModal = ({
                       <View style={{ flex: 1 }}>
                         <Text style={styles.targetName}>{item.name}</Text>
                         <Text style={styles.targetDetail}>
-                          {item.type === "player" ? "Jogador" : "Inimigo"} •{" "}
+                          {item.type === "player" ? "Jogador" : item.type === "pet" ? "Pet (Aliado)" : "Inimigo"} •{" "}
                           <Text
                             style={{
                               fontWeight: isGm ? "bold" : "normal",

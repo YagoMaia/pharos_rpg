@@ -476,3 +476,26 @@ export interface GameEvent {
   skill_name: string;
   value: number;
 }
+
+export interface SavingThrowRequest {
+  attackId: string;
+  attackerId: string;
+  attackerName?: string;
+  actionName?: string;
+  saveAttribute: AttributeName;
+  saveDC: number;
+  baseDamage: number;
+  halfOnSave: boolean;
+  targetIds: string[];
+}
+
+export interface SavingThrowSubmission {
+  attackId: string;
+  targetId: string;
+  targetName?: string;
+  roll: number;
+  total: number;
+  passed: boolean;
+  damageAmount: number;
+}
+

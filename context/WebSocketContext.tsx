@@ -2,7 +2,7 @@ import { petToCombatant, playerToCombatant } from "@/utils/combatantFactory";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { Alert, AppState } from "react-native";
-import { Combatant, GameEvent } from "../types/rpg";
+import { Combatant, GameEvent, SavingThrowRequest, SavingThrowSubmission } from "../types/rpg";
 import { useCampaignAuth } from "./CampaignAuthContext";
 import { campaignAuthMessage, campaignSocketUrl } from "@/utils/campaignSocket";
 import { useCombatants, useCombatLog } from "./CampaignContext";
@@ -32,7 +32,12 @@ interface WebSocketContextType {
     petData?: Combatant | null,
   ) => void;
   connectToCampaign: (campaignId: string, role: "gm" | "player", initiative?: number, petInitiative?: number) => void;
+  savingThrowRequest: SavingThrowRequest | null;
+  clearSavingThrowRequest: () => void;
+  submittedSavingThrows: Record<string, SavingThrowSubmission>;
+  clearSubmittedSavingThrows: () => void;
 }
+
 
 const WebSocketContext = createContext<WebSocketContextType | undefined>(
   undefined,
@@ -83,6 +88,18 @@ export const WebSocketProvider = ({
     setLogs,
     setLastEvent,
   } = useCombatLog();
+
+  const [savingThrowRequest, setSavingThrowRequest] = useState<SavingThrowRequest | null>(null);
+  const [submittedSavingThrows, setSubmittedSavingThrows] = useState<Record<string, SavingThrowSubmission>>({});
+
+  const clearSavingThrowRequest = useCallback(() => {
+    setSavingThrowRequest(null);
+  }, []);
+
+  const clearSubmittedSavingThrows = useCallback(() => {
+    setSubmittedSavingThrows({});
+  }, []);
+
 
   // Limpa timers ao desmontar
   useEffect(() => {
@@ -173,6 +190,10 @@ export const WebSocketProvider = ({
         setLastEvent(data.last_event);
       }
       return;
+    }
+
+    if (data.error) {
+      console.warn("⚠️ [WebSocket Server Error]:", data.error);
     }
 
     // 2. PROCESSAMENTO DE DELTAS
@@ -294,6 +315,66 @@ export const WebSocketProvider = ({
         });
 
         if (payload.log) addLog(payload.log);
+        setSavingThrowRequest(null);
+        break;
+      }
+
+      case "REQUEST_SAVING_THROW":
+      case "SAVING_THROW_REQUESTED": {
+        const req: SavingThrowRequest = {
+          attackId: payload.attackId || payload.requestId || `req_${Date.now()}`,
+          attackerId: payload.attackerId || "",
+          attackerName: payload.attackerName || payload.attackerId || "Atacante",
+          actionName: payload.actionName || "Ataque em Área",
+          saveAttribute: payload.saveAttribute || payload.attribute || "Destreza",
+          saveDC: typeof payload.saveDC === "number" ? payload.saveDC : parseInt(payload.saveDC, 10) || 10,
+          baseDamage: typeof payload.baseDamage === "number" ? payload.baseDamage : parseInt(payload.baseDamage, 10) || 0,
+          halfOnSave: payload.halfOnSave !== undefined ? Boolean(payload.halfOnSave) : true,
+          targetIds: Array.isArray(payload.targetIds) ? payload.targetIds : [],
+        };
+        setSavingThrowRequest(req);
+        setSubmittedSavingThrows({});
+        addLog(
+          `⚠️ [Salvaguarda] ${req.attackerName} exige salvaguarda de ${req.saveAttribute} (CD ${req.saveDC}) com ${req.actionName}!`,
+        );
+        break;
+      }
+
+      case "SAVING_THROW_ROLLED":
+      case "SAVING_THROW_SUBMITTED": {
+        const targetId = payload.targetId || payload.combatantId;
+        if (targetId) {
+          const roll = payload.roll ?? payload.rollValue ?? 0;
+          const total = payload.total ?? (roll + (payload.modifier ?? 0));
+          const passed = typeof payload.passed === "boolean" ? payload.passed : total >= 10;
+          const damageAmount = payload.damageAmount ?? 0;
+          const targetName = payload.targetName || payload.combatantName || targetId;
+          const attackId = payload.attackId || payload.requestId || "";
+
+          const sub: SavingThrowSubmission = {
+            attackId,
+            targetId,
+            targetName,
+            roll,
+            total,
+            passed,
+            damageAmount,
+          };
+
+          setSubmittedSavingThrows((prev) => ({
+            ...prev,
+            [targetId]: sub,
+          }));
+          const status = passed ? "Passou" : "Falhou";
+          addLog(
+            `🎲 ${targetName} rolou salvaguarda: d20=${roll} (Total: ${total}) → ${status} (${damageAmount} de dano)`,
+          );
+        }
+        break;
+      }
+
+      case "SAVING_THROW_CANCELLED": {
+        setSavingThrowRequest(null);
         break;
       }
 
@@ -340,7 +421,8 @@ export const WebSocketProvider = ({
       default:
         console.warn(`Mensagem WebSocket não tratada: ${type}`);
     }
-  }, [setCombatants, setActiveTurnId, setLogs, setLastEvent, updateCombatant, addLog]);
+  }, [setCombatants, setActiveTurnId, setLogs, setLastEvent, updateCombatant, addLog, setSavingThrowRequest, setSubmittedSavingThrows]);
+
 
   const connectToRoute = useCallback((
     inputIp: string,
@@ -489,6 +571,8 @@ export const WebSocketProvider = ({
     socketRef.current = null;
     lastConnectionRef.current = null;
     reconnectAttempts.current = 0;
+    setSavingThrowRequest(null);
+    setSubmittedSavingThrows({});
     setIsConnected(false);
     setConnectionError(null);
   }, []);
@@ -544,7 +628,24 @@ export const WebSocketProvider = ({
     sendMessage,
     connectToRoute,
     connectToCampaign,
-  }), [isConnected, connectionError, disconnect, joinSession, sendMessage, connectToRoute, connectToCampaign]);
+    savingThrowRequest,
+    clearSavingThrowRequest,
+    submittedSavingThrows,
+    clearSubmittedSavingThrows,
+  }), [
+    isConnected,
+    connectionError,
+    disconnect,
+    joinSession,
+    sendMessage,
+    connectToRoute,
+    connectToCampaign,
+    savingThrowRequest,
+    clearSavingThrowRequest,
+    submittedSavingThrows,
+    clearSubmittedSavingThrows,
+  ]);
+
 
   return (
     <WebSocketContext.Provider value={contextValue}>

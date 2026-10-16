@@ -18,12 +18,14 @@ import { useCharacter } from "@/context/CharacterContext";
 import { useTheme } from "@/context/ThemeContext";
 import { useWebSocket } from "@/context/WebSocketContext";
 import { generateSafeId } from "@/utils/stringUtils";
+import { SavingThrowSubmission } from "@/types/rpg";
 
 import { ActiveTurnInterface } from "@/components/session/ActiveTurnInterface";
 import { CombatNotification } from "@/components/session/CombatNotification";
 import { ConnectionForm } from "@/components/session/ConnectionForm";
 import { ReactionOverlay } from "@/components/session/ReactionOverlay";
 import { SpectatorCard } from "@/components/session/SpectatorCard";
+import { SavingThrowPromptModal } from "@/components/modals/SavingThrowPromptModal";
 
 export default function SessionCombatScreen() {
   const { combatants, activeTurnId, logs, lastEvent } = useCampaign();
@@ -32,7 +34,15 @@ export default function SessionCombatScreen() {
   const styles = useMemo(() => getStyles(colors), [colors]);
   const { showAlert } = useAlert();
 
-  const { joinSession, disconnect, isConnected, connectionError } = useWebSocket();
+  const {
+    joinSession,
+    disconnect,
+    isConnected,
+    connectionError,
+    savingThrowRequest,
+    clearSavingThrowRequest,
+    sendMessage,
+  } = useWebSocket();
 
   // Estado local para o modal de Iniciativa (apenas quando entra)
   const [initValue, setInitValue] = useState("");
@@ -41,6 +51,8 @@ export default function SessionCombatScreen() {
   const [isRolling, setIsRolling] = useState(false);
   const [isPetRolling, setIsPetRolling] = useState(false);
   const [showVictoryModal, setShowVictoryModal] = useState(false);
+  const [saveModalVisible, setSaveModalVisible] = useState(false);
+
 
   // Guardar temporariamente os dados de conexão para usar após rolar iniciativa
   const [tempConnection, setTempConnection] = useState<{
@@ -180,6 +192,23 @@ export default function SessionCombatScreen() {
       }
     }
   }, [lastEvent, mySafeId, myPetSafeId]); // Monitora ID do evento
+
+  useEffect(() => {
+    if (savingThrowRequest) {
+      const isMe = savingThrowRequest.targetIds.includes(mySafeId);
+      const isPet = myPetSafeId ? savingThrowRequest.targetIds.includes(myPetSafeId) : false;
+      if (isMe || isPet) {
+        setSaveModalVisible(true);
+      }
+    } else {
+      setSaveModalVisible(false);
+    }
+  }, [savingThrowRequest, mySafeId, myPetSafeId]);
+
+  const handleSubmitSavingThrow = (submission: SavingThrowSubmission) => {
+    sendMessage("SUBMIT_SAVING_THROW", submission);
+  };
+
 
   // --- TELA DE CONEXÃO ---
   if (!isConnected) {
@@ -407,9 +436,21 @@ export default function SessionCombatScreen() {
           </View>
         </View>
       </Modal>
+
+      <SavingThrowPromptModal
+        visible={saveModalVisible}
+        request={savingThrowRequest}
+        character={character}
+        onClose={() => {
+          setSaveModalVisible(false);
+          clearSavingThrowRequest();
+        }}
+        onSubmitSave={handleSubmitSavingThrow}
+      />
     </View>
   );
 }
+
 
 const getStyles = (colors: any) =>
   StyleSheet.create({

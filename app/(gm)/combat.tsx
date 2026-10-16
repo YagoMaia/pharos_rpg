@@ -1,4 +1,4 @@
-import { Ionicons } from "@expo/vector-icons";
+import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import React, { useMemo, useState } from "react";
 import {
   FlatList,
@@ -14,14 +14,18 @@ import {
 import { useAlert } from "@/context/AlertContext";
 import { useCampaign } from "@/context/CampaignContext";
 import { useTheme } from "@/context/ThemeContext";
+import { useWebSocket } from "@/context/WebSocketContext";
 
 // Componentes
 import { CombatantCard } from "@/components/gm/CombatantCard";
+import { AreaAttackModal } from "@/components/modals/AreaAttackModal";
+import { ActionCostType, AttributeName, Combatant } from "@/types/rpg";
 
 export default function GMCombatScreen() {
-  const { combatants, addCombatant, sortCombat, clearCombat } = useCampaign();
+  const { combatants, addCombatant, sortCombat, clearCombat, updateCombatant } = useCampaign();
   const { colors } = useTheme();
   const { showAlert } = useAlert();
+  const { isConnected, sendMessage, submittedSavingThrows, clearSubmittedSavingThrows } = useWebSocket();
   const styles = useMemo(() => getStyles(colors), [colors]);
 
   const [modalVisible, setModalVisible] = useState(false);
@@ -60,12 +64,82 @@ export default function GMCombatScreen() {
     setManualAc("");
   };
 
+  const [areaAttackModalOpen, setAreaAttackModalOpen] = useState(false);
+
+  const handleConfirmAreaAttack = (
+    targetResults: {
+      targetId: string;
+      damageAmount: number;
+      passed?: boolean;
+      roll?: number;
+      total?: number;
+    }[],
+    baseDamage: number,
+    saveDC: number,
+    saveAttribute: AttributeName,
+    actionName?: string,
+    actionCost?: ActionCostType,
+    focusCost?: number,
+  ) => {
+    targetResults.forEach((t) => {
+      if (t.damageAmount > 0) {
+        const actor = combatants.find((c) => c.id === t.targetId);
+        if (actor) {
+          const newHp = Math.max(0, actor.hp.current - t.damageAmount);
+          updateCombatant(t.targetId, "hp", { ...actor.hp, current: newHp });
+        }
+      }
+    });
+    const hitCount = targetResults.filter((t) => t.damageAmount > 0).length;
+    showAlert(
+      "Dano em Área Aplicado",
+      `${actionName || "Ataque em Área"} (CD ${saveDC} ${saveAttribute})\n${hitCount} de ${targetResults.length} alvos sofreram dano.`,
+    );
+  };
+
+  const defaultAttacker: Combatant = combatants[0] || {
+    id: "gm",
+    name: "Mestre",
+    type: "gm",
+    level: 1,
+    attributes: {
+      Destreza: { name: "Destreza", value: 10, modifier: 0 },
+      Força: { name: "Força", value: 10, modifier: 0 },
+      Constituição: { name: "Constituição", value: 10, modifier: 0 },
+      Inteligência: { name: "Inteligência", value: 10, modifier: 0 },
+      Sabedoria: { name: "Sabedoria", value: 10, modifier: 0 },
+      Carisma: { name: "Carisma", value: 10, modifier: 0 },
+    },
+    hp: { current: 10, max: 10 },
+    focus: { current: 10, max: 10 },
+    armorClass: 10,
+    initiative: 0,
+    turnActions: { standard: true, bonus: true, reaction: true },
+    deathSaves: { successes: 0, failures: 0 },
+    stances: [],
+    skills: [],
+    spells: [],
+    weapons: {},
+    conditions: [],
+  };
+
   return (
     <View style={styles.container}>
       {/* Header do Mestre */}
       <View style={styles.gmHeader}>
         <Text style={styles.gmTitle}>Turno</Text>
-        <View style={{ flexDirection: "row", gap: 15 }}>
+        <View style={{ flexDirection: "row", gap: 15, alignItems: "center" }}>
+          <TouchableOpacity
+            onPress={() => {
+              if (combatants.length === 0) {
+                showAlert("Atenção", "Adicione combatentes à mesa para realizar um ataque em área.");
+                return;
+              }
+              setAreaAttackModalOpen(true);
+            }}
+          >
+            <MaterialCommunityIcons name="image-filter-vintage" size={24} color={colors.primary} />
+          </TouchableOpacity>
           <TouchableOpacity onPress={sortCombat}>
             <Ionicons name="filter" size={24} color={colors.primary} />
           </TouchableOpacity>
@@ -166,6 +240,33 @@ export default function GMCombatScreen() {
           </View>
         </View>
       </Modal>
+
+      <AreaAttackModal
+        visible={areaAttackModalOpen}
+        onClose={() => {
+          setAreaAttackModalOpen(false);
+          clearSubmittedSavingThrows();
+        }}
+        attacker={defaultAttacker}
+        potentialTargets={combatants}
+        onConfirmAreaAttack={(...args) => {
+          handleConfirmAreaAttack(...args);
+          clearSubmittedSavingThrows();
+        }}
+        isGm={true}
+        onRequestSavingThrows={
+          isConnected
+            ? (payload: any) => {
+                sendMessage("REQUEST_SAVING_THROW", payload);
+                showAlert(
+                  "Salvaguardas Solicitadas",
+                  "Os jogadores foram notificados em seus dispositivos.",
+                );
+              }
+            : undefined
+        }
+        incomingSubmissions={submittedSavingThrows}
+      />
     </View>
   );
 }

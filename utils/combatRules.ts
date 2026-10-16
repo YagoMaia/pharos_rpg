@@ -1,4 +1,4 @@
-import { Combatant, CombatWeaponData, Stance } from "../types/rpg";
+import { AttributeName, Combatant, CombatWeaponData, Stance } from "../types/rpg";
 
 export function weaponDamageFormula(weapon: CombatWeaponData, attributeModifier: number): string {
   // Fórmulas legadas com parcela fixa já eram usadas como dano total. O campo
@@ -63,3 +63,114 @@ export function advanceCombatTurn(combatants: Combatant[], activeTurnId: string 
   }
   return { combatants: remaining, activeTurnId: null };
 }
+
+export function calculateSaveDC(
+  attacker: { level?: number; attributes: Record<string, { modifier?: number } | undefined> },
+  attributeName?: AttributeName,
+): number {
+  const level = attacker.level ?? 1;
+  const prof = Math.max(2, Math.floor((level - 1) / 4) + 2);
+  if (attributeName && attacker.attributes[attributeName]?.modifier !== undefined) {
+    return 8 + prof + (attacker.attributes[attributeName]?.modifier ?? 0);
+  }
+  const relevantAttributes: AttributeName[] = [
+    "Inteligência",
+    "Sabedoria",
+    "Carisma",
+    "Destreza",
+    "Força",
+  ];
+  const mods = relevantAttributes.map(
+    (attr) => attacker.attributes[attr]?.modifier ?? 0,
+  );
+  const bestMod = mods.length > 0 ? Math.max(...mods) : 0;
+  return 8 + prof + bestMod;
+}
+
+export function getTargetSaveModifier(
+  target: { attributes: Record<string, { modifier?: number } | undefined> },
+  attributeName: AttributeName,
+): number {
+  return target.attributes[attributeName]?.modifier ?? 0;
+}
+
+export interface SavingThrowResult {
+  roll: number;
+  modifier: number;
+  total: number;
+  passed: boolean;
+  isCritSuccess: boolean;
+  isCritFail: boolean;
+}
+
+export function resolveSavingThrow(
+  target: { attributes: Record<string, { modifier?: number } | undefined> },
+  attributeName: AttributeName,
+  saveDC: number,
+  rollResult: number,
+): SavingThrowResult {
+  const modifier = getTargetSaveModifier(target, attributeName);
+  const total = rollResult + modifier;
+  const isCritSuccess = rollResult === 20;
+  const isCritFail = rollResult === 1;
+  const passed = isCritSuccess || (!isCritFail && total >= saveDC);
+  return {
+    roll: rollResult,
+    modifier,
+    total,
+    passed,
+    isCritSuccess,
+    isCritFail,
+  };
+}
+
+export function calculateAreaDamage(
+  baseDamage: number,
+  passed: boolean,
+  halfOnSave: boolean = true,
+): number {
+  if (passed) {
+    return halfOnSave ? Math.floor(baseDamage / 2) : 0;
+  }
+  return baseDamage;
+}
+
+export interface AreaTargetResolution {
+  targetId: string;
+  roll: number;
+  modifier: number;
+  total: number;
+  passed: boolean;
+  damageAmount: number;
+  healingAmount: number;
+}
+
+export function resolveAreaAttackTargets(
+  targets: Array<{
+    combatant: { id: string; attributes: Record<string, { modifier?: number } | undefined> };
+    roll: number;
+    customDamage?: number;
+  }>,
+  attributeName: AttributeName,
+  saveDC: number,
+  baseDamage: number,
+  halfOnSave: boolean = true,
+): AreaTargetResolution[] {
+  return targets.map((t) => {
+    const saveRes = resolveSavingThrow(t.combatant, attributeName, saveDC, t.roll);
+    const damageAmount =
+      t.customDamage !== undefined
+        ? t.customDamage
+        : calculateAreaDamage(baseDamage, saveRes.passed, halfOnSave);
+    return {
+      targetId: t.combatant.id,
+      roll: t.roll,
+      modifier: saveRes.modifier,
+      total: saveRes.total,
+      passed: saveRes.passed,
+      damageAmount: Math.max(0, damageAmount),
+      healingAmount: 0,
+    };
+  });
+}
+
