@@ -137,13 +137,23 @@ export const SavingThrowPromptModal = ({
 
     onSubmitSave({
       attackId: request.attackId,
+      requestId: request.attackId,
       targetId: target.id,
+      combatantId: target.id,
       targetName: target.name,
+      combatantName: target.name,
       roll: state.roll,
+      rollValue: state.roll,
       total: state.total,
       passed: state.passed,
       damageAmount: state.damageAmount,
-    });
+      attribute: request.saveAttribute,
+      saveAttribute: request.saveAttribute,
+      saveDC: request.saveDC,
+      baseDamage: request.baseDamage,
+      halfOnSave: request.halfOnSave,
+      applyDamage: false,
+    } as any);
 
     setTargetStates((prev) => ({
       ...prev,

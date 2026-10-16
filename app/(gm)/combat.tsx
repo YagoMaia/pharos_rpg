@@ -14,16 +14,18 @@ import {
 import { useAlert } from "@/context/AlertContext";
 import { useCampaign } from "@/context/CampaignContext";
 import { useTheme } from "@/context/ThemeContext";
+import { useWebSocket } from "@/context/WebSocketContext";
 
 // Componentes
 import { CombatantCard } from "@/components/gm/CombatantCard";
 import { AreaAttackModal } from "@/components/modals/AreaAttackModal";
-import { AttributeName, Combatant } from "@/types/rpg";
+import { ActionCostType, AttributeName, Combatant } from "@/types/rpg";
 
 export default function GMCombatScreen() {
   const { combatants, addCombatant, sortCombat, clearCombat, updateCombatant } = useCampaign();
   const { colors } = useTheme();
   const { showAlert } = useAlert();
+  const { isConnected, sendMessage, submittedSavingThrows, clearSubmittedSavingThrows } = useWebSocket();
   const styles = useMemo(() => getStyles(colors), [colors]);
 
   const [modalVisible, setModalVisible] = useState(false);
@@ -65,11 +67,19 @@ export default function GMCombatScreen() {
   const [areaAttackModalOpen, setAreaAttackModalOpen] = useState(false);
 
   const handleConfirmAreaAttack = (
-    targetResults: { targetId: string; damageAmount: number }[],
+    targetResults: {
+      targetId: string;
+      damageAmount: number;
+      passed?: boolean;
+      roll?: number;
+      total?: number;
+    }[],
     baseDamage: number,
     saveDC: number,
     saveAttribute: AttributeName,
     actionName?: string,
+    actionCost?: ActionCostType,
+    focusCost?: number,
   ) => {
     targetResults.forEach((t) => {
       if (t.damageAmount > 0) {
@@ -233,11 +243,29 @@ export default function GMCombatScreen() {
 
       <AreaAttackModal
         visible={areaAttackModalOpen}
-        onClose={() => setAreaAttackModalOpen(false)}
+        onClose={() => {
+          setAreaAttackModalOpen(false);
+          clearSubmittedSavingThrows();
+        }}
         attacker={defaultAttacker}
         potentialTargets={combatants}
-        onConfirmAreaAttack={handleConfirmAreaAttack}
+        onConfirmAreaAttack={(...args) => {
+          handleConfirmAreaAttack(...args);
+          clearSubmittedSavingThrows();
+        }}
         isGm={true}
+        onRequestSavingThrows={
+          isConnected
+            ? (payload: any) => {
+                sendMessage("REQUEST_SAVING_THROW", payload);
+                showAlert(
+                  "Salvaguardas Solicitadas",
+                  "Os jogadores foram notificados em seus dispositivos.",
+                );
+              }
+            : undefined
+        }
+        incomingSubmissions={submittedSavingThrows}
       />
     </View>
   );

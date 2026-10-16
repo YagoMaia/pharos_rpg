@@ -339,6 +339,87 @@ test('handleServerMessage limpa savingThrowRequest ao receber ACTION_RESOLVED', 
   assert.equal(req, null);
 });
 
+test('handleServerMessage processa REQUEST_SAVING_THROW com formato do backend (attribute, requestId)', () => {
+  let req = null;
+  let subs = { old: true };
+  const logs = [];
+  const handleServerMessage = expression('context/WebSocketContext.tsx', 'handleServerMessage', {
+    setCombatants() {},
+    setActiveTurnId() {},
+    updateCombatant() {},
+    addLog: msg => logs.push(msg),
+    setLogs() {},
+    setLastEvent() {},
+    setSavingThrowRequest: val => { req = typeof val === 'function' ? val(req) : val; },
+    setSubmittedSavingThrows: val => { subs = typeof val === 'function' ? val(subs) : val; },
+    Alert: { alert() {} },
+    console: { warn() {}, log() {} },
+  }, true);
+
+  handleServerMessage({
+    type: 'REQUEST_SAVING_THROW',
+    payload: {
+      requestId: 'req_server_456',
+      attackerId: 'char_gm',
+      attackerName: 'Dragão Vermelho',
+      actionName: 'Sopro de Fogo',
+      attribute: 'Destreza',
+      saveDC: 16,
+      baseDamage: 35,
+      halfOnSave: true,
+      targetIds: ['hero_1', 'hero_2'],
+    },
+  });
+
+  assert.ok(req);
+  assert.equal(req.attackId, 'req_server_456');
+  assert.equal(req.saveDC, 16);
+  assert.equal(req.saveAttribute, 'Destreza');
+  assert.equal(req.baseDamage, 35);
+  assert.deepEqual(subs, {});
+  assert.ok(logs.some(l => l.includes('Dragão Vermelho') && l.includes('Sopro de Fogo')));
+});
+
+test('handleServerMessage processa SAVING_THROW_ROLLED com formato do backend (combatantId, rollValue)', () => {
+  let subs = {};
+  const logs = [];
+  const handleServerMessage = expression('context/WebSocketContext.tsx', 'handleServerMessage', {
+    setCombatants() {},
+    setActiveTurnId() {},
+    updateCombatant() {},
+    addLog: msg => logs.push(msg),
+    setLogs() {},
+    setLastEvent() {},
+    setSavingThrowRequest() {},
+    setSubmittedSavingThrows: val => { subs = typeof val === 'function' ? val(subs) : val; },
+    Alert: { alert() {} },
+    console: { warn() {}, log() {} },
+  }, true);
+
+  handleServerMessage({
+    type: 'SAVING_THROW_ROLLED',
+    payload: {
+      requestId: 'req_server_456',
+      combatantId: 'hero_2',
+      combatantName: 'Kyra',
+      rollValue: 14,
+      modifier: 2,
+      total: 16,
+      passed: true,
+      damageAmount: 17,
+    },
+  });
+
+  assert.ok(subs['hero_2']);
+  assert.equal(subs['hero_2'].targetId, 'hero_2');
+  assert.equal(subs['hero_2'].targetName, 'Kyra');
+  assert.equal(subs['hero_2'].roll, 14);
+  assert.equal(subs['hero_2'].total, 16);
+  assert.equal(subs['hero_2'].passed, true);
+  assert.equal(subs['hero_2'].damageAmount, 17);
+  assert.ok(logs.some(l => l.includes('Kyra') && l.includes('Passou')));
+});
+
 test('handleRequestSavingThrows online envia REQUEST_SAVING_THROW com todos os parametros', () => {
   const h = harness(false);
   const payload = {

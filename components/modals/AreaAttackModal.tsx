@@ -152,15 +152,21 @@ export const AreaAttackModal = ({
       let changed = false;
       const next = { ...prev };
       for (const sub of subs) {
-        if (selectedTargets.some((t) => t.id === sub.targetId)) {
-          const current = next[sub.targetId];
-          if (!current || current.roll !== sub.roll || current.total !== sub.total) {
-            next[sub.targetId] = {
-              targetId: sub.targetId,
-              roll: sub.roll,
-              total: sub.total,
-              passed: sub.passed,
-              damageAmount: sub.damageAmount,
+        const targetId = (sub as any).targetId || (sub as any).combatantId;
+        if (!targetId) continue;
+        if (selectedTargets.some((t) => t.id === targetId)) {
+          const current = next[targetId];
+          const roll = (sub as any).roll ?? (sub as any).rollValue ?? 0;
+          const total = (sub as any).total ?? roll;
+          const passed = Boolean((sub as any).passed);
+          const damageAmount = (sub as any).damageAmount ?? 0;
+          if (!current || current.roll !== roll || current.total !== total) {
+            next[targetId] = {
+              targetId,
+              roll,
+              total,
+              passed,
+              damageAmount,
               customModified: false,
               playerSubmitted: true,
             };
@@ -355,15 +361,19 @@ export const AreaAttackModal = ({
     if (onRequestSavingThrows) {
       onRequestSavingThrows({
         attackId,
+        requestId: attackId,
         attackerId: attacker.id,
         attackerName: attacker.name,
         actionName,
         saveAttribute,
+        attribute: saveAttribute,
         saveDC: dcNum,
         baseDamage: dmgNum,
         halfOnSave,
         targetIds: selectedTargets.map((t) => t.id),
-      });
+        costType: "none",
+        focusCost: 0,
+      } as any);
     }
   };
 

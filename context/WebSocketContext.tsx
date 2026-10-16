@@ -192,6 +192,10 @@ export const WebSocketProvider = ({
       return;
     }
 
+    if (data.error) {
+      console.warn("⚠️ [WebSocket Server Error]:", data.error);
+    }
+
     // 2. PROCESSAMENTO DE DELTAS
     const { type, payload } = data;
     if (!type || !payload) return;
@@ -315,28 +319,55 @@ export const WebSocketProvider = ({
         break;
       }
 
+      case "REQUEST_SAVING_THROW":
       case "SAVING_THROW_REQUESTED": {
-        setSavingThrowRequest(payload as SavingThrowRequest);
+        const req: SavingThrowRequest = {
+          attackId: payload.attackId || payload.requestId || `req_${Date.now()}`,
+          attackerId: payload.attackerId || "",
+          attackerName: payload.attackerName || payload.attackerId || "Atacante",
+          actionName: payload.actionName || "Ataque em Área",
+          saveAttribute: payload.saveAttribute || payload.attribute || "Destreza",
+          saveDC: typeof payload.saveDC === "number" ? payload.saveDC : parseInt(payload.saveDC, 10) || 10,
+          baseDamage: typeof payload.baseDamage === "number" ? payload.baseDamage : parseInt(payload.baseDamage, 10) || 0,
+          halfOnSave: payload.halfOnSave !== undefined ? Boolean(payload.halfOnSave) : true,
+          targetIds: Array.isArray(payload.targetIds) ? payload.targetIds : [],
+        };
+        setSavingThrowRequest(req);
         setSubmittedSavingThrows({});
-        if (payload.actionName) {
-          addLog(
-            `⚠️ [Salvaguarda] ${payload.attackerName || "Atacante"} exige salvaguarda de ${payload.saveAttribute} (CD ${payload.saveDC}) com ${payload.actionName}!`,
-          );
-        }
+        addLog(
+          `⚠️ [Salvaguarda] ${req.attackerName} exige salvaguarda de ${req.saveAttribute} (CD ${req.saveDC}) com ${req.actionName}!`,
+        );
         break;
       }
 
+      case "SAVING_THROW_ROLLED":
       case "SAVING_THROW_SUBMITTED": {
-        const sub = payload as SavingThrowSubmission;
-        if (sub && sub.targetId) {
+        const targetId = payload.targetId || payload.combatantId;
+        if (targetId) {
+          const roll = payload.roll ?? payload.rollValue ?? 0;
+          const total = payload.total ?? (roll + (payload.modifier ?? 0));
+          const passed = typeof payload.passed === "boolean" ? payload.passed : total >= 10;
+          const damageAmount = payload.damageAmount ?? 0;
+          const targetName = payload.targetName || payload.combatantName || targetId;
+          const attackId = payload.attackId || payload.requestId || "";
+
+          const sub: SavingThrowSubmission = {
+            attackId,
+            targetId,
+            targetName,
+            roll,
+            total,
+            passed,
+            damageAmount,
+          };
+
           setSubmittedSavingThrows((prev) => ({
             ...prev,
-            [sub.targetId]: sub,
+            [targetId]: sub,
           }));
-          const status = sub.passed ? "Passou" : "Falhou";
-          const name = sub.targetName || sub.targetId;
+          const status = passed ? "Passou" : "Falhou";
           addLog(
-            `🎲 ${name} rolou salvaguarda: d20=${sub.roll} (Total: ${sub.total}) → ${status} (${sub.damageAmount} de dano)`,
+            `🎲 ${targetName} rolou salvaguarda: d20=${roll} (Total: ${total}) → ${status} (${damageAmount} de dano)`,
           );
         }
         break;
