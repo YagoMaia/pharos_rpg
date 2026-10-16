@@ -220,9 +220,14 @@ export const AreaAttackModal = ({
   };
 
   const handleSelectAllEnemies = () => {
-    const isPlayer = attacker.type === "player";
+    const isPlayerTeam = attacker.type === "player" || attacker.type === "pet";
     const enemies = potentialTargets.filter(
-      (t) => t.id !== attacker.id && t.hp.current > 0 && (isPlayer ? t.type !== "player" : t.type === "player"),
+      (t) =>
+        t.id !== attacker.id &&
+        t.hp.current > 0 &&
+        (isPlayerTeam
+          ? t.type !== "player" && t.type !== "pet"
+          : t.type === "player" || t.type === "pet"),
     );
     setSelectedTargets(enemies);
   };
@@ -546,7 +551,7 @@ export const AreaAttackModal = ({
                       <View style={{ flex: 1 }}>
                         <Text style={styles.targetName}>{item.name}</Text>
                         <Text style={styles.targetDetail}>
-                          {item.type === "player" ? "Jogador" : "Inimigo"} •{" "}
+                          {item.type === "player" ? "Jogador" : item.type === "pet" ? "Pet (Aliado)" : "Inimigo"} •{" "}
                           <Text
                             style={{
                               fontWeight: isGm ? "bold" : "normal",
@@ -812,7 +817,7 @@ export const AreaAttackModal = ({
                               <Text style={styles.playerSubmittedText}>Jogador</Text>
                             </View>
                           )}
-                          {!hasRolled && isAwaitingPlayers && target.type === "player" && (
+                          {!hasRolled && isAwaitingPlayers && (target.type === "player" || target.type === "pet") && (
                             <View style={styles.awaitingBadge}>
                               <Text style={styles.awaitingBadgeText}>Aguardando...</Text>
                             </View>

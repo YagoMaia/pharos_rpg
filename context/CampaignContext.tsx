@@ -300,9 +300,12 @@ export const CampaignProvider = ({ children }: { children: ReactNode }) => {
 
   const endCombat = useCallback(() => {
     setCombatState((prev) => ({
-      combatants: prev.combatants.filter((c) => c.type === "player").map((c) => ({
-        ...c, turnActions: { standard: true, bonus: true, reaction: true },
-      })),
+      combatants: prev.combatants
+        .filter((c) => c.type === "player" || c.type === "pet")
+        .map((c) => ({
+          ...c,
+          turnActions: { standard: true, bonus: true, reaction: true },
+        })),
       activeTurnId: null,
     }));
     addLog("🏆 O Mestre encerrou o combate! (Modo Narrativo)");

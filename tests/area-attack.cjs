@@ -501,5 +501,43 @@ test('handleConfirmAreaAttack combina alvos respondidos por jogadores e alvos ro
   assert.equal(payload.targets[1].damageAmount, 24);
 });
 
+test('handleSelectAllEnemies classifica pet como aliado de jogadores e alvo de NPCs', () => {
+  const playerAttacker = { id: 'hero_1', type: 'player' };
+  const npcAttacker = { id: 'boss_1', type: 'npc' };
+
+  const potentialTargets = [
+    { id: 'hero_1', type: 'player', hp: { current: 30 } },
+    { id: 'pet_1', type: 'pet', hp: { current: 15 } },
+    { id: 'ally_hero', type: 'player', hp: { current: 25 } },
+    { id: 'goblin_1', type: 'npc', hp: { current: 10 } },
+    { id: 'goblin_2', type: 'npc', hp: { current: 8 } },
+  ];
+
+  // 1. Quando o atacante é um jogador: seleciona apenas NPCs
+  let selected = [];
+  const handleSelectAllEnemiesPlayer = expression('components/modals/AreaAttackModal.tsx', 'handleSelectAllEnemies', {
+    attacker: playerAttacker,
+    potentialTargets,
+    setSelectedTargets: (val) => { selected = val; },
+  });
+  handleSelectAllEnemiesPlayer();
+
+  assert.equal(selected.length, 2);
+  assert.deepEqual(selected.map(s => s.id), ['goblin_1', 'goblin_2']);
+  assert.ok(!selected.some(s => s.id === 'pet_1'), 'Pet não deve ser selecionado como inimigo pelo jogador');
+
+  // 2. Quando o atacante é um NPC: seleciona jogadores E pets
+  const handleSelectAllEnemiesNpc = expression('components/modals/AreaAttackModal.tsx', 'handleSelectAllEnemies', {
+    attacker: npcAttacker,
+    potentialTargets,
+    setSelectedTargets: (val) => { selected = val; },
+  });
+  handleSelectAllEnemiesNpc();
+
+  assert.equal(selected.length, 3);
+  assert.deepEqual(selected.map(s => s.id), ['hero_1', 'pet_1', 'ally_hero']);
+  assert.ok(selected.some(s => s.id === 'pet_1'), 'Pet deve ser selecionado como alvo pelo NPC');
+});
+
 
 

@@ -227,7 +227,7 @@ export const AttackModal = ({
                       <View style={{ flex: 1 }}>
                         <Text style={styles.targetName}>{item.name}</Text>
                         <Text style={styles.targetDetail}>
-                          {item.type === "player" ? "Jogador" : "Inimigo"} •{" "}
+                          {item.type === "player" ? "Jogador" : item.type === "pet" ? "Pet (Aliado)" : "Inimigo"} •{" "}
                           <Text
                             style={{
                               fontWeight: isGm ? "bold" : "normal",

@@ -91,7 +91,7 @@ const GMCombatantCardComponent = ({
             {item.name}
           </Text>
           <Text style={[styles.typeLabel, { color: colors.textSecondary }]}>
-            {isPlayer ? "JOGADOR" : "NPC"} • CA {item.armorClass}
+            {isPlayer ? "JOGADOR" : item.type === "pet" ? "PET (ALIADO)" : "NPC"} • CA {item.armorClass}
           </Text>
           {item.activeStanceId && (
             <Text
