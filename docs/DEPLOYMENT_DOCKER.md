@@ -98,7 +98,15 @@ pharos/
 
 * **Banco SQLite:** Armazenado no volume nomeado `pharos_sqlite_data` em `/data/pharos.sqlite3` no container do backend.
 * **Estado do Redis:** Armazenado no volume `pharos_redis_data`.
-* Para realizar backup do banco de campanhas do SQLite:
+* **Backup do banco de campanhas:** o backend roda com `journal_mode = WAL`, então dados já cometidos podem estar em `pharos.sqlite3-wal`. Copiar apenas o `pharos.sqlite3` (`docker cp`) gera backup silenciosamente incompleto — com uma transação de escrita aberta, a cópia simples ficou sem nenhuma tabela. Use a API de backup do SQLite, que produz snapshot consistente mesmo com escrita em andamento:
   ```bash
-  docker cp pharos-backend:/data/pharos.sqlite3 ./backup_pharos.sqlite3
+  docker exec pharos-backend python -c "import sqlite3; s=sqlite3.connect('/data/pharos.sqlite3'); d=sqlite3.connect('/data/backup.sqlite3'); s.backup(d); d.close(); s.close()"
+  docker cp pharos-backend:/data/backup.sqlite3 ./backup_pharos.sqlite3
+  docker exec pharos-backend rm /data/backup.sqlite3
   ```
+* **Verificar o backup antes de considerá-lo válido:**
+  ```bash
+  python3 -c "import sqlite3; c=sqlite3.connect('backup_pharos.sqlite3'); print(c.execute('PRAGMA integrity_check').fetchone()[0], c.execute('SELECT COUNT(*) FROM campaigns').fetchone()[0])"
+  ```
+  Espera `ok` seguido do número de campanhas; se `campaigns` não existir, o backup veio de um banco vazio ou de uma cópia parcial.
+* **Restaurar:** pare o backend, copie o backup para `/data/pharos.sqlite3` dentro do volume e suba de novo. Gere um backup do banco atual com o mesmo procedimento **antes** de sobrescrever.
