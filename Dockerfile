@@ -5,11 +5,17 @@ FROM node:22-alpine AS builder
 
 WORKDIR /app
 
-# Ativa pnpm
-RUN corepack enable && corepack prepare pnpm@latest --activate
+# Ativa pnpm na versão declarada em package.json > packageManager.
+# `pnpm@latest` aqui faria o build mudar de comportamento sozinho: foi assim
+# que um pnpm 12 recém-lançado quebrou este build (ERR_PNPM_IGNORED_BUILDS).
+RUN corepack enable && corepack prepare
 
-# Instalação com cache de dependências
-COPY package.json pnpm-lock.yaml ./
+# Instalação com cache de dependências.
+# pnpm-workspace.yaml e .npmrc precisam estar presentes ANTES do install:
+# o primeiro carrega `allowBuilds` (sem ele o pnpm >=11 aborta com
+# ERR_PNPM_IGNORED_BUILDS) e o segundo define node-linker=hoisted, de que o
+# Metro/Expo depende para resolver pacotes.
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc ./
 RUN --mount=type=cache,target=/root/.local/share/pnpm/store \
     pnpm install --frozen-lockfile
 
