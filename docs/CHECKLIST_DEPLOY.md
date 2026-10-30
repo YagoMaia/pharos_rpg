@@ -70,9 +70,30 @@ docker exec pharos-redis redis-cli keys 'state:*'     # estado vivo de combate
 
 ## 6. Backups (antes de mexer)
 
+**Não copie o arquivo direto.** O backend roda com `journal_mode = WAL`; dados já
+cometidos podem estar em `pharos.sqlite3-wal`. Copiar só o `pharos.sqlite3` gera
+backup incompleto — com uma transação de escrita aberta, a cópia simples ficou
+**sem nenhuma tabela**.
+
+Snapshot consistente (seguro mesmo com escrita acontecendo):
+
 ```bash
-docker cp pharos-backend:/data/pharos.sqlite3 ./backup_$(date +%F).sqlite3
+docker exec pharos-backend python -c "import sqlite3; s=sqlite3.connect('/data/pharos.sqlite3'); d=sqlite3.connect('/data/backup.sqlite3'); s.backup(d); d.close(); s.close()"
+docker cp pharos-backend:/data/backup.sqlite3 ./backup_$(date +%F).sqlite3
+docker exec pharos-backend rm /data/backup.sqlite3
 ```
+
+Confira antes de considerar o backup válido:
+
+```bash
+python3 -c "import sqlite3; c=sqlite3.connect('backup_$(date +%F).sqlite3'); print(c.execute('PRAGMA integrity_check').fetchone()[0], c.execute('SELECT COUNT(*) FROM campaigns').fetchone()[0])"
+```
+
+Espera `ok` seguido do número de campanhas. Se `campaigns` não existir, o backup
+foi tirado de um banco vazio ou de uma cópia parcial.
+
+Restaurar: copie o backup para dentro do volume e reinicie o backend. Gere um
+backup do banco atual com o mesmo procedimento **antes** de sobrescrever.
 
 O banco mora no volume nomeado `pharos_sqlite_data` → `/data/pharos.sqlite3`.
 Substituir por outro compose ou remover o volume cria um banco **vazio**.
