@@ -115,3 +115,25 @@ ergonomia — hoje a maior estimativa do plano (2–4 sessões).
 O export web **compila** e gera todas as rotas GM (`(gm)/dashboard`, `(gm)/campaigns`,
 `(gm)/npcs`, `(gm)/combat`, `(gm)/gm-combat-screen`). O que este checklist testa é
 **interação**, não build.
+
+---
+
+## 9. Fatos já provados sobre o build web (2026-10-30)
+
+Validados por `docker build` local completo (105s), imagem descartada em seguida:
+
+| Fato | Evidência |
+|---|---|
+| `pnpm install --frozen-lockfile` passa com `allowBuilds` + `node-linker=hoisted` aplicados | build concluído após o fix do PR #22 + `fix/corepack-pnpm-pin` |
+| `npx expo export --platform web` produz **30 rotas estáticas**, incluindo as 5 do GM | saída do export + `find /usr/share/nginx/html -name "*gm*"` |
+| HTML por rota é servido pelo nginx (`(gm)/gm-combat-screen.html`) | inspeção da imagem final |
+| Fallback SPA funciona porque o nginx usa `try_files ... /index.html` | `nginx.conf:25-27` |
+| **Bundle único de 2,2 MB** sem code splitting (`_expo/static/js/web/entry-*.js`) | `du -h` na imagem |
+
+Consequência nova para a fase de ergonomia: **2,2 MB em arquivo único**, sem split por
+rota. No desktop da mesa isso é carregamento inicial pesado. Vale avaliar
+`extra.bundles`/lazy imports do Expo Router como item separado — não é bloqueador, mas
+afeta a experiência que se está trying to melhorar.
+
+O que continua **não provado**: interação real das telas do GM no navegador (itens 1–15
+deste checklist).
