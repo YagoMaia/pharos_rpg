@@ -5,10 +5,13 @@ FROM node:22-alpine AS builder
 
 WORKDIR /app
 
-# Ativa pnpm na versão declarada em package.json > packageManager.
-# `pnpm@latest` aqui faria o build mudar de comportamento sozinho: foi assim
-# que um pnpm 12 recém-lançado quebrou este build (ERR_PNPM_IGNORED_BUILDS).
-RUN corepack enable && corepack prepare
+# Ativa o pnpm na versão fixa. `pnpm@latest` faria o build mudar de
+# comportamento sozinho: foi assim que um pnpm 12 recém-lançado quebrou este
+# build (ERR_PNPM_IGNORED_BUILDS). A versão é repetida aqui de propósito:
+# `corepack prepare` sem argumento exige um package.json no diretório, e esta
+# camada roda ANTES do COPY para aproveitar o cache de dependências.
+# Manter em sincronia com package.json > packageManager.
+RUN corepack enable && corepack prepare pnpm@10.20.0 --activate
 
 # Instalação com cache de dependências.
 # pnpm-workspace.yaml e .npmrc precisam estar presentes ANTES do install:
