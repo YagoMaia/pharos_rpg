@@ -64,6 +64,13 @@ test('formulário usa lista de nomes e PIN em vez de email e senha', () => {
   assert.doesNotMatch(source, /accessibilityLabel="Email"/);
 });
 
+test('formulário não entrega o PIN de graça: a dica era o próprio nome', () => {
+  const source = fs.readFileSync(path.join(process.cwd(), 'components/campaign/CampaignAuthForm.tsx'), 'utf8');
+  assert.doesNotMatch(source, /dica:/, 'a tela não pode imprimir o PIN');
+  assert.doesNotMatch(source, /name\.toLowerCase\(\)/, 'nome em minúsculas não é credencial');
+  assert.doesNotMatch(source, /minúsculas/, 'o PIN não é mais derivado do nome');
+});
+
 test('login da mesa envia só nome e PIN no corpo HTTPS', async () => {
   const calls = [];
   const api = loadAuthApi().createAuthApi({

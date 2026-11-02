@@ -174,7 +174,7 @@ export function CampaignAuthForm({ colors, busy, role, onSubmit }: CampaignAuthF
         <View style={styles.labelRow}>
           <Text style={[styles.label, { color: colors.text }]}>PIN de Acesso</Text>
           <Text style={[styles.labelNote, { color: colors.textSecondary }]}>
-            {name ? `dica: ${name.toLowerCase()}` : "seu nome em minúsculas"}
+            entregue pelo mestre da mesa
           </Text>
         </View>
         <TextInput
