@@ -1,4 +1,4 @@
-import { CampaignAuthForm } from "@/components/campaign/CampaignAuthForm";
+import { GmSignInPanel } from "@/components/campaign/GmSignInPanel";
 import { CampaignWorkspace } from "@/components/campaign/CampaignWorkspace";
 import { MemberSheetModal } from "@/components/campaign/MemberSheetModal";
 import { useTheme } from "@/context/ThemeContext";
@@ -21,9 +21,9 @@ import {
   CampaignSummary,
   JournalEntry,
   JournalEntryInput,
-  createAuthApi,
   createCampaignApi,
 } from "@/services/campaignApi";
+import { signIn, SignInCredential } from "@/services/sessionSignIn";
 import { masterCampaigns } from "@/services/campaignView";
 import { Ionicons } from "@expo/vector-icons";
 import * as Clipboard from "expo-clipboard";
@@ -31,6 +31,23 @@ import React, { useCallback, useEffect, useState } from "react";
 import { ScrollView, Text, View } from "react-native";
 
 const EMPTY_DRAFT: JournalEntryInput = { title: "", body: "", visibility: "gm" };
+
+/**
+ * Erros de entrada de credencial, em frase. O corpo da resposta do servidor nunca
+ * aparece: `CampaignApiError` só carrega o status.
+ */
+function signInMessage(cause: unknown): string {
+  if (cause instanceof CampaignApiError) {
+    if (cause.status === 401) return "Nome, PIN ou senha inválidos.";
+    if (cause.status === 409) return "Já existe uma conta com esse e-mail. Entre nela.";
+    if (cause.status === 422) {
+      return "E-mail ou senha fora do formato esperado (senha a partir de 8 caracteres).";
+    }
+  }
+  // O guard de URL do cliente (HTTPS fora de rede local) já explica sozinho.
+  if (cause instanceof Error && cause.message.includes("HTTPS")) return cause.message;
+  return "Não foi possível entrar. Verifique a conexão e tente novamente.";
+}
 
 export default function GMCampaignsScreen() {
   const { colors } = useTheme();
@@ -87,15 +104,14 @@ export default function GMCampaignsScreen() {
     setError("Não foi possível concluir a operação. Verifique a conexão e tente novamente.");
   }, [clearSession]);
 
-  async function authenticate(baseUrl: string, name: string, pin: string) {
+  async function authenticate(baseUrl: string, credential: SignInCredential) {
     if (busy) return;
     setBusy(true);
     setError("");
     try {
-      const auth = createAuthApi({ baseUrl: baseUrl.trim() });
-      const { accessToken } = await auth.tableLogin(name, pin);
-      const credentials: Session = { baseUrl: baseUrl.trim(), token: accessToken, role: "gm" };
+      const credentials: Session = await signIn(baseUrl.trim(), credential, "gm");
       setSelected(null);
+      setCampaigns([]);
       setEntries([]);
       setSessions([]);
       setQuests([]);
@@ -107,11 +123,7 @@ export default function GMCampaignsScreen() {
       setSession(credentials);
       setCampaigns(masterCampaigns(await api(credentials).listCampaigns()));
     } catch (cause) {
-      if (cause instanceof CampaignApiError && cause.status === 401) {
-        setError("Nome ou PIN inválidos.");
-      } else {
-        showError(cause);
-      }
+      setError(signInMessage(cause));
     } finally {
       setBusy(false);
     }
@@ -532,7 +544,12 @@ export default function GMCampaignsScreen() {
         </>
       ) : (
         <ScrollView contentContainerStyle={{ padding: 20, flexGrow: 1, justifyContent: "center" }}>
-          <CampaignAuthForm colors={colors} role="gm" busy={busy} onSubmit={authenticate} />
+          <GmSignInPanel
+            colors={colors}
+            busy={busy}
+            onTableSignIn={(baseUrl, name, pin) => authenticate(baseUrl, { kind: "table", name, pin })}
+            onAccountSignIn={({ baseUrl, ...account }) => authenticate(baseUrl, { kind: "account", ...account })}
+          />
         </ScrollView>
       )}
     </View>
