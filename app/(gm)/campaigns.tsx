@@ -1,6 +1,7 @@
 import { GmSignInPanel } from "@/components/campaign/GmSignInPanel";
 import { CampaignWorkspace } from "@/components/campaign/CampaignWorkspace";
 import { MemberSheetModal } from "@/components/campaign/MemberSheetModal";
+import { PreparationCredentials } from "@/components/campaign/PreparationCredentials";
 import { useTheme } from "@/context/ThemeContext";
 import { useWebSocket } from "@/context/WebSocketContext";
 import { useRouter } from "expo-router";
@@ -506,6 +507,10 @@ export default function GMCampaignsScreen() {
             quests={quests}
             encounters={encounters}
             npcs={npcs}
+            preparationPanel={selected && session ? (
+              <PreparationCredentials key={selected.id} campaignId={selected.id}
+                baseUrl={session.baseUrl} sessionToken={session.token} colors={colors} onSessionExpired={clearSession} />
+            ) : null}
             onDraftChange={setDraft}
             onSaveEntry={saveEntry}
             onEditEntry={editEntry}
