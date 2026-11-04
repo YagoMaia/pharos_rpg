@@ -85,3 +85,11 @@ test('a aba exige confirmação humana e impede reaplicar propostas já processa
   assert.match(screen, /requiresPlayerAcknowledgement\(draft\.payload\) && !acknowledged/);
   assert.match(screen, /buildDraftApplication\(draft, acknowledged\)/);
 });
+
+test('a fonte selecionada pode ser recolhida pelo mesmo botão', () => {
+  const screen = fs.readFileSync(path.join(process.cwd(), 'components/campaign/PreparationDrafts.tsx'), 'utf8');
+  assert.match(screen, /source\?\.sourceId === ref\.sourceId && source\.revision === ref\.revision/);
+  assert.match(screen, /if \(isOpen\) return/);
+  assert.match(screen, /"Ocultar" : "Ver"/);
+  assert.match(screen, /expanded=/);
+});

@@ -97,7 +97,9 @@ export function PreparationDrafts({ campaignId, baseUrl, sessionToken, colors, o
   }
 
   function openSource(ref: PreparationSourceRef) {
+    const isOpen = source?.sourceId === ref.sourceId && source.revision === ref.revision;
     setSource(null);
+    if (isOpen) return;
     void run(async () => {
       const loaded = await client.readPreparationSource(campaignId, ref.sourceId, ref.revision);
       if (active.current) setSource(loaded);
@@ -160,7 +162,9 @@ export function PreparationDrafts({ campaignId, baseUrl, sessionToken, colors, o
           <Text style={[styles.heading, { color: colors.text }]}>Fontes vinculadas</Text>
           {!draft.sourceRefs.length && <Text style={{ color: colors.textSecondary }}>Nenhuma fonte vinculada.</Text>}
           {draft.sourceRefs.map((ref) => <Button key={`${ref.sourceId}:${ref.revision}`} colors={colors} disabled={busy}
-            label={`Ver fonte ${ref.sourceId} · revisão ${ref.revision}`} onPress={() => openSource(ref)} />)}
+            expanded={source?.sourceId === ref.sourceId && source.revision === ref.revision}
+            label={`${source?.sourceId === ref.sourceId && source.revision === ref.revision ? "Ocultar" : "Ver"} fonte ${ref.sourceId} · revisão ${ref.revision}`}
+            onPress={() => openSource(ref)} />)}
           {source && <View style={[styles.item, { borderColor: colors.border }]}>
             <Text style={{ color: colors.text, fontWeight: "700" }}>{source.title} · revisão {source.revision}</Text>
             <Text style={{ color: colors.textSecondary }}>{source.relativePath}</Text>
@@ -224,8 +228,8 @@ function StringList({ title, items, colors }: { title: string; items: string[]; 
     {items.map((item, index) => <Text key={index} style={{ color: colors.text }}>• {item}</Text>)}</View>;
 }
 
-function Button({ label, onPress, colors, disabled = false }: { label: string; onPress: () => void; colors: ThemeColors; disabled?: boolean }) {
-  return <TouchableOpacity accessibilityRole="button" accessibilityState={{ disabled }} disabled={disabled} onPress={onPress}
+function Button({ label, onPress, colors, disabled = false, expanded }: { label: string; onPress: () => void; colors: ThemeColors; disabled?: boolean; expanded?: boolean }) {
+  return <TouchableOpacity accessibilityRole="button" accessibilityState={{ disabled, expanded }} disabled={disabled} onPress={onPress}
     style={[styles.button, { backgroundColor: colors.primary, opacity: disabled ? 0.5 : 1 }]}><Text style={styles.buttonText}>{label}</Text></TouchableOpacity>;
 }
 
