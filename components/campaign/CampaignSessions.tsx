@@ -1,4 +1,5 @@
 import { ThemeColors } from "@/constants/theme";
+import { AutoGrowingTextInput } from "./AutoGrowingTextInput";
 import { CampaignSession, CampaignSessionInput, SessionStatus } from "@/services/campaignApi";
 import { DateTimePickerField } from "@/components/ui/DateTimePickerField";
 import { formatSessionDate } from "@/utils/sessionDate";
@@ -187,12 +188,12 @@ export function CampaignSessions({
           <Text style={[styles.inputLabel, { color: colors.textSecondary }]}>
             Resumo dos Acontecimentos / XP
           </Text>
-          <TextInput
+          <AutoGrowingTextInput
             value={summary}
+            minimumHeight={80}
             onChangeText={setSummary}
             placeholder="Anotações do que aconteceu na sessão, eventos principais, recompensas..."
             placeholderTextColor={colors.textSecondary}
-            multiline
             numberOfLines={4}
             style={[
               styles.input,

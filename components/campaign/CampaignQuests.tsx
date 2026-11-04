@@ -1,4 +1,5 @@
 import { ThemeColors } from "@/constants/theme";
+import { AutoGrowingTextInput } from "./AutoGrowingTextInput";
 import { CampaignQuest, CampaignQuestInput, QuestStatus, QuestVisibility } from "@/services/campaignApi";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import React, { useState } from "react";
@@ -232,12 +233,12 @@ export function CampaignQuests({
           </View>
 
           <Text style={[styles.inputLabel, { color: colors.textSecondary }]}>Descrição do Objetivo</Text>
-          <TextInput
+          <AutoGrowingTextInput
             value={description}
+            minimumHeight={70}
             onChangeText={setDescription}
             placeholder="Detalhes da missão, pistas e exigências para o grupo..."
             placeholderTextColor={colors.textSecondary}
-            multiline
             numberOfLines={3}
             style={[
               styles.input,

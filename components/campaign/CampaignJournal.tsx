@@ -1,4 +1,5 @@
 import { ThemeColors } from "@/constants/theme";
+import { AutoGrowingTextInput } from "./AutoGrowingTextInput";
 import { JournalEntry, JournalEntryInput } from "@/services/campaignApi";
 import { Ionicons } from "@expo/vector-icons";
 import React from "react";
@@ -152,10 +153,10 @@ export function CampaignJournalEditor(props: JournalEditorProps) {
         style={inputStyle}
       />
 
-      <TextInput
+      <AutoGrowingTextInput
         accessibilityLabel="Conteúdo da nota"
+        minimumHeight={110}
         value={draft.body}
-        multiline
         onChangeText={(body) => props.onChange({ ...draft, body })}
         placeholder="Descreva eventos, pistas, PNJs ou acontecimentos da sessão..."
         placeholderTextColor={colors.textSecondary}

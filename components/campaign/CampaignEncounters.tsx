@@ -1,4 +1,6 @@
 import { ThemeColors } from "@/constants/theme";
+import { AutoGrowingTextInput } from "./AutoGrowingTextInput";
+import { EncounterBestiaryPicker } from "./EncounterBestiaryPicker";
 import {
   CampaignEncounter,
   CampaignEncounterInput,
@@ -236,21 +238,19 @@ export function CampaignEncounters({
             ))}
           </View>
 
-          <TextInput
+          <AutoGrowingTextInput
             placeholder="Descrição ou contexto narrativo..."
             placeholderTextColor={colors.textSecondary}
             value={description}
             onChangeText={setDescription}
-            multiline
             style={[styles.input, styles.textArea, { color: colors.text, borderColor: colors.border }]}
           />
 
-          <TextInput
+          <AutoGrowingTextInput
             placeholder="Táticas e posicionamento do mestre..."
             placeholderTextColor={colors.textSecondary}
             value={tactics}
             onChangeText={setTactics}
-            multiline
             style={[styles.input, styles.textArea, { color: colors.text, borderColor: colors.border }]}
           />
 
@@ -283,6 +283,8 @@ export function CampaignEncounters({
               </View>
             )}
 
+            <EncounterBestiaryPicker colors={colors} onAdd={(monster) => setMonsters((previous) => [...previous, monster])} />
+            <Text style={[styles.fieldLabel, { color: colors.text }]}>Adicionar manualmente</Text>
             <View style={styles.addMonsterRow}>
               <TextInput
                 placeholder="Nome (ex: Goblin)"

@@ -39,6 +39,7 @@ interface CampaignWorkspaceProps {
   encounters?: CampaignEncounter[];
   npcs?: CampaignNpc[];
   preparationPanel?: React.ReactNode;
+  draftsPanel?: React.ReactNode;
   onNameChange: (name: string) => void;
   onCreate: () => void;
   onRefresh: () => void;
@@ -113,7 +114,7 @@ export function CampaignWorkspace(props: CampaignWorkspaceProps) {
   const { colors, campaigns, selected, invite, busy } = props;
   const { width } = useWindowDimensions();
   const isDesktop = width >= 920;
-  const [tab, setTab] = useState<"members" | "sessions" | "quests" | "encounters" | "npcs" | "journal" | "preparation">("sessions");
+  const [tab, setTab] = useState<"members" | "sessions" | "quests" | "encounters" | "npcs" | "journal" | "preparation" | "drafts">("sessions");
   const [showCampaignSwitcher, setShowCampaignSwitcher] = useState(false);
 
   return (
@@ -509,10 +510,19 @@ export function CampaignWorkspace(props: CampaignWorkspaceProps) {
                     <Text style={[styles.campaignTabText, { color: tab === "preparation" ? colors.primary : colors.textSecondary }]}>Agente</Text>
                   </TouchableOpacity>
                 )}
+                {props.draftsPanel && (
+                  <TouchableOpacity accessibilityRole="tab" accessibilityState={{ selected: tab === "drafts" }}
+                    onPress={() => setTab("drafts")}
+                    style={[styles.campaignTab, tab === "drafts" && { borderBottomColor: colors.primary, borderBottomWidth: 3 }, webPointer]}>
+                    <Ionicons name="document-text-outline" size={16} color={tab === "drafts" ? colors.primary : colors.textSecondary} />
+                    <Text style={[styles.campaignTabText, { color: tab === "drafts" ? colors.primary : colors.textSecondary }]}>Rascunhos</Text>
+                  </TouchableOpacity>
+                )}
               </View>
 
               {/* Aba: Membros da Mesa */}
               {tab === "preparation" && props.preparationPanel}
+              {tab === "drafts" && props.draftsPanel}
               {tab === "members" && (
                 <View style={[styles.panel, { backgroundColor: colors.surface, borderColor: colors.border, marginTop: 14 }]}>
                   <View style={styles.cardHeader}>
