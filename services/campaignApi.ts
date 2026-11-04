@@ -24,6 +24,19 @@ export interface CampaignInvite {
   expiresAt: string;
 }
 
+export interface PreparationToken {
+  id: string;
+  label: string;
+  createdAt: string;
+  lastUsedAt: string | null;
+  revokedAt: string | null;
+}
+
+export interface IssuedPreparationToken extends PreparationToken {
+  campaignId: string;
+  token: string;
+}
+
 export interface JournalEntryInput {
   title: string;
   body: string;
@@ -223,6 +236,12 @@ function campaignPath(id: string): string {
   return `/campaigns/${encodeURIComponent(requiredText(id, "ID da campanha"))}`;
 }
 
+function preparationTokenLabel(label: string): string {
+  const clean = label.trim();
+  if (clean.length > 80) throw new Error("O rótulo deve ter no máximo 80 caracteres.");
+  return clean;
+}
+
 /** Cria o cliente para a API de campanhas, com token fornecido pela camada de autenticação. */
 export function createCampaignApi({ baseUrl, getAccessToken, fetcher = fetch }: CampaignApiOptions) {
   const origin = apiOrigin(baseUrl);
@@ -243,6 +262,16 @@ export function createCampaignApi({ baseUrl, getAccessToken, fetcher = fetch }: 
   }
 
   return {
+    listPreparationTokens: (campaignId: string) => request<{ items: PreparationToken[] }>(
+      `${campaignPath(campaignId)}/preparation/tokens`,
+    ),
+    issuePreparationToken: (campaignId: string, label: string) => request<IssuedPreparationToken>(
+      `${campaignPath(campaignId)}/preparation/tokens`, "POST", { label: preparationTokenLabel(label) },
+    ),
+    revokePreparationToken: (campaignId: string, tokenId: string) => request<PreparationToken>(
+      `${campaignPath(campaignId)}/preparation/tokens/${encodeURIComponent(requiredText(tokenId, "ID da credencial"))}`,
+      "DELETE",
+    ),
     logout: () => request<void>("/auth/logout", "POST"),
     createCampaign: (name: string) => request<CampaignSummary>(
       "/campaigns", "POST", { name: requiredText(name, "Nome da campanha") },

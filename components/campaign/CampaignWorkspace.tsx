@@ -38,6 +38,7 @@ interface CampaignWorkspaceProps {
   quests?: CampaignQuest[];
   encounters?: CampaignEncounter[];
   npcs?: CampaignNpc[];
+  preparationPanel?: React.ReactNode;
   onNameChange: (name: string) => void;
   onCreate: () => void;
   onRefresh: () => void;
@@ -112,7 +113,7 @@ export function CampaignWorkspace(props: CampaignWorkspaceProps) {
   const { colors, campaigns, selected, invite, busy } = props;
   const { width } = useWindowDimensions();
   const isDesktop = width >= 920;
-  const [tab, setTab] = useState<"members" | "sessions" | "quests" | "encounters" | "npcs" | "journal">("sessions");
+  const [tab, setTab] = useState<"members" | "sessions" | "quests" | "encounters" | "npcs" | "journal" | "preparation">("sessions");
   const [showCampaignSwitcher, setShowCampaignSwitcher] = useState(false);
 
   return (
@@ -500,9 +501,18 @@ export function CampaignWorkspace(props: CampaignWorkspaceProps) {
                     Diário ({props.entries.length})
                   </Text>
                 </TouchableOpacity>
+                {props.preparationPanel && (
+                  <TouchableOpacity accessibilityRole="tab" accessibilityState={{ selected: tab === "preparation" }}
+                    onPress={() => setTab("preparation")}
+                    style={[styles.campaignTab, tab === "preparation" && { borderBottomColor: colors.primary, borderBottomWidth: 3 }, webPointer]}>
+                    <Ionicons name="key-outline" size={16} color={tab === "preparation" ? colors.primary : colors.textSecondary} />
+                    <Text style={[styles.campaignTabText, { color: tab === "preparation" ? colors.primary : colors.textSecondary }]}>Agente</Text>
+                  </TouchableOpacity>
+                )}
               </View>
 
               {/* Aba: Membros da Mesa */}
+              {tab === "preparation" && props.preparationPanel}
               {tab === "members" && (
                 <View style={[styles.panel, { backgroundColor: colors.surface, borderColor: colors.border, marginTop: 14 }]}>
                   <View style={styles.cardHeader}>
