@@ -22,7 +22,7 @@ export function EncounterBestiaryPicker({ colors, onAdd }: Props) {
   return <View style={{ gap: 8, marginVertical: 12 }}>
     <Text style={{ color: colors.text, fontWeight: "700" }}>Adicionar do bestiário</Text>
     <Text style={{ color: colors.textSecondary }}>Uma cópia da ficha é salva no encontro; mudanças posteriores no bestiário não a atualizam.</Text>
-    <Text style={{ color: colors.textSecondary }}>Ao iniciar combate, foco, fases, magias e façanhas não são carregados. Iniciativa zero pode usar o modificador de Destreza. Confira a ficha em combate.</Text>
+    <Text style={{ color: colors.textSecondary }}>Para carregar foco, fases, magias e façanhas no combate, o servidor precisa estar atualizado. Em versões antigas, esses dados não são carregados e iniciativa zero pode usar Destreza.</Text>
     {npcLibrary.length === 0 && <Text style={{ color: colors.textSecondary }}>Bestiário vazio. Cadastre inimigos no bestiário ou adicione manualmente abaixo.</Text>}
     {npcLibrary.map((npc) => <TouchableOpacity key={npc.id} accessibilityRole="button"
       accessibilityState={{ selected: selectedId === npc.id }} onPress={() => setSelectedId(npc.id)}
