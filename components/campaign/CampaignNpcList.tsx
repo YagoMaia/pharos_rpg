@@ -1,4 +1,5 @@
 import { ThemeColors } from "@/constants/theme";
+import { AutoGrowingTextInput } from "./AutoGrowingTextInput";
 import { CampaignNpc, CampaignNpcInput, NpcAttitude, NpcVisibility } from "@/services/campaignApi";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import React, { useState } from "react";
@@ -244,21 +245,19 @@ export function CampaignNpcList({
             </TouchableOpacity>
           </View>
 
-          <TextInput
+          <AutoGrowingTextInput
             placeholder="Aparência e informações conhecidas..."
             placeholderTextColor={colors.textSecondary}
             value={description}
             onChangeText={setDescription}
-            multiline
             style={[styles.input, styles.textArea, { color: colors.text, borderColor: colors.border }]}
           />
 
-          <TextInput
+          <AutoGrowingTextInput
             placeholder="Segredos, fraquezas e notas do mestre (nunca reveladas aos jogadores)..."
             placeholderTextColor={colors.textSecondary}
             value={gmNotes}
             onChangeText={setGmNotes}
-            multiline
             style={[styles.input, styles.textArea, { color: colors.text, borderColor: colors.border }]}
           />
 
