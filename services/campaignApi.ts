@@ -122,6 +122,9 @@ export interface CampaignEncounterMonster {
   initiativeBonus?: number;
   attributes?: Record<string, any>;
   weapons?: any;
+  skills?: import("@/types/rpg").Skill[];
+  stances?: import("@/types/rpg").Stance[];
+  bestiarySnapshot?: import("@/types/rpg").NpcTemplate;
 }
 
 export interface CampaignEncounterInput {

@@ -1,5 +1,6 @@
 import { ThemeColors } from "@/constants/theme";
 import { AutoGrowingTextInput } from "./AutoGrowingTextInput";
+import { EncounterBestiaryPicker } from "./EncounterBestiaryPicker";
 import {
   CampaignEncounter,
   CampaignEncounterInput,
@@ -282,6 +283,8 @@ export function CampaignEncounters({
               </View>
             )}
 
+            <EncounterBestiaryPicker colors={colors} onAdd={(monster) => setMonsters((previous) => [...previous, monster])} />
+            <Text style={[styles.fieldLabel, { color: colors.text }]}>Adicionar manualmente</Text>
             <View style={styles.addMonsterRow}>
               <TextInput
                 placeholder="Nome (ex: Goblin)"
