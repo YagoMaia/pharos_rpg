@@ -24,6 +24,34 @@ export interface CampaignInvite {
   expiresAt: string;
 }
 
+export interface PreparationSourceRef { sourceId: string; revision: number }
+export interface PreparationDraftSummary {
+  id: string;
+  campaignId: string;
+  kind: "session" | "encounter" | "npc" | "quest";
+  title: string;
+  status: "draft" | "approved" | "rejected";
+  revision: number;
+  targetId: string | null;
+  uncertainties: string[];
+  sourceRefs: PreparationSourceRef[];
+  warnings: string[];
+}
+export interface PreparationDraft extends PreparationDraftSummary {
+  payload: Record<string, unknown>;
+  application: { applicationId: string; recordId: string; action: string; draftRevision: number } | null;
+  possibleTargets: { id: string; kind: string; label: string }[];
+}
+export interface PreparationSourceRevision {
+  sourceId: string; revision: number; title: string; relativePath: string; content: string;
+}
+export interface DraftApplicationInput {
+  expectedRevision: number; idempotencyKey: string; acknowledgePlayerVisibility: boolean;
+}
+export interface DraftApplicationResult {
+  draftId: string; draftRevision: number; recordId: string; action: string; applicationId: string;
+}
+
 export interface PreparationToken {
   id: string;
   label: string;
@@ -262,6 +290,18 @@ export function createCampaignApi({ baseUrl, getAccessToken, fetcher = fetch }: 
   }
 
   return {
+    listPreparationDrafts: (campaignId: string, cursor?: string | null) => request<{
+      items: PreparationDraftSummary[]; nextCursor: string | null;
+    }>(`${campaignPath(campaignId)}/preparation/drafts?limit=100${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ""}`),
+    readPreparationDraft: (campaignId: string, draftId: string) => request<PreparationDraft>(
+      `${campaignPath(campaignId)}/preparation/drafts/${encodeURIComponent(requiredText(draftId, "ID do rascunho"))}`,
+    ),
+    readPreparationSource: (campaignId: string, sourceId: string, revision: number) => request<PreparationSourceRevision>(
+      `${campaignPath(campaignId)}/preparation/sources/${encodeURIComponent(requiredText(sourceId, "ID da fonte"))}/revisions/${revision}`,
+    ),
+    applyPreparationDraft: (campaignId: string, draftId: string, input: DraftApplicationInput) => request<DraftApplicationResult>(
+      `${campaignPath(campaignId)}/preparation/drafts/${encodeURIComponent(requiredText(draftId, "ID do rascunho"))}/apply`, "POST", input,
+    ),
     listPreparationTokens: (campaignId: string) => request<{ items: PreparationToken[] }>(
       `${campaignPath(campaignId)}/preparation/tokens`,
     ),

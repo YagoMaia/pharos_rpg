@@ -2,6 +2,7 @@ import { GmSignInPanel } from "@/components/campaign/GmSignInPanel";
 import { CampaignWorkspace } from "@/components/campaign/CampaignWorkspace";
 import { MemberSheetModal } from "@/components/campaign/MemberSheetModal";
 import { PreparationCredentials } from "@/components/campaign/PreparationCredentials";
+import { PreparationDrafts } from "@/components/campaign/PreparationDrafts";
 import { useTheme } from "@/context/ThemeContext";
 import { useWebSocket } from "@/context/WebSocketContext";
 import { useRouter } from "expo-router";
@@ -510,6 +511,10 @@ export default function GMCampaignsScreen() {
             preparationPanel={selected && session ? (
               <PreparationCredentials key={selected.id} campaignId={selected.id}
                 baseUrl={session.baseUrl} sessionToken={session.token} colors={colors} onSessionExpired={clearSession} />
+            ) : null}
+            draftsPanel={selected && session ? (
+              <PreparationDrafts key={selected.id} campaignId={selected.id} baseUrl={session.baseUrl}
+                sessionToken={session.token} colors={colors} onSessionExpired={clearSession} onApplied={refresh} />
             ) : null}
             onDraftChange={setDraft}
             onSaveEntry={saveEntry}
